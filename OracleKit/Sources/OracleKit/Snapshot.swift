@@ -20,6 +20,8 @@ public struct OracleSnapshot: Codable, Sendable, Equatable {
     public var prTitles: [String]?       // "#113 lab: FIDO2 labs", newest first
     public var inboxNew: Int?            // inbox files changed in the last 24 h
     public var latestHandoff: String?    // newest ψ/inbox/handoff file, prettified
+    public var inboxUnread: Int?         // arrived since the baseline and not opened in the app
+    public var unreadTitles: [String]?   // newest unread first, prettified
 
     public struct Activity: Codable, Sendable, Equatable, Hashable {
         public var title: String         // pane's current task (terminal title) or its space/tab
@@ -48,7 +50,8 @@ public struct OracleSnapshot: Codable, Sendable, Equatable {
                                   Activity(title: "Reviewing PR #115", status: "idle", place: "w22:p2",
                                            since: Date().addingTimeInterval(-3600))],
                        prTitles: ["#113 lab: FIDO2 labs", "#115 carry: herdr book"], inboxNew: 2,
-                       latestHandoff: "fido key blocked on hardware")
+                       latestHandoff: "fido key blocked on hardware",
+                       inboxUnread: 2, unreadTitles: ["ios fido app to neo", "github.com Lumen Labs brainapi2"])
     }
 }
 

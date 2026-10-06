@@ -46,3 +46,11 @@ final class HumanAskTests: XCTestCase {
         XCTAssertNil(OracleStore.humanAsk("Base directory for this skill: /Users/beta/.claude/skills/impeccable\n\nThis skill…"))
     }
 }
+
+final class PrettifyTests: XCTestCase {
+    func testStamps() {
+        XCTAssertEqual(OracleStore.prettify("2026-10-07_042947_unread-test.txt"), "unread test")
+        XCTAssertEqual(OracleStore.prettify("2026-10-05_13-47_fido-key-blocked-on-hardware.md"), "fido key blocked on hardware")
+        XCTAssertEqual(OracleStore.prettify("2026-09-30_0834_maw-cli-neo-fleet-restart.md"), "maw cli neo fleet restart")
+    }
+}

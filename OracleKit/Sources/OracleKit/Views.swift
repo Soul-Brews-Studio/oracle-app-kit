@@ -24,7 +24,8 @@ public struct OracleRootView: View {
                     .listRowSeparator(.hidden)
                 Label("Live status (\(store.panes.count) panes)", systemImage: "dot.radiowaves.left.and.right").tag(Section.status)
                 #if os(macOS)
-                Label("Inbox (\(store.inbox.count))", systemImage: "tray.full").tag(Section.inbox)
+                Label(store.unread.isEmpty ? "Inbox" : "Inbox (\(store.unread.count) unread)", systemImage: store.unread.isEmpty ? "tray" : "tray.full")
+                    .tag(Section.inbox)
                 #endif
                 Label("Pull requests (\(store.prs.count))", systemImage: "arrow.triangle.pull").tag(Section.prs)
                 Label("Issues (\(store.issues.count))", systemImage: "exclamationmark.circle").tag(Section.issues)
@@ -45,6 +46,9 @@ public struct OracleRootView: View {
         #if os(macOS)
         .dropDestination(for: URL.self) { urls, _ in store.receive(urls) > 0 } isTargeted: { dropTargeted = $0 }
         .overlay { if dropTargeted { RoundedRectangle(cornerRadius: 12).stroke(c.color, lineWidth: 3).padding(4) } }
+        .onReceive(NotificationCenter.default.publisher(for: .oracleOpenSection)) { _ in
+            section = store.unread.isEmpty ? .status : .inbox     // a widget tap lands where the news is
+        }
         .onReceive(NotificationCenter.default.publisher(for: .oracleFilesDropped)) { n in
             if let count = n.object as? Int { store.noteDrop(count); section = .inbox }
         }
@@ -57,7 +61,7 @@ public struct OracleRootView: View {
     @ViewBuilder private var detail: some View {
         switch section ?? .status {
         case .status: StatusList(rows: store.tree, config: c)
-        case .inbox: InboxList(items: store.inbox)
+        case .inbox: InboxList(store: store)
         case .prs: GHList(title: "Open pull requests", items: store.prs, empty: "No open pull requests")
         case .issues: GHList(title: "Open issues", items: store.issues, empty: "No open issues")
         case .extra(let id): c.extras.sections.first { $0.id == id }.map { $0.view() } ?? AnyView(EmptyView())
@@ -124,22 +128,65 @@ struct StatusList: View {
 }
 
 struct InboxList: View {
-    let items: [InboxItem]
+    @ObservedObject var store: OracleStore
+    enum Show: String, CaseIterable { case all = "All", unread = "Unread", read = "Read" }
+    @State private var show: Show = .all
+    private var unreadCount: Int { store.unread.count }
+    private var readCount: Int { store.inbox.count - store.unread.count }
+    private var items: [InboxItem] {
+        switch show {
+        case .all: return store.inbox
+        case .unread: return store.inbox.filter { store.isUnread($0) }
+        case .read: return store.inbox.filter { !store.isUnread($0) }
+        }
+    }
     var body: some View {
         List(items) { i in
+            let unread = store.isUnread(i)
             Button {
+                store.markRead(i)
                 #if os(macOS)
                 NSWorkspace.shared.open(URL(fileURLWithPath: i.path))
                 #endif
             } label: {
-                VStack(alignment: .leading) {
-                    Text(i.name).font(.body)
-                    Text("\(i.folder) · \(i.modified.formatted(date: .abbreviated, time: .shortened))").font(.caption).foregroundStyle(.secondary)
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Circle().fill(unread ? store.config.color : .clear)
+                        .overlay(Circle().stroke(unread ? .clear : Color.secondary.opacity(0.35), lineWidth: 1))
+                        .frame(width: 8, height: 8)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(i.name)
+                            .font(unread ? .body.weight(.semibold) : .body)
+                            .foregroundStyle(unread ? .primary : .secondary)
+                        Text("\(unread ? "unread" : "read") · \(i.folder) · \(i.modified.formatted(date: .abbreviated, time: .shortened))")
+                            .font(.caption).foregroundStyle(unread ? AnyShapeStyle(store.config.color) : AnyShapeStyle(.tertiary))
+                    }
                 }
-            }.buttonStyle(.plain)
+            }
+            .buttonStyle(.plain)
+            .contextMenu {
+                if unread { Button("Mark as read") { store.markRead(i) } }
+                else { Button("Mark as unread") { store.markUnread(i) } }
+            }
         }
-        .overlay { if items.isEmpty { Text("Inbox is empty. Drop files on the app icon or this window.").foregroundStyle(.secondary) } }
-        .navigationTitle("Inbox")
+        .overlay {
+            if items.isEmpty {
+                Text(show == .unread ? "Nothing unread." : show == .read ? "Nothing read yet."
+                     : "Inbox is empty. Drop files or links on the app icon or this window.")
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .toolbar {
+            ToolbarItem {
+                Picker("Show", selection: $show) {
+                    Text("All \(store.inbox.count)").tag(Show.all)
+                    Text("Unread \(unreadCount)").tag(Show.unread)
+                    Text("Read \(readCount)").tag(Show.read)
+                }
+                .pickerStyle(.segmented)
+            }
+            ToolbarItem { Button("Mark all read") { store.markAllRead() }.disabled(unreadCount == 0) }
+        }
+        .navigationTitle(unreadCount == 0 ? "Inbox" : "Inbox · \(unreadCount) unread")
     }
 }
 
@@ -179,7 +226,10 @@ struct TokenSettings: View {
 }
 #endif
 
-public extension Notification.Name { static let oracleFilesDropped = Notification.Name("oracleFilesDropped") }
+public extension Notification.Name {
+    static let oracleFilesDropped = Notification.Name("oracleFilesDropped")
+    static let oracleOpenSection = Notification.Name("oracleOpenSection")
+}
 
 #if os(macOS)
 /// Receives files dropped on the Dock icon (needs CFBundleDocumentTypes in the app's Info.plist).
@@ -187,7 +237,15 @@ public final class OracleAppDelegate: NSObject, NSApplicationDelegate {
     private var pending: [URL] = []
     private var ready = false
     public func application(_ application: NSApplication, open urls: [URL]) {
-        if ready { deliver(urls) } else { pending += urls }
+        // A widget tap arrives here as oracle-<name>://open — that is "show me the app", never a drop.
+        let own = urls.filter { ($0.scheme ?? "").hasPrefix("oracle-") }
+        let drops = urls.filter { !($0.scheme ?? "").hasPrefix("oracle-") }
+        if !own.isEmpty {
+            NSApp.activate(ignoringOtherApps: true)
+            NotificationCenter.default.post(name: .oracleOpenSection, object: own.first?.host ?? "open")
+        }
+        guard !drops.isEmpty else { return }
+        if ready { deliver(drops) } else { pending += drops }
     }
     /// Copy ONCE here, then tell every window to refresh (each window copying would duplicate files).
     private func deliver(_ urls: [URL]) {

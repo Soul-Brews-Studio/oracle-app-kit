@@ -154,6 +154,9 @@ public struct OracleWidgetContent: View {
         HStack(spacing: 6) {
             emblemMark
             Text(snap.name).font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
+            if size == .medium, let u = snap.inboxUnread, u > 0 {
+                Text("· \(u) unread").font(.system(size: 11, weight: .medium).monospacedDigit()).foregroundStyle(.secondary)
+            }
             Spacer(minLength: 4)
             Text(stale ? "stale · \(clock(snap.updated))" : clock(snap.updated))
                 .font(.system(size: 11, weight: .medium).monospacedDigit())
@@ -200,13 +203,21 @@ public struct OracleWidgetContent: View {
                 Text("\(snap.prs)").font(.system(size: 15, weight: .semibold).monospacedDigit())
                 Text(snap.prs == 1 ? "open PR" : "open PRs").font(.system(size: 13, weight: .medium)).foregroundStyle(.secondary)
             }
-            ForEach((snap.prTitles ?? []).prefix(3), id: \.self) { t in
+            ForEach((snap.prTitles ?? []).prefix(2), id: \.self) { t in
                 Text(t).font(.system(size: 13)).foregroundStyle(.primary).lineLimit(1)
             }
-            Text("\(snap.issues) \(snap.issues == 1 ? "issue" : "issues") · \(snap.inboxNew ?? 0) new in inbox")
-                .font(.system(size: 11, weight: .medium).monospacedDigit()).foregroundStyle(.secondary)
-                .padding(.top, 4)
-            if let h = snap.latestHandoff {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text("\(snap.inboxUnread ?? 0)").font(.system(size: 15, weight: .semibold).monospacedDigit())
+                Text("unread in inbox").font(.system(size: 13, weight: .medium)).foregroundStyle(.secondary)
+                Spacer(minLength: 4)
+                Text("\(snap.issues) \(snap.issues == 1 ? "issue" : "issues")")
+                    .font(.system(size: 11, weight: .medium).monospacedDigit()).foregroundStyle(.secondary)
+            }
+            .padding(.top, 6)
+            ForEach((snap.unreadTitles ?? []).prefix(2), id: \.self) { t in
+                Text(t).font(.system(size: 13)).foregroundStyle(.primary).lineLimit(1)
+            }
+            if (snap.unreadTitles ?? []).isEmpty, let h = snap.latestHandoff {
                 Text("latest handoff: \(h)").font(.system(size: 11)).foregroundStyle(.tertiary).lineLimit(1)
             }
         }

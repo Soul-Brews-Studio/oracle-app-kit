@@ -46,6 +46,7 @@ public final class OracleStore: ObservableObject {
         }
         if let gh { self.prs = gh.0; self.issues = gh.1 } else { issuesSeen.append("gh failed — run `gh auth status`") }
         self.inbox = inbox
+        recomputeUnread()
         #else
         if let gh = await loadGitHubREST() { self.prs = gh.0; self.issues = gh.1 }
         else { issuesSeen.append("Add a GitHub token in Settings to see PRs and issues") }
@@ -56,6 +57,8 @@ public final class OracleStore: ObservableObject {
     }
 
     @Published public private(set) var activity: [OracleSnapshot.Activity] = []
+    @Published public private(set) var unread: Set<String> = []
+    private var readState = ReadState()
     private var statusSince: [String: (status: String, since: Date)] = [:]
 
     /// Hand the widget its numbers, then ask WidgetKit to redraw.
@@ -72,7 +75,9 @@ public final class OracleStore: ObservableObject {
                                   activity: Array(acts.prefix(4)),
                                   prTitles: prs.prefix(3).map { "#\($0.number) \($0.title)" },
                                   inboxNew: inbox.filter { $0.modified > dayAgo }.count,
-                                  latestHandoff: handoff)
+                                  latestHandoff: handoff,
+                                  inboxUnread: unread.count,
+                                  unreadTitles: inbox.filter { unread.contains($0.path) }.prefix(3).map { OracleStore.prettify($0.name) })
         SnapshotStore.write(snap, config: config)
         #if canImport(WidgetKit)
         WidgetCenter.shared.reloadAllTimelines()
@@ -82,8 +87,52 @@ public final class OracleStore: ObservableObject {
     /// "2026-10-05_13-47_fido-key-blocked-on-hardware.md" → "fido key blocked on hardware"
     nonisolated static func prettify(_ file: String) -> String {
         var s = (file as NSString).deletingPathExtension
-        s = s.replacingOccurrences(of: #"^\d{4}-\d{2}-\d{2}[_-]?(\d{2}[-_:]?\d{2}[_-]?)?"#, with: "", options: .regularExpression)
+        s = s.replacingOccurrences(of: #"^\d{4}-\d{2}-\d{2}[_-]?(\d{2}[-_:]?\d{2}([-_:]?\d{2})?[_-]?)?"#, with: "", options: .regularExpression)
         return s.replacingOccurrences(of: "[_-]+", with: " ", options: .regularExpression).trimmingCharacters(in: .whitespaces)
+    }
+
+    // MARK: unread
+    /// Unread = changed after the baseline (first launch) and not opened since. A 4,000-file inbox must not
+    /// start as 4,000 unread, so everything already there on first launch counts as read.
+    struct ReadState: Codable {
+        var baseline: Date = Date()
+        var read: [String: Date] = [:]          // path → modification date when it was read
+        var forcedUnread: Set<String>? = []     // "Mark as unread", even for files older than the baseline
+    }
+    private var readURL: URL {
+        let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("OracleKit", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.appendingPathComponent("\(config.name.lowercased())-read.json")
+    }
+    private func loadReadState() {
+        if let d = try? Data(contentsOf: readURL), let s = try? JSONDecoder().decode(ReadState.self, from: d) { readState = s }
+        else { readState = ReadState(); saveReadState() }
+    }
+    private func saveReadState() { if let d = try? JSONEncoder().encode(readState) { try? d.write(to: readURL, options: .atomic) } }
+    private func recomputeUnread() {
+        if readState.read.isEmpty && !FileManager.default.fileExists(atPath: readURL.path) { loadReadState() }
+        let forced = readState.forcedUnread ?? []
+        unread = Set(inbox.filter { item in
+            forced.contains(item.path)
+            || (item.modified > readState.baseline && (readState.read[item.path].map { $0 < item.modified } ?? true))
+        }.map(\.path))
+    }
+    public func isUnread(_ item: InboxItem) -> Bool { unread.contains(item.path) }
+    public func markRead(_ item: InboxItem) {
+        readState.read[item.path] = item.modified; readState.forcedUnread?.remove(item.path)
+        saveReadState(); recomputeUnread(); publishSnapshot()
+    }
+    public func markUnread(_ item: InboxItem) {
+        readState.read[item.path] = nil
+        if readState.forcedUnread == nil { readState.forcedUnread = [] }
+        readState.forcedUnread?.insert(item.path)
+        saveReadState(); recomputeUnread(); publishSnapshot()
+    }
+    public func markAllRead() {
+        for i in inbox where unread.contains(i.path) { readState.read[i.path] = i.modified }
+        readState.forcedUnread = []
+        saveReadState(); recomputeUnread(); publishSnapshot()
     }
 
     #if os(macOS)
@@ -259,6 +308,8 @@ public final class OracleStore: ObservableObject {
     public func noteDrop(_ n: Int) {
         lastDrop = n > 0 ? "\(n) file\(n == 1 ? "" : "s") → ψ/inbox/dropped" : "drop failed"
         inbox = loadInbox()
+        recomputeUnread()
+        publishSnapshot()
     }
 
     nonisolated public static func copyIntoInbox(_ urls: [URL], config: OracleConfig) -> Int {
@@ -276,6 +327,8 @@ public final class OracleStore: ObservableObject {
             while FileManager.default.fileExists(atPath: target.path) {
                 target = dest.appendingPathComponent("\(stamp)_\(i)_\(u.lastPathComponent)"); i += 1
             }
+            let scheme = (u.scheme ?? "").lowercased()
+            guard u.isFileURL || scheme == "http" || scheme == "https" else { continue }   // never our own oracle-* links
             if u.isFileURL {
                 if (try? FileManager.default.copyItem(at: u, to: target)) != nil { n += 1 }
             } else {

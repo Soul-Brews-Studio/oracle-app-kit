@@ -22,6 +22,7 @@ final class WidgetRenderTests: XCTestCase {
         ]
         busy.prs = 2; busy.prTitles = ["#135 kit: per-oracle widgets", "#134 rescue: vad-torch lab", "#133 rescue: launch-detached"]
         busy.issues = 3; busy.inboxNew = 2; busy.latestHandoff = "fido key blocked on hardware"
+        busy.inboxUnread = 3; busy.unreadTitles = ["ios fido app to neo", "github.com Lumen Labs brainapi2", "neo flash command advice"]
         var quiet = busy; quiet.needsYou = 0; quiet.working = 0
         quiet.activity = [.init(title: "neo main", status: "idle", place: "a", since: now.addingTimeInterval(-5400))]
         let cases: [(String, OracleSnapshot)] = [("busy", busy), ("quiet", quiet)]

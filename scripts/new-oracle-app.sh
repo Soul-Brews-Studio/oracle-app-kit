@@ -122,6 +122,9 @@ targets:
         CFBundleShortVersionString: \$(MARKETING_VERSION)
         CFBundleVersion: \$(CURRENT_PROJECT_VERSION)
         UILaunchScreen: {}
+        CFBundleURLTypes:            # widget taps open oracle-<name>://open — the app must own the scheme
+          - CFBundleURLName: co.laris.oracle.$low
+            CFBundleURLSchemes: [oracle-$low]
         CFBundleDocumentTypes:
           - CFBundleTypeName: Anything for $N
             CFBundleTypeRole: Viewer

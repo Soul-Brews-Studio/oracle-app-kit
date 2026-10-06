@@ -30,6 +30,9 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen: {}
+        CFBundleURLTypes:            # widget taps open oracle-<name>://open — the app must own the scheme
+          - CFBundleURLName: co.laris.oracle.nexus
+            CFBundleURLSchemes: [oracle-nexus]
         CFBundleDocumentTypes:
           - CFBundleTypeName: Anything for Nexus
             CFBundleTypeRole: Viewer
