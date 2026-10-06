@@ -4,10 +4,12 @@ targets:
     supportedDestinations: [macOS, iOS]
     sources:
       - path: Apps/Neo
-        excludes: ["app.yml", "Info.plist", "Widget/**", "*.entitlements"]
+        excludes: ["app.yml", "Info.plist", "Widget/**", "Share/**", "*.entitlements"]
     dependencies:
       - package: OracleKit
       - target: NeoWidget
+      - target: NeoShare
+        destinationFilters: [macOS]
     entitlements:
       path: Apps/Neo/Neo.entitlements
       properties:          # xcodegen WRITES this file from here — a path alone becomes an empty <dict/>
@@ -88,3 +90,36 @@ targets:
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
+  NeoShare:                    # the macOS Share menu entry (Share ▸ Neo Oracle) — OracleShareViewController
+    type: app-extension
+    supportedDestinations: [macOS]
+    sources:
+      - path: Apps/Neo/Share
+        excludes: ["*.entitlements", "Info.plist"]
+      - path: Apps/Neo/NeoConfig.swift
+    dependencies:
+      - package: OracleKit
+    entitlements:
+      path: Apps/Neo/Share/NeoShare.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: co.laris.oracle.neo.share
+        PRODUCT_NAME: NeoShare
+        SKIP_INSTALL: YES
+        ENABLE_APP_SANDBOX: YES
+    info:
+      path: Apps/Neo/Share/Info.plist
+      properties:
+        CFBundleDisplayName: Neo Oracle
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
+          NSExtensionAttributes:
+            NSExtensionActivationRule:
+              NSExtensionActivationSupportsWebURLWithMaxCount: 1
+              NSExtensionActivationSupportsText: true
+              NSExtensionActivationSupportsFileWithMaxCount: 1

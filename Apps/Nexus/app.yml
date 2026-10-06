@@ -4,10 +4,12 @@ targets:
     supportedDestinations: [macOS, iOS]
     sources:
       - path: Apps/Nexus
-        excludes: ["app.yml", "Info.plist", "Widget/**", "*.entitlements"]
+        excludes: ["app.yml", "Info.plist", "Widget/**", "Share/**", "*.entitlements"]
     dependencies:
       - package: OracleKit
       - target: NexusWidget
+      - target: NexusShare
+        destinationFilters: [macOS]
     entitlements:
       path: Apps/Nexus/Nexus.entitlements
       properties:          # xcodegen WRITES this file from here — a path alone becomes an empty <dict/>
@@ -88,3 +90,36 @@ targets:
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
+  NexusShare:                    # the macOS Share menu entry (Share ▸ Nexus Oracle) — OracleShareViewController
+    type: app-extension
+    supportedDestinations: [macOS]
+    sources:
+      - path: Apps/Nexus/Share
+        excludes: ["*.entitlements", "Info.plist"]
+      - path: Apps/Nexus/NexusConfig.swift
+    dependencies:
+      - package: OracleKit
+    entitlements:
+      path: Apps/Nexus/Share/NexusShare.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: co.laris.oracle.nexus.share
+        PRODUCT_NAME: NexusShare
+        SKIP_INSTALL: YES
+        ENABLE_APP_SANDBOX: YES
+    info:
+      path: Apps/Nexus/Share/Info.plist
+      properties:
+        CFBundleDisplayName: Nexus Oracle
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
+          NSExtensionAttributes:
+            NSExtensionActivationRule:
+              NSExtensionActivationSupportsWebURLWithMaxCount: 1
+              NSExtensionActivationSupportsText: true
+              NSExtensionActivationSupportsFileWithMaxCount: 1

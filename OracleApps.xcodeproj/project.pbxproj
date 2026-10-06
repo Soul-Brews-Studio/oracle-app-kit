@@ -7,17 +7,23 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0B250C1843C4CAF984D3C87F /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = BF28BFF93E30F2016054C7FC /* OracleKit */; };
 		0CE7AD6783E511A241CCE8B9 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9747F85F8B3132BD641525AE /* Assets.xcassets */; };
+		0E2BA2D4130B1BF12FFE5AAA /* NexusShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 35FAA94347FA173BC06C86F8 /* NexusShare.appex */; platformFilters = (macos, ); settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		1219A0F40327E57A5C962C60 /* NexusConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = E596680FCB92D58641782D23 /* NexusConfig.swift */; };
 		135BC6904B6A6EF518DD7C74 /* NeoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA7B638D3B556C915C153B1E /* NeoApp.swift */; };
+		183930EB9CC6C46A392574DD /* NeoShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 47078A7D50C0767AD1B9544E /* NeoShare.appex */; platformFilters = (macos, ); settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		2314A1BB992922AD62B2E477 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E220E57022CA2B7EB0FD203 /* WidgetKit.framework */; };
+		2668904C7E52D602BD0C6ABF /* NexusConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = E596680FCB92D58641782D23 /* NexusConfig.swift */; };
 		2B9BC0A1DF0BE48BE8AFCF81 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97CF4DEE1C0D84FB0133816A /* Assets.xcassets */; };
+		3B644CA804D8F0783F6696AA /* PulseConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = B137A3369CF3DC8269C32453 /* PulseConfig.swift */; };
 		3B76FA783180274DC3FF3684 /* PulseWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = BE742AC8F1D736B0152CD64B /* PulseWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		3EAC39F660472701B2B3CAAC /* HubApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FC24FF95F7988B14813C430 /* HubApp.swift */; };
 		4771993584B814FF8A661A42 /* NexusApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C7F01FD47329725FDFEFBF7 /* NexusApp.swift */; };
 		4D873E55B912A714615E4FCF /* PulseWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 935A69762DBD19A005AFE22F /* PulseWidget.swift */; };
 		53CA0DD7DC807DAC6EF36E9B /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E220E57022CA2B7EB0FD203 /* WidgetKit.framework */; };
 		548EF9C7581D38F5E84BCD66 /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = AA25C26D192E25E4550F953D /* OracleKit */; };
+		54E3709C28D2D3F941322A12 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D02737C18CEE930435DDAD1 /* ShareViewController.swift */; };
 		59B26BEE9BCEFC70F0E9AEAB /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = B0F5F3BACE628CD6D829BFDE /* OracleKit */; };
 		5F73AFB86D0CF89FD12B49E0 /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = 9EB334B6C1B129FB8DF7D118 /* OracleKit */; };
 		6ACD97A55E30D1EB01D2493D /* NeoConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C722827C1DFF0CDB6F2F247 /* NeoConfig.swift */; };
@@ -32,29 +38,56 @@
 		92A18715358F7ABD3A3B9256 /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = 4BC6B464CFBBEF1106689585 /* OracleKit */; };
 		97098FAE2CDF70880DBCAAB7 /* NexusWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 83F5B866C705325F7C2918CF /* NexusWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		971E729911F9BD737E91F026 /* NeoConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C722827C1DFF0CDB6F2F247 /* NeoConfig.swift */; };
+		98449831B194C1305DBEB46E /* PulseShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B7C941E4DEF8A26B4C94E87F /* PulseShare.appex */; platformFilters = (macos, ); settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		98C25B7301DD0170F482898B /* NeoWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD99D3EB0C88FD1452416FB0 /* NeoWidget.swift */; };
 		99080C841CF90F9DFACA1DF6 /* NexusExtras.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F0767639C078D6E55BCEA0E /* NexusExtras.swift */; };
 		9D882FA86DFB4F8F73ED7CB6 /* PulseExtras.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F13410DB812353A44FCE45E /* PulseExtras.swift */; };
 		A008A67DBBD278DCF0CBD7BC /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E220E57022CA2B7EB0FD203 /* WidgetKit.framework */; };
 		A92220ACB1EEA09648D09C9F /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = D8034BE3BE3303D05E137A02 /* OracleKit */; };
 		AA2DD123CEF605C9E6C787A3 /* NeoWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 5EDFE877D27D8F8E8ECC5030 /* NeoWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		C4E0BD8D0B45870B893A2D5D /* NeoConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C722827C1DFF0CDB6F2F247 /* NeoConfig.swift */; };
 		CF7B1BE232CD2BB414E927AF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 907F6BD4CB49E2095191A779 /* Assets.xcassets */; };
 		D60C5A99551B4457FF12EE32 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 468221B2146BCBCC791C3B0B /* SwiftUI.framework */; };
+		D7511C67943FE37ADACAAAAD /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB009D7260C21CFEE11FBF5D /* ShareViewController.swift */; };
 		D838E66684EAB34DB1B0B356 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 03555D2BE97613AFC8E9C4D2 /* Assets.xcassets */; };
 		E0835DAA39191350E3DB951A /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 468221B2146BCBCC791C3B0B /* SwiftUI.framework */; };
 		E237B244B33315B46DB5A310 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 468221B2146BCBCC791C3B0B /* SwiftUI.framework */; };
 		E73105C73F8AAB325D00F325 /* PulseConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = B137A3369CF3DC8269C32453 /* PulseConfig.swift */; };
+		E742B9D4AF1468C14735954D /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = FECEC892500CEA279D83D81D /* OracleKit */; };
 		EDC954BB53A1938A2913FFC4 /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = 84774326CBC858F01F5A8C1F /* OracleKit */; };
+		F37E3C3DF96F6A7393312512 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE26685A1F4C957C3B6A7C53 /* ShareViewController.swift */; };
 		FD7A77DBE3B1668A604D354B /* PulseConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = B137A3369CF3DC8269C32453 /* PulseConfig.swift */; };
+		FDFDE290E1111B61F5A1D013 /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = D228F516928AAEE2C39582C7 /* OracleKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		020BDC657967821B9DC14832 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 430DB4AF39A44099EA106CF8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 0B340EA5EB290CE723DAF822;
+			remoteInfo = NexusShare;
+		};
+		099B5D9E1FCF5B0C0A090AEB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 430DB4AF39A44099EA106CF8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = DA9655DA8312A36373D2632A;
+			remoteInfo = PulseShare;
+		};
 		0A143AA29BF2AB14D5BDF335 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 430DB4AF39A44099EA106CF8 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 01CF40E90577B244E67480F2;
 			remoteInfo = NeoWidget;
+		};
+		11C2E4B2C1E2B28C07E5FB39 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 430DB4AF39A44099EA106CF8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 9EC664F778F344E25A6035DF;
+			remoteInfo = NeoShare;
 		};
 		94212C719841CD3C4694701C /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -80,6 +113,7 @@
 			dstSubfolderSpec = 13;
 			files = (
 				97098FAE2CDF70880DBCAAB7 /* NexusWidget.appex in Embed Foundation Extensions */,
+				0E2BA2D4130B1BF12FFE5AAA /* NexusShare.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -91,6 +125,7 @@
 			dstSubfolderSpec = 13;
 			files = (
 				3B76FA783180274DC3FF3684 /* PulseWidget.appex in Embed Foundation Extensions */,
+				98449831B194C1305DBEB46E /* PulseShare.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -102,6 +137,7 @@
 			dstSubfolderSpec = 13;
 			files = (
 				AA2DD123CEF605C9E6C787A3 /* NeoWidget.appex in Embed Foundation Extensions */,
+				183930EB9CC6C46A392574DD /* NeoShare.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -110,14 +146,17 @@
 
 /* Begin PBXFileReference section */
 		03555D2BE97613AFC8E9C4D2 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		0D02737C18CEE930435DDAD1 /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		1F13410DB812353A44FCE45E /* PulseExtras.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PulseExtras.swift; sourceTree = "<group>"; };
 		1FC24FF95F7988B14813C430 /* HubApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HubApp.swift; sourceTree = "<group>"; };
 		2C7F01FD47329725FDFEFBF7 /* NexusApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusApp.swift; sourceTree = "<group>"; };
 		2F0767639C078D6E55BCEA0E /* NexusExtras.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusExtras.swift; sourceTree = "<group>"; };
 		33D307D5CF34490C5E34FD95 /* Neo.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Neo.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		35FAA94347FA173BC06C86F8 /* NexusShare.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = NexusShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		3D0E66039AC6C174A076DB9F /* Oracles.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Oracles.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		464E48710AE91C739C8B1105 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		468221B2146BCBCC791C3B0B /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		47078A7D50C0767AD1B9544E /* NeoShare.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = NeoShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		4C722827C1DFF0CDB6F2F247 /* NeoConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NeoConfig.swift; sourceTree = "<group>"; };
 		5E220E57022CA2B7EB0FD203 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		5EDFE877D27D8F8E8ECC5030 /* NeoWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = NeoWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -132,12 +171,15 @@
 		B137A3369CF3DC8269C32453 /* PulseConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PulseConfig.swift; sourceTree = "<group>"; };
 		B530CFD74615840D1FD21D61 /* Pulse.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Pulse.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B55D288BD45D60C57EC1FD16 /* NexusWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusWidget.swift; sourceTree = "<group>"; };
+		B7C941E4DEF8A26B4C94E87F /* PulseShare.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = PulseShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		BD99D3EB0C88FD1452416FB0 /* NeoWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NeoWidget.swift; sourceTree = "<group>"; };
 		BE742AC8F1D736B0152CD64B /* PulseWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = PulseWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		D4532687283B94E464FAF092 /* Nexus.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Nexus.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		DB009D7260C21CFEE11FBF5D /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		E596680FCB92D58641782D23 /* NexusConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusConfig.swift; sourceTree = "<group>"; };
 		E6B04B136F929B594FC6EF73 /* OracleKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = OracleKit; path = OracleKit; sourceTree = SOURCE_ROOT; };
 		FA7B638D3B556C915C153B1E /* NeoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NeoApp.swift; sourceTree = "<group>"; };
+		FE26685A1F4C957C3B6A7C53 /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		FE480FFFEE4B266EB37C8F5F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -186,6 +228,30 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		975FC034CB1B3C7BDFFED236 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0B250C1843C4CAF984D3C87F /* OracleKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D0975524617156F53C74D696 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E742B9D4AF1468C14735954D /* OracleKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D6B7AC7A174D8DA4AFB95F45 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FDFDE290E1111B61F5A1D013 /* OracleKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		DFCE1F7D865A8DEE74B406FB /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -215,6 +281,15 @@
 			);
 			name = Widget;
 			path = Apps/Pulse/Widget;
+			sourceTree = "<group>";
+		};
+		0384E88409B511A572982525 /* Share */ = {
+			isa = PBXGroup;
+			children = (
+				0D02737C18CEE930435DDAD1 /* ShareViewController.swift */,
+			);
+			name = Share;
+			path = Apps/Pulse/Share;
 			sourceTree = "<group>";
 		};
 		072B09D458817296196F9E72 /* Frameworks */ = {
@@ -254,6 +329,9 @@
 				47651820CEB16DF156C79410 /* Nexus */,
 				1A856B3A3480E3528CFF4233 /* Packages */,
 				1A5B5B4F634938D87A244AA9 /* Pulse */,
+				7B49B58220D073276B787D0B /* Share */,
+				B328325CAB29F20534286946 /* Share */,
+				0384E88409B511A572982525 /* Share */,
 				F838466B268DCCACEA2010A0 /* Widget */,
 				FFE632A0E473818E54EAD582 /* Widget */,
 				01EF82A534256DBDA533DB95 /* Widget */,
@@ -278,11 +356,14 @@
 			isa = PBXGroup;
 			children = (
 				33D307D5CF34490C5E34FD95 /* Neo.app */,
+				47078A7D50C0767AD1B9544E /* NeoShare.appex */,
 				5EDFE877D27D8F8E8ECC5030 /* NeoWidget.appex */,
 				D4532687283B94E464FAF092 /* Nexus.app */,
+				35FAA94347FA173BC06C86F8 /* NexusShare.appex */,
 				83F5B866C705325F7C2918CF /* NexusWidget.appex */,
 				3D0E66039AC6C174A076DB9F /* Oracles.app */,
 				B530CFD74615840D1FD21D61 /* Pulse.app */,
+				B7C941E4DEF8A26B4C94E87F /* PulseShare.appex */,
 				BE742AC8F1D736B0152CD64B /* PulseWidget.appex */,
 			);
 			name = Products;
@@ -300,6 +381,15 @@
 			path = Apps/Neo;
 			sourceTree = "<group>";
 		};
+		7B49B58220D073276B787D0B /* Share */ = {
+			isa = PBXGroup;
+			children = (
+				DB009D7260C21CFEE11FBF5D /* ShareViewController.swift */,
+			);
+			name = Share;
+			path = Apps/Neo/Share;
+			sourceTree = "<group>";
+		};
 		A918F7E796C546502FC59506 /* Hub */ = {
 			isa = PBXGroup;
 			children = (
@@ -308,6 +398,15 @@
 			);
 			name = Hub;
 			path = Apps/Hub;
+			sourceTree = "<group>";
+		};
+		B328325CAB29F20534286946 /* Share */ = {
+			isa = PBXGroup;
+			children = (
+				FE26685A1F4C957C3B6A7C53 /* ShareViewController.swift */,
+			);
+			name = Share;
+			path = Apps/Nexus/Share;
 			sourceTree = "<group>";
 		};
 		F838466B268DCCACEA2010A0 /* Widget */ = {
@@ -353,6 +452,25 @@
 			productReference = 5EDFE877D27D8F8E8ECC5030 /* NeoWidget.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		0B340EA5EB290CE723DAF822 /* NexusShare */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1E38A697F8EF24E15AC5AAE1 /* Build configuration list for PBXNativeTarget "NexusShare" */;
+			buildPhases = (
+				57F7BCC8DE25AEFCDF2F5069 /* Sources */,
+				975FC034CB1B3C7BDFFED236 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = NexusShare;
+			packageProductDependencies = (
+				BF28BFF93E30F2016054C7FC /* OracleKit */,
+			);
+			productName = NexusShare;
+			productReference = 35FAA94347FA173BC06C86F8 /* NexusShare.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		19EE540E3E022009C36A99F1 /* PulseWidget */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = B30B2EDE950C065FEAABC334 /* Build configuration list for PBXNativeTarget "PulseWidget" */;
@@ -393,6 +511,25 @@
 			productReference = 3D0E66039AC6C174A076DB9F /* Oracles.app */;
 			productType = "com.apple.product-type.application";
 		};
+		9EC664F778F344E25A6035DF /* NeoShare */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 589303ABA1D2D9F2BA20231D /* Build configuration list for PBXNativeTarget "NeoShare" */;
+			buildPhases = (
+				2C41809D19F74310392F3049 /* Sources */,
+				D0975524617156F53C74D696 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = NeoShare;
+			packageProductDependencies = (
+				FECEC892500CEA279D83D81D /* OracleKit */,
+			);
+			productName = NeoShare;
+			productReference = 47078A7D50C0767AD1B9544E /* NeoShare.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		C99D203A30114884D4BB548A /* Nexus */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 22492E9F4AAF37EBB0575612 /* Build configuration list for PBXNativeTarget "Nexus" */;
@@ -406,6 +543,7 @@
 			);
 			dependencies = (
 				25BA7D1429D8E4A9D33200DC /* PBXTargetDependency */,
+				214813755916FDF9DAB2BBAB /* PBXTargetDependency */,
 			);
 			name = Nexus;
 			packageProductDependencies = (
@@ -414,6 +552,25 @@
 			productName = Nexus;
 			productReference = D4532687283B94E464FAF092 /* Nexus.app */;
 			productType = "com.apple.product-type.application";
+		};
+		DA9655DA8312A36373D2632A /* PulseShare */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BDC08FDCE6440C95B1B73EEE /* Build configuration list for PBXNativeTarget "PulseShare" */;
+			buildPhases = (
+				BFE6C4030E63FB39B7303ACF /* Sources */,
+				D6B7AC7A174D8DA4AFB95F45 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = PulseShare;
+			packageProductDependencies = (
+				D228F516928AAEE2C39582C7 /* OracleKit */,
+			);
+			productName = PulseShare;
+			productReference = B7C941E4DEF8A26B4C94E87F /* PulseShare.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 		DBA79B4153688EFC969DDF98 /* NexusWidget */ = {
 			isa = PBXNativeTarget;
@@ -448,6 +605,7 @@
 			);
 			dependencies = (
 				F7E0EBFB87FA7EBF98C4E5C8 /* PBXTargetDependency */,
+				44F34CBB47421F978E675D25 /* PBXTargetDependency */,
 			);
 			name = Pulse;
 			packageProductDependencies = (
@@ -470,6 +628,7 @@
 			);
 			dependencies = (
 				643EFF85B4AE6367F0B47C4C /* PBXTargetDependency */,
+				F4AD72B2B5A0089245802712 /* PBXTargetDependency */,
 			);
 			name = Neo;
 			packageProductDependencies = (
@@ -492,6 +651,10 @@
 						DevelopmentTeam = 6K28WEXX78;
 						ProvisioningStyle = Automatic;
 					};
+					0B340EA5EB290CE723DAF822 = {
+						DevelopmentTeam = 6K28WEXX78;
+						ProvisioningStyle = Automatic;
+					};
 					19EE540E3E022009C36A99F1 = {
 						DevelopmentTeam = 6K28WEXX78;
 						ProvisioningStyle = Automatic;
@@ -500,7 +663,15 @@
 						DevelopmentTeam = 6K28WEXX78;
 						ProvisioningStyle = Automatic;
 					};
+					9EC664F778F344E25A6035DF = {
+						DevelopmentTeam = 6K28WEXX78;
+						ProvisioningStyle = Automatic;
+					};
 					C99D203A30114884D4BB548A = {
+						DevelopmentTeam = 6K28WEXX78;
+						ProvisioningStyle = Automatic;
+					};
+					DA9655DA8312A36373D2632A = {
 						DevelopmentTeam = 6K28WEXX78;
 						ProvisioningStyle = Automatic;
 					};
@@ -536,11 +707,14 @@
 			projectRoot = "";
 			targets = (
 				F4C43E59E3D089F341776040 /* Neo */,
+				9EC664F778F344E25A6035DF /* NeoShare */,
 				01CF40E90577B244E67480F2 /* NeoWidget */,
 				C99D203A30114884D4BB548A /* Nexus */,
+				0B340EA5EB290CE723DAF822 /* NexusShare */,
 				DBA79B4153688EFC969DDF98 /* NexusWidget */,
 				6EE9931880511398B434CF6B /* Oracles */,
 				EA29C873AC2286317DA38636 /* Pulse */,
+				DA9655DA8312A36373D2632A /* PulseShare */,
 				19EE540E3E022009C36A99F1 /* PulseWidget */,
 			);
 		};
@@ -616,12 +790,30 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		2C41809D19F74310392F3049 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C4E0BD8D0B45870B893A2D5D /* NeoConfig.swift in Sources */,
+				D7511C67943FE37ADACAAAAD /* ShareViewController.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		57DCBADD2F9B5D6EEE8D5005 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				E73105C73F8AAB325D00F325 /* PulseConfig.swift in Sources */,
 				4D873E55B912A714615E4FCF /* PulseWidget.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		57F7BCC8DE25AEFCDF2F5069 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2668904C7E52D602BD0C6ABF /* NexusConfig.swift in Sources */,
+				F37E3C3DF96F6A7393312512 /* ShareViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -632,6 +824,15 @@
 				89201715E26C3A13D0949318 /* PulseApp.swift in Sources */,
 				FD7A77DBE3B1668A604D354B /* PulseConfig.swift in Sources */,
 				9D882FA86DFB4F8F73ED7CB6 /* PulseExtras.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BFE6C4030E63FB39B7303ACF /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3B644CA804D8F0783F6696AA /* PulseConfig.swift in Sources */,
+				54E3709C28D2D3F941322A12 /* ShareViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -674,15 +875,39 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		214813755916FDF9DAB2BBAB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			platformFilters = (
+				macos,
+			);
+			target = 0B340EA5EB290CE723DAF822 /* NexusShare */;
+			targetProxy = 020BDC657967821B9DC14832 /* PBXContainerItemProxy */;
+		};
 		25BA7D1429D8E4A9D33200DC /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = DBA79B4153688EFC969DDF98 /* NexusWidget */;
 			targetProxy = 94212C719841CD3C4694701C /* PBXContainerItemProxy */;
 		};
+		44F34CBB47421F978E675D25 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			platformFilters = (
+				macos,
+			);
+			target = DA9655DA8312A36373D2632A /* PulseShare */;
+			targetProxy = 099B5D9E1FCF5B0C0A090AEB /* PBXContainerItemProxy */;
+		};
 		643EFF85B4AE6367F0B47C4C /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 01CF40E90577B244E67480F2 /* NeoWidget */;
 			targetProxy = 0A143AA29BF2AB14D5BDF335 /* PBXContainerItemProxy */;
+		};
+		F4AD72B2B5A0089245802712 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			platformFilters = (
+				macos,
+			);
+			target = 9EC664F778F344E25A6035DF /* NeoShare */;
+			targetProxy = 11C2E4B2C1E2B28C07E5FB39 /* PBXContainerItemProxy */;
 		};
 		F7E0EBFB87FA7EBF98C4E5C8 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -799,6 +1024,52 @@
 			};
 			name = Release;
 		};
+		1ED26561887388A71C76D6F5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Apps/Neo/Share/NeoShare.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_APP_SANDBOX = YES;
+				INFOPLIST_FILE = Apps/Neo/Share/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = co.laris.oracle.neo.share;
+				PRODUCT_NAME = NeoShare;
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = macosx;
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				TARGETED_DEVICE_FAMILY = "";
+			};
+			name = Debug;
+		};
+		2B0F3BF9C703BEE2541CBF4E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Apps/Pulse/Share/PulseShare.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_APP_SANDBOX = YES;
+				INFOPLIST_FILE = Apps/Pulse/Share/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = co.laris.oracle.pulse.share;
+				PRODUCT_NAME = PulseShare;
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = macosx;
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				TARGETED_DEVICE_FAMILY = "";
+			};
+			name = Debug;
+		};
 		355BEE1F58AACE63A371A489 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -897,6 +1168,29 @@
 			};
 			name = Debug;
 		};
+		5794BC0AF53A1C51FC6AAAB3 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Apps/Pulse/Share/PulseShare.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_APP_SANDBOX = YES;
+				INFOPLIST_FILE = Apps/Pulse/Share/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = co.laris.oracle.pulse.share;
+				PRODUCT_NAME = PulseShare;
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = macosx;
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				TARGETED_DEVICE_FAMILY = "";
+			};
+			name = Release;
+		};
 		5876257F8D7A170BE19CDAA7 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -963,6 +1257,29 @@
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		6F033EA9ADDB5685F5A7758A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Apps/Neo/Share/NeoShare.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_APP_SANDBOX = YES;
+				INFOPLIST_FILE = Apps/Neo/Share/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = co.laris.oracle.neo.share;
+				PRODUCT_NAME = NeoShare;
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = macosx;
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				TARGETED_DEVICE_FAMILY = "";
 			};
 			name = Release;
 		};
@@ -1138,6 +1455,52 @@
 			};
 			name = Release;
 		};
+		C9729E7EDD01774A990B37DA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Apps/Nexus/Share/NexusShare.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_APP_SANDBOX = YES;
+				INFOPLIST_FILE = Apps/Nexus/Share/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = co.laris.oracle.nexus.share;
+				PRODUCT_NAME = NexusShare;
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = macosx;
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				TARGETED_DEVICE_FAMILY = "";
+			};
+			name = Debug;
+		};
+		E770C1C760D25402C5DA983F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Apps/Nexus/Share/NexusShare.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_APP_SANDBOX = YES;
+				INFOPLIST_FILE = Apps/Nexus/Share/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = co.laris.oracle.nexus.share;
+				PRODUCT_NAME = NexusShare;
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = macosx;
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				TARGETED_DEVICE_FAMILY = "";
+			};
+			name = Release;
+		};
 		E813AFBB65F57E0459E46336 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1164,6 +1527,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		1E38A697F8EF24E15AC5AAE1 /* Build configuration list for PBXNativeTarget "NexusShare" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C9729E7EDD01774A990B37DA /* Debug */,
+				E770C1C760D25402C5DA983F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		22492E9F4AAF37EBB0575612 /* Build configuration list for PBXNativeTarget "Nexus" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -1187,6 +1559,15 @@
 			buildConfigurations = (
 				9C61075B9EF3ACC783F8B62C /* Debug */,
 				B0B11DBACFB893E589CEFA06 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		589303ABA1D2D9F2BA20231D /* Build configuration list for PBXNativeTarget "NeoShare" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1ED26561887388A71C76D6F5 /* Debug */,
+				6F033EA9ADDB5685F5A7758A /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
@@ -1223,6 +1604,15 @@
 			buildConfigurations = (
 				5876257F8D7A170BE19CDAA7 /* Debug */,
 				6ACDA8AAF747476CF29997FA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		BDC08FDCE6440C95B1B73EEE /* Build configuration list for PBXNativeTarget "PulseShare" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2B0F3BF9C703BEE2541CBF4E /* Debug */,
+				5794BC0AF53A1C51FC6AAAB3 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
@@ -1270,7 +1660,19 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = OracleKit;
 		};
+		BF28BFF93E30F2016054C7FC /* OracleKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = OracleKit;
+		};
+		D228F516928AAEE2C39582C7 /* OracleKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = OracleKit;
+		};
 		D8034BE3BE3303D05E137A02 /* OracleKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = OracleKit;
+		};
+		FECEC892500CEA279D83D81D /* OracleKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = OracleKit;
 		};

@@ -1,0 +1,9 @@
+{
+  "manifest_version": 3,
+  "name": "ARRA Oracles — Send to oracle",
+  "version": "0.1.0",
+  "description": "Right-click a page, link, image or selection: a new issue, the inbox, or a message for an oracle's Mac app.",
+  "permissions": ["contextMenus", "activeTab"],
+  "background": { "service_worker": "background.js" },
+  "icons": { "128": "icon128.png" }
+}

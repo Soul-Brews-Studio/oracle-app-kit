@@ -4,10 +4,12 @@ targets:
     supportedDestinations: [macOS, iOS]
     sources:
       - path: Apps/Pulse
-        excludes: ["app.yml", "Info.plist", "Widget/**", "*.entitlements"]
+        excludes: ["app.yml", "Info.plist", "Widget/**", "Share/**", "*.entitlements"]
     dependencies:
       - package: OracleKit
       - target: PulseWidget
+      - target: PulseShare
+        destinationFilters: [macOS]
     entitlements:
       path: Apps/Pulse/Pulse.entitlements
       properties:          # xcodegen WRITES this file from here — a path alone becomes an empty <dict/>
@@ -88,3 +90,36 @@ targets:
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
+  PulseShare:                    # the macOS Share menu entry (Share ▸ Pulse Oracle) — OracleShareViewController
+    type: app-extension
+    supportedDestinations: [macOS]
+    sources:
+      - path: Apps/Pulse/Share
+        excludes: ["*.entitlements", "Info.plist"]
+      - path: Apps/Pulse/PulseConfig.swift
+    dependencies:
+      - package: OracleKit
+    entitlements:
+      path: Apps/Pulse/Share/PulseShare.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: co.laris.oracle.pulse.share
+        PRODUCT_NAME: PulseShare
+        SKIP_INSTALL: YES
+        ENABLE_APP_SANDBOX: YES
+    info:
+      path: Apps/Pulse/Share/Info.plist
+      properties:
+        CFBundleDisplayName: Pulse Oracle
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
+          NSExtensionAttributes:
+            NSExtensionActivationRule:
+              NSExtensionActivationSupportsWebURLWithMaxCount: 1
+              NSExtensionActivationSupportsText: true
+              NSExtensionActivationSupportsFileWithMaxCount: 1

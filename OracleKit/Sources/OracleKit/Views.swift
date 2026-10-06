@@ -834,9 +834,14 @@ public final class OracleAppDelegate: NSObject, NSApplicationDelegate {
         // A widget tap arrives here as oracle-<name>://open — that is "show me the app", never a drop.
         let own = urls.filter { ($0.scheme ?? "").hasPrefix("oracle-") }
         let drops = urls.filter { !($0.scheme ?? "").hasPrefix("oracle-") }
-        if !own.isEmpty {
-            NSApp.activate(ignoringOtherApps: true)
-            NotificationCenter.default.post(name: .oracleOpenSection, object: own.first?.host ?? "open")
+        for u in own {
+            // oracle-<name>://issue|inbox|message?url=&title=&text= — the Chrome "Send to oracle" menu (browser/chrome)
+            switch u.host {
+            case "issue", "inbox", "message": deliverLink(u)
+            default:
+                NSApp.activate(ignoringOtherApps: true)
+                NotificationCenter.default.post(name: .oracleOpenSection, object: u.host ?? "open")
+            }
         }
         guard !drops.isEmpty else { return }
         if ready { deliver(drops) } else { pending += drops }
@@ -890,6 +895,34 @@ public final class OracleAppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
         NSApp.windows.first { $0.canBecomeMain }?.makeKeyAndOrderFront(nil)
         NotificationCenter.default.post(name: .oracleServiceMessage, object: nil)
+    }
+
+    /// The browser's version of the three Services: same draft sheet, inbox landing and message box.
+    @MainActor private func deliverLink(_ u: URL) {
+        let q = URLComponents(url: u, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        func item(_ k: String) -> String { (q.first { $0.name == k }?.value ?? "").trimmingCharacters(in: .whitespacesAndNewlines) }
+        let link = URL(string: item("url")).flatMap { $0.scheme == nil ? nil : $0 }
+        let title = item("title"), text = item("text")
+        switch u.host {
+        case "inbox":
+            var urls = link.map { [$0] } ?? []
+            if !text.isEmpty {
+                let note = FileManager.default.temporaryDirectory.appendingPathComponent("selection.md")
+                if (try? text.write(to: note, atomically: true, encoding: .utf8)) != nil { urls.append(note) }
+            }
+            if !urls.isEmpty { deliver(urls) }
+            return
+        case "message":
+            ServiceInbox.pendingMessage = [text, link?.absoluteString ?? ""].filter { !$0.isEmpty }.joined(separator: "\n")
+            NotificationCenter.default.post(name: .oracleServiceMessage, object: nil)
+        default:
+            var d = Self.issueDraft(urls: link.map { [$0] } ?? [], text: text, oracle: OracleConfig.current.name)
+            if !title.isEmpty { d = IssueDraft(title: String(title.prefix(100)), text: d.text) }
+            ServiceInbox.pendingIssue = d
+            NotificationCenter.default.post(name: .oracleServiceIssue, object: nil)
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        NSApp.windows.first { $0.canBecomeMain }?.makeKeyAndOrderFront(nil)
     }
 
     static func read(_ pb: NSPasteboard) -> (urls: [URL], text: String?) {
