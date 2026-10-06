@@ -66,6 +66,20 @@ public final class OracleStore: ObservableObject {
         publishSnapshot()
     }
 
+    #if os(macOS)
+    /// Bring a worktree's herdr space to Nat: focus it in herdr, then move its WezTerm window to the main
+    /// display and focus it (the ARRA Oracles path — WezTerm.show).
+    public func bringToMain(_ item: WorkItem) {
+        let space = spaces.first { $0.checkout == item.path || (item.isMain && $0.checkout == nil && $0.label == item.folder) }
+            ?? item.panes.first.flatMap { p in spaces.first { s in s.panes.contains { $0.place == p.place } } }
+        guard let space else { return }
+        Task.detached {
+            _ = await Shell.run("herdr", ["--session", space.session, "workspace", "focus", space.workspaceId])
+            await WezTerm.show(session: space.session, label: space.label)
+        }
+    }
+    #endif
+
     /// Draft → GitHub issue through gh (macOS). The sheet that calls this is the human's confirm step.
     public func createIssue(title: String, body: String) async -> String? {
         #if os(macOS)
