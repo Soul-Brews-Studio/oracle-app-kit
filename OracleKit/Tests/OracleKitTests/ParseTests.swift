@@ -43,5 +43,6 @@ final class HumanAskTests: XCTestCase {
                        "/impeccable styling do /oracle-prism")
         XCTAssertEqual(OracleStore.humanAsk("merge all to main"), "merge all to main")
         XCTAssertNil(OracleStore.humanAsk("Another Claude session sent a message:\n<agent-message>…"))
+        XCTAssertNil(OracleStore.humanAsk("Base directory for this skill: /Users/beta/.claude/skills/impeccable\n\nThis skill…"))
     }
 }

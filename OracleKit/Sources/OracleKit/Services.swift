@@ -159,7 +159,8 @@ public final class OracleStore: ObservableObject {
                 .trimmingCharacters(in: .whitespacesAndNewlines)
         }
         let machine = ["<", "PANE ", "TERMINAL ", "[from ", "[reply", "[CHECK-IN", "[checkin", "[SYSTEM", "[Request interrupted",
-                       "Caveat:", "[Image", "Another Claude session", "This session is being continued", "Tool loaded"]
+                       "Caveat:", "[Image", "Another Claude session", "This session is being continued", "Tool loaded",
+                       "Base directory for this skill", "(Re-invocation of", "Concise output style"]
         if s.isEmpty || machine.contains(where: { s.hasPrefix($0) }) { return nil }
         s = String(s.split(separator: "\n").first ?? "")
         s = s.replacingOccurrences(of: #"^[❯>$#]\s+"#, with: "", options: .regularExpression).trimmingCharacters(in: .whitespaces)
