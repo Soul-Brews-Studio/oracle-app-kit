@@ -10,6 +10,8 @@ targets:
       - target: NexusWidget
     entitlements:
       path: Apps/Nexus/Nexus.entitlements
+      properties:          # xcodegen WRITES this file from here — a path alone becomes an empty <dict/>
+        com.apple.security.application-groups: [6K28WEXX78.co.laris.oracle.nexus]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: co.laris.oracle.nexus
@@ -46,6 +48,9 @@ targets:
       - sdk: SwiftUI.framework
     entitlements:
       path: Apps/Nexus/Widget/NexusWidget.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.application-groups: [6K28WEXX78.co.laris.oracle.nexus]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: co.laris.oracle.nexus.widget

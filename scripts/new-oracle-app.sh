@@ -85,6 +85,8 @@ targets:
       - target: ${N}Widget
     entitlements:
       path: Apps/$N/${N}.entitlements
+      properties:          # xcodegen WRITES this file from here — a path alone becomes an empty <dict/>
+        com.apple.security.application-groups: [$GROUP]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: co.laris.oracle.$low
@@ -121,6 +123,9 @@ targets:
       - sdk: SwiftUI.framework
     entitlements:
       path: Apps/$N/Widget/${N}Widget.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.application-groups: [$GROUP]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: co.laris.oracle.$low.widget

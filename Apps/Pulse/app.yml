@@ -10,6 +10,8 @@ targets:
       - target: PulseWidget
     entitlements:
       path: Apps/Pulse/Pulse.entitlements
+      properties:          # xcodegen WRITES this file from here — a path alone becomes an empty <dict/>
+        com.apple.security.application-groups: [6K28WEXX78.co.laris.oracle.pulse]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: co.laris.oracle.pulse
@@ -46,6 +48,9 @@ targets:
       - sdk: SwiftUI.framework
     entitlements:
       path: Apps/Pulse/Widget/PulseWidget.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.application-groups: [6K28WEXX78.co.laris.oracle.pulse]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: co.laris.oracle.pulse.widget
