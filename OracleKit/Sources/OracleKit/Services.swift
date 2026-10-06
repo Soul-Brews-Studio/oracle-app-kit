@@ -158,7 +158,8 @@ public final class OracleStore: ObservableObject {
             s = s.replacingOccurrences(of: #"</?pasted_content[^>]*>"#, with: "", options: .regularExpression)
                 .trimmingCharacters(in: .whitespacesAndNewlines)
         }
-        let machine = ["<", "PANE ", "TERMINAL ", "[from ", "[reply", "[CHECK-IN", "[checkin", "[SYSTEM", "[Request interrupted", "Caveat:", "[Image"]
+        let machine = ["<", "PANE ", "TERMINAL ", "[from ", "[reply", "[CHECK-IN", "[checkin", "[SYSTEM", "[Request interrupted",
+                       "Caveat:", "[Image", "Another Claude session", "This session is being continued", "Tool loaded"]
         if s.isEmpty || machine.contains(where: { s.hasPrefix($0) }) { return nil }
         s = String(s.split(separator: "\n").first ?? "")
         s = s.replacingOccurrences(of: #"^[❯>$#]\s+"#, with: "", options: .regularExpression).trimmingCharacters(in: .whitespaces)
@@ -173,23 +174,33 @@ public final class OracleStore: ObservableObject {
         if let c = promptCache[path], c.size == size { return c.prompt }
         guard let fh = FileHandle(forReadingAtPath: path) else { return nil }
         defer { try? fh.close() }
-        let window: UInt64 = 2 * 1024 * 1024
-        try? fh.seek(toOffset: size > window ? size - window : 0)
-        let text = String(decoding: fh.readDataToEndOfFile(), as: UTF8.self)
-        var found: String?
-        for line in text.split(separator: "\n").reversed() {
-            guard line.contains("\"type\":\"user\""),
-                  let o = try? JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any],
-                  let m = o["message"] as? [String: Any] else { continue }
-            var t: String?
-            if let c = m["content"] as? String { t = c }
-            else if let parts = m["content"] as? [[String: Any]] {
-                if parts.contains(where: { ($0["type"] as? String) == "tool_result" }) { continue }
-                t = parts.compactMap { ($0["type"] as? String) == "text" ? $0["text"] as? String : nil }.first
+        // Walk back in 2 MB steps (up to 24 MB): a busy session's tail is mostly tool output and screenshots.
+        let step: UInt64 = 2 * 1024 * 1024, cap: UInt64 = 24 * 1024 * 1024
+        var end = size, found: String?
+        var carry = Data()
+        while found == nil && end > 0 && size - end < cap {
+            let start = end > step ? end - step : 0
+            try? fh.seek(toOffset: start)
+            var chunk = fh.readData(ofLength: Int(end - start)) + carry
+            // keep the partial first line for the next (earlier) chunk
+            if start > 0, let nl = chunk.firstIndex(of: 0x0A) {
+                carry = chunk.subdata(in: chunk.startIndex..<nl); chunk = chunk.subdata(in: nl..<chunk.endIndex)
+            } else { carry = Data() }
+            let text = String(decoding: chunk, as: UTF8.self)
+            for line in text.split(separator: "\n").reversed() {
+                guard line.contains("\"type\":\"user\""), !line.contains("\"tool_result\""),
+                      let o = try? JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any],
+                      let m = o["message"] as? [String: Any] else { continue }
+                var t: String?
+                if let c = m["content"] as? String { t = c }
+                else if let parts = m["content"] as? [[String: Any]] {
+                    t = parts.compactMap { ($0["type"] as? String) == "text" ? $0["text"] as? String : nil }.first
+                }
+                guard let raw = t, let s = OracleStore.humanAsk(raw) else { continue }
+                found = s.count > 70 ? String(s.prefix(69)) + "…" : s
+                break
             }
-            guard let raw = t, let s = OracleStore.humanAsk(raw) else { continue }
-            found = s.count > 70 ? String(s.prefix(69)) + "…" : s
-            break
+            end = start
         }
         promptCache[path] = (size, found)
         return found
