@@ -215,11 +215,6 @@ struct WorkView: View {
                         ForEach(live) { LiveCard(item: $0, config: c, twins: twins, home: home, copied: $copied) }
                     }
                 }
-                if !next.isEmpty {
-                    block("NEXT", next.count, note: next.count == 1 ? "issue with no worktree yet" : "issues with no worktree yet") {
-                        NextBox(next: next)
-                    }
-                }
                 if !resumable.isEmpty {
                     block("RESUMABLE", resumable.count) {
                         VStack(alignment: .leading, spacing: 2) {
@@ -245,6 +240,11 @@ struct WorkView: View {
                                 ForEach(cold) { TreeRow(item: $0, config: c, copied: $copied).opacity(0.7) }
                             }
                         }
+                    }
+                }
+                if !next.isEmpty {
+                    block("NEXT", next.count, note: next.count == 1 ? "issue with no worktree yet" : "issues with no worktree yet") {
+                        NextBox(next: next)
                     }
                 }
             }
