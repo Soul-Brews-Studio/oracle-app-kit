@@ -61,6 +61,7 @@ public struct OracleRootView: View {
             section = store.unread.isEmpty ? .status : .inbox     // a widget tap lands where the news is
         }
         .onReceive(NotificationCenter.default.publisher(for: .oracleServiceIssue)) { _ in takeServiceIssue() }
+        .onReceive(NotificationCenter.default.publisher(for: .oracleServiceMessage)) { _ in takeServiceIssue() }
         .onAppear { takeServiceIssue() }
         .onReceive(NotificationCenter.default.publisher(for: .oracleFilesDropped)) { n in
             if let count = n.object as? Int { store.noteDrop(count); section = .inbox }
@@ -74,6 +75,7 @@ public struct OracleRootView: View {
     #if os(macOS)
     private func takeServiceIssue() {
         if let d = ServiceInbox.pendingIssue { draft = d; ServiceInbox.pendingIssue = nil }
+        if let m = ServiceInbox.pendingMessage { heyText = m; ServiceInbox.pendingMessage = nil }
     }
     #endif
 
@@ -820,6 +822,7 @@ public extension Notification.Name {
     static let oracleFilesDropped = Notification.Name("oracleFilesDropped")
     static let oracleOpenSection = Notification.Name("oracleOpenSection")
     static let oracleServiceIssue = Notification.Name("oracleServiceIssue")
+    static let oracleServiceMessage = Notification.Name("oracleServiceMessage")
 }
 
 #if os(macOS)
@@ -877,6 +880,18 @@ public final class OracleAppDelegate: NSObject, NSApplicationDelegate {
         if !urls.isEmpty { deliver(urls) }
     }
 
+    /// "Message <Name> Oracle": the selection goes into the app's message box (maw herdr hey); Nat checks the
+    /// target pane and sends with ⌘↩ — nothing is sent by the right-click itself.
+    @MainActor @objc public func messageOracle(_ pboard: NSPasteboard, userData: String, error: AutoreleasingUnsafeMutablePointer<NSString>) {
+        let (urls, text) = Self.read(pboard)
+        let t = (text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let links = urls.map { $0.isFileURL ? $0.path : $0.absoluteString }.filter { $0 != t }
+        ServiceInbox.pendingMessage = ([t] + links).filter { !$0.isEmpty }.joined(separator: "\n")
+        NSApp.activate(ignoringOtherApps: true)
+        NSApp.windows.first { $0.canBecomeMain }?.makeKeyAndOrderFront(nil)
+        NotificationCenter.default.post(name: .oracleServiceMessage, object: nil)
+    }
+
     static func read(_ pb: NSPasteboard) -> (urls: [URL], text: String?) {
         ((pb.readObjects(forClasses: [NSURL.self], options: nil) as? [URL]) ?? [], pb.string(forType: .string))
     }
@@ -893,7 +908,7 @@ public final class OracleAppDelegate: NSObject, NSApplicationDelegate {
 }
 
 /// A right-click issue that arrives before (or while) the window shows: the root view picks it up.
-@MainActor enum ServiceInbox { static var pendingIssue: IssueDraft? }
+@MainActor enum ServiceInbox { static var pendingIssue: IssueDraft?; static var pendingMessage: String? }
 #endif
 
 /// The whole app in one scene; a thin app's @main body is just `OracleScene(config:)`.

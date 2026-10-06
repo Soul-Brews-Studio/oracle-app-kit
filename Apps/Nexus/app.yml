@@ -51,6 +51,12 @@ targets:
             NSSendTypes: [public.utf8-plain-text, public.plain-text, public.url, public.file-url]
             NSSendFileTypes: [public.item]
             NSRequiredContext: {}
+          - NSMenuItem: { default: "Message Nexus Oracle" }
+            NSMessage: messageOracle
+            NSPortName: Nexus
+            NSSendTypes: [public.utf8-plain-text, public.plain-text, public.url, public.file-url]
+            NSSendFileTypes: [public.item]
+            NSRequiredContext: {}
   NexusWidget:
     type: app-extension
     supportedDestinations: [macOS, iOS]

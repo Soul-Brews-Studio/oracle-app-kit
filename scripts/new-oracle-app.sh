@@ -145,6 +145,12 @@ targets:
             NSSendTypes: [public.utf8-plain-text, public.plain-text, public.url, public.file-url]
             NSSendFileTypes: [public.item]
             NSRequiredContext: {}
+          - NSMenuItem: { default: "Message $N Oracle" }
+            NSMessage: messageOracle
+            NSPortName: $N
+            NSSendTypes: [public.utf8-plain-text, public.plain-text, public.url, public.file-url]
+            NSSendFileTypes: [public.item]
+            NSRequiredContext: {}
   ${N}Widget:
     type: app-extension
     supportedDestinations: [macOS, iOS]

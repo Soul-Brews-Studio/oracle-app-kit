@@ -51,6 +51,12 @@ targets:
             NSSendTypes: [public.utf8-plain-text, public.plain-text, public.url, public.file-url]
             NSSendFileTypes: [public.item]
             NSRequiredContext: {}
+          - NSMenuItem: { default: "Message Pulse Oracle" }
+            NSMessage: messageOracle
+            NSPortName: Pulse
+            NSSendTypes: [public.utf8-plain-text, public.plain-text, public.url, public.file-url]
+            NSSendFileTypes: [public.item]
+            NSRequiredContext: {}
   PulseWidget:
     type: app-extension
     supportedDestinations: [macOS, iOS]

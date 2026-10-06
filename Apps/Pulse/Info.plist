@@ -100,6 +100,30 @@
 				<string>public.file-url</string>
 			</array>
 		</dict>
+		<dict>
+			<key>NSMenuItem</key>
+			<dict>
+				<key>default</key>
+				<string>Message Pulse Oracle</string>
+			</dict>
+			<key>NSMessage</key>
+			<string>messageOracle</string>
+			<key>NSPortName</key>
+			<string>Pulse</string>
+			<key>NSRequiredContext</key>
+			<dict/>
+			<key>NSSendFileTypes</key>
+			<array>
+				<string>public.item</string>
+			</array>
+			<key>NSSendTypes</key>
+			<array>
+				<string>public.utf8-plain-text</string>
+				<string>public.plain-text</string>
+				<string>public.url</string>
+				<string>public.file-url</string>
+			</array>
+		</dict>
 	</array>
 	<key>UILaunchScreen</key>
 	<dict/>

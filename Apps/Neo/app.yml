@@ -51,6 +51,12 @@ targets:
             NSSendTypes: [public.utf8-plain-text, public.plain-text, public.url, public.file-url]
             NSSendFileTypes: [public.item]
             NSRequiredContext: {}
+          - NSMenuItem: { default: "Message Neo Oracle" }
+            NSMessage: messageOracle
+            NSPortName: Neo
+            NSSendTypes: [public.utf8-plain-text, public.plain-text, public.url, public.file-url]
+            NSSendFileTypes: [public.item]
+            NSRequiredContext: {}
   NeoWidget:
     type: app-extension
     supportedDestinations: [macOS, iOS]
