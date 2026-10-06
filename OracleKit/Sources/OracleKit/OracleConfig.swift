@@ -31,6 +31,8 @@ public struct OracleConfig: Sendable {
 
     /// App Group shared by this oracle's app and its widget (team-prefixed, as macOS expects).
     public var widgetGroup: String { "6K28WEXX78.co.laris.oracle." + name.lowercased() }
+    /// The widget extension's bundle id — its sandbox container is the one path it can surely read.
+    public var widgetBundleId: String { "co.laris.oracle." + name.lowercased() + ".widget" }
 
     /// The same identity with an app's own panels attached (the widget target uses the bare config).
     public func with(extras: Extras) -> OracleConfig { var c = self; c.extras = extras; return c }

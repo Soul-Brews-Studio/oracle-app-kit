@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 /// What a widget shows. The app writes it after every refresh; the (sandboxed) widget only reads it.
 public struct OracleSnapshot: Codable, Sendable, Equatable {
@@ -19,20 +20,67 @@ public struct OracleSnapshot: Codable, Sendable, Equatable {
     }
 }
 
-/// Snapshot file in the oracle's App Group container (shared by the app and its widget).
+let widgetLog = Logger(subsystem: "co.laris.oracle.kit", category: "widget")
+
+/// Where the snapshot lives. Measured on m5 (neo ψ/lab/02-herdr-widget, 2026-09-16): a sandboxed widget
+/// can read its OWN container; outside paths are denied. So the unsandboxed app writes into
+/// ~/Library/Containers/<widget id>/Data/Library/Application Support/OracleKit/ — and also the App Group.
 public enum SnapshotStore {
-    static func url(_ group: String) -> URL? {
-        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: group)?
-            .appendingPathComponent("snapshot.json")
+    static let fileName = "snapshot.json"
+
+    static func groupURL(_ group: String) -> URL? {
+        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: group)?.appendingPathComponent(fileName)
     }
-    public static func write(_ s: OracleSnapshot, group: String) {
-        guard let u = url(group) else { return }
+    /// Inside the widget's sandbox this resolves to its container; called by the widget itself.
+    static func ownURL() -> URL? {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
+            .appendingPathComponent("OracleKit").appendingPathComponent(fileName)
+    }
+    /// The same file seen from the (unsandboxed) app.
+    static func widgetContainerURL(_ widgetId: String) -> URL {
+        URL(fileURLWithPath: NSHomeDirectory())
+            .appendingPathComponent("Library/Containers/\(widgetId)/Data/Library/Application Support/OracleKit/\(fileName)")
+    }
+
+    public static func write(_ s: OracleSnapshot, config: OracleConfig) {
         let e = JSONEncoder(); e.dateEncodingStrategy = .iso8601
-        try? e.encode(s).write(to: u, options: .atomic)
+        guard let data = try? e.encode(s) else { return }
+        var targets: [URL] = []
+        if let g = groupURL(config.widgetGroup) { targets.append(g) }
+        #if os(macOS)
+        targets.append(widgetContainerURL(config.widgetBundleId))
+        #endif
+        for u in targets {
+            try? FileManager.default.createDirectory(at: u.deletingLastPathComponent(), withIntermediateDirectories: true)
+            do { try data.write(to: u, options: .atomic) }
+            catch { widgetLog.error("app write failed \(u.path, privacy: .public): \(error.localizedDescription, privacy: .public)") }
+        }
     }
-    public static func read(group: String) -> OracleSnapshot? {
-        guard let u = url(group), let d = try? Data(contentsOf: u) else { return nil }
+
+    /// Widget side: own container first, then the App Group. Leaves a read receipt (the lab's tripwire)
+    /// in its own Caches: ~/Library/Containers/<widget id>/Data/Library/Caches/oracle-last-read.json
+    public static func read(config: OracleConfig, stage: String) -> OracleSnapshot? {
         let dec = JSONDecoder(); dec.dateDecodingStrategy = .iso8601
-        return try? dec.decode(OracleSnapshot.self, from: d)
+        var tried: [[String: String]] = []
+        var found: OracleSnapshot?
+        for (label, url) in [("own", ownURL()), ("group", groupURL(config.widgetGroup))] {
+            guard let url else { tried.append(["source": label, "result": "no url"]); continue }
+            do {
+                let d = try Data(contentsOf: url)
+                let s = try dec.decode(OracleSnapshot.self, from: d)
+                tried.append(["source": label, "result": "ok \(d.count) B", "path": url.path])
+                found = s; break
+            } catch {
+                tried.append(["source": label, "result": "\(error)".prefix(160).description, "path": url.path])
+            }
+        }
+        let receipt: [String: Any] = ["at": ISO8601DateFormatter().string(from: Date()), "stage": stage,
+                                      "found": found != nil, "tried": tried]
+        if let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first,
+           let d = try? JSONSerialization.data(withJSONObject: receipt, options: [.prettyPrinted]) {
+            try? d.write(to: caches.appendingPathComponent("oracle-last-read.json"))
+        }
+        widgetLog.notice("widget \(stage, privacy: .public) found=\(found != nil, privacy: .public) tried=\(String(describing: tried), privacy: .public)")
+        return found
     }
 }

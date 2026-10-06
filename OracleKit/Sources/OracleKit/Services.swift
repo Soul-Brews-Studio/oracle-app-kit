@@ -55,7 +55,7 @@ public final class OracleStore: ObservableObject {
                                   working: tree.filter { $0.depth == 2 && $0.status == "working" }.count,
                                   panes: panes.count, prs: prs.count, issues: issues.count, inbox: inbox.count,
                                   topPR: prs.first.map { "#\($0.number) \($0.title)" }, updated: Date())
-        SnapshotStore.write(snap, group: config.widgetGroup)
+        SnapshotStore.write(snap, config: config)
         #if canImport(WidgetKit)
         WidgetCenter.shared.reloadAllTimelines()
         #endif

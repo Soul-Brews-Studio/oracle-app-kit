@@ -12,13 +12,13 @@ public struct OracleProvider: TimelineProvider {
     let config: OracleConfig
     public init(config: OracleConfig) { self.config = config }
     public func placeholder(in context: Context) -> OracleEntry { OracleEntry(date: Date(), snap: .placeholder(config), stale: false) }
-    public func getSnapshot(in context: Context, completion: @escaping (OracleEntry) -> Void) { completion(entry()) }
+    public func getSnapshot(in context: Context, completion: @escaping (OracleEntry) -> Void) { completion(entry("snapshot")) }
     public func getTimeline(in context: Context, completion: @escaping (Timeline<OracleEntry>) -> Void) {
         // the app pushes reloads after each refresh; this is only the fallback poll
-        completion(Timeline(entries: [entry()], policy: .after(Date().addingTimeInterval(300))))
+        completion(Timeline(entries: [entry("timeline")], policy: .after(Date().addingTimeInterval(300))))
     }
-    func entry() -> OracleEntry {
-        if let s = SnapshotStore.read(group: config.widgetGroup) {
+    func entry(_ stage: String) -> OracleEntry {
+        if let s = SnapshotStore.read(config: config, stage: stage) {
             return OracleEntry(date: Date(), snap: s, stale: Date().timeIntervalSince(s.updated) > 600)
         }
         var p = OracleSnapshot.placeholder(config); p.working = 0; p.panes = 0; p.prs = 0; p.issues = 0; p.inbox = 0; p.topPR = "open the \(config.name) app once"
@@ -38,7 +38,7 @@ public struct OracleWidgetView: View {
                     Circle().fill(c.gradient).frame(width: 26, height: 26)
                     Image(systemName: e.snap.symbol).font(.caption.bold()).foregroundStyle(.white)
                 }
-                Text(e.snap.name).font(.headline)
+                Text(e.snap.name + " Oracle").font(.headline).lineLimit(1).minimumScaleFactor(0.8)
                 Spacer()
                 Circle().fill(e.snap.working > 0 ? c : .gray).frame(width: 8, height: 8)
             }
