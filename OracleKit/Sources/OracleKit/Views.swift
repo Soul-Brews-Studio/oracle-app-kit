@@ -24,32 +24,18 @@ public struct OracleRootView: View {
 
     public var body: some View {
         NavigationSplitView {
-            List(selection: $section) {
-                IdentityCard(config: c, acts: store.activity)
-                    .listRowSeparator(.hidden)
-                Label("Work", systemImage: "square.stack.3d.up").badge(store.work.count).tag(Section.status)
-                #if os(macOS)
-                Label("Inbox", systemImage: store.unread.isEmpty ? "tray" : "tray.full")
-                    .badge(store.unread.isEmpty ? Text(store.inbox.count >= 300 ? "300+" : "\(store.inbox.count)")
-                                                : Text("\(store.unread.count) new"))
-                    .tag(Section.inbox)
-                #endif
-                Label("Pull requests", systemImage: "arrow.triangle.pull").badge(store.prs.count).tag(Section.prs)
-                Label("Issues", systemImage: "exclamationmark.circle").badge(store.issues.count).tag(Section.issues)
-                ForEach(c.extras.sections) { x in Label(x.title, systemImage: x.symbol).tag(Section.extra(x.id)) }
-            }
-            .navigationSplitViewColumnWidth(min: 230, ideal: 260)
+            OracleSidebar(store: store, section: $section)
+                .navigationSplitViewColumnWidth(min: 240, ideal: 272)
         } detail: {
             detail
                 .toolbar {
-                    ToolbarItem { Button { Task { await store.refresh() } } label: { Image(systemName: "arrow.clockwise") } }
                     #if os(iOS)
+                    ToolbarItem { Button { Task { await store.refresh() } } label: { Image(systemName: "arrow.clockwise") } }
                     ToolbarItem { Button { showSettings = true } label: { Image(systemName: "gear") } }
                     #endif
                 }
         }
         .tint(c.color)
-        .overlay(alignment: .bottom) { footer }
         #if os(macOS)
         .dropDestination(for: URL.self) { urls, _ in store.receive(urls) > 0 } isTargeted: { dropTargeted = $0 }
         .overlay {
@@ -88,35 +74,118 @@ public struct OracleRootView: View {
         }
     }
 
-    private var footer: some View {
-        HStack(spacing: 10) {
-            if let d = store.lastDrop { Label(d, systemImage: "tray.and.arrow.down").foregroundStyle(c.color) }
-            ForEach(store.problems, id: \.self) { Label($0, systemImage: "exclamationmark.triangle").foregroundStyle(.orange) }
-            Spacer()
-            if let t = store.lastRefresh { Text("updated \(t.formatted(date: .omitted, time: .standard))").foregroundStyle(.secondary) }
+}
+
+// MARK: - Sidebar, after ARRA Chat: brand row · pill nav · "where this runs" footer
+
+struct OracleSidebar: View {
+    @ObservedObject var store: OracleStore
+    @Binding var section: Section?
+    var body: some View {
+        let c = store.config
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 11) {
+                ZStack {
+                    Circle().fill(c.color.gradient).frame(width: 30, height: 30)
+                    Image(systemName: c.symbol).font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
+                }
+                Text("\(c.name) Oracle").font(.custom("Avenir Next", size: 20).weight(.semibold)).tracking(-0.4).lineLimit(1)
+                Spacer(minLength: 4)
+                SidebarIconButton(symbol: "arrow.clockwise", help: "Refresh") { Task { await store.refresh() } }
+            }
+            .padding(.horizontal, 18).frame(height: 70)
+            VStack(spacing: 3) {
+                NavRow(symbol: "square.stack.3d.up", title: "Work", badge: store.work.isEmpty ? nil : "\(store.work.count)",
+                       on: (section ?? .status) == .status, accent: c.color) { section = .status }
+                #if os(macOS)
+                NavRow(symbol: store.unread.isEmpty ? "tray" : "tray.full", title: "Inbox",
+                       badge: store.unread.isEmpty ? (store.inbox.isEmpty ? nil : store.inbox.count >= 300 ? "300+" : "\(store.inbox.count)")
+                                                   : "\(store.unread.count) new",
+                       on: section == .inbox, accent: c.color) { section = .inbox }
+                #endif
+                NavRow(symbol: "arrow.triangle.pull", title: "Pull requests", badge: store.prs.isEmpty ? nil : "\(store.prs.count)",
+                       on: section == .prs, accent: c.color) { section = .prs }
+                NavRow(symbol: "exclamationmark.circle", title: "Issues", badge: store.issues.isEmpty ? nil : "\(store.issues.count)",
+                       on: section == .issues, accent: c.color) { section = .issues }
+                ForEach(c.extras.sections) { x in
+                    NavRow(symbol: x.symbol, title: x.title, badge: nil, on: section == .extra(x.id), accent: c.color) { section = .extra(x.id) }
+                }
+            }
+            .padding(.horizontal, 12)
+            Spacer(minLength: 16)
+            footer(c)
         }
-        .font(.caption).padding(.horizontal, 12).padding(.vertical, 6).background(.bar)
+        .frame(maxHeight: .infinity, alignment: .top)
+    }
+
+    /// Where this runs and how fresh it is — ARRA's "Local on this Mac" block.
+    private func footer(_ c: OracleConfig) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(spacing: 8) {
+                Circle().fill(store.problems.isEmpty ? Color.green : Color.orange).frame(width: 8, height: 8)
+                Text(store.problems.isEmpty ? "Live on this Mac" : "Needs a look")
+                    .font(.custom("Avenir Next", size: 13).weight(.semibold))
+            }
+            Text(c.repoSlug).font(.system(size: 11, design: .monospaced)).foregroundStyle(.primary.opacity(0.85))
+            if let t = store.lastRefresh {
+                Text("herdr · maw · gh — updated \(t.formatted(date: .omitted, time: .shortened))")
+                    .font(.system(size: 11)).foregroundStyle(.secondary)
+            }
+            if let d = store.lastDrop {
+                Label(d, systemImage: "tray.and.arrow.down").font(.system(size: 11)).foregroundStyle(c.color)
+            }
+            ForEach(store.problems, id: \.self) { p in
+                Text(p).font(.system(size: 11)).foregroundStyle(.orange).textSelection(.enabled)
+            }
+        }
+        .padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .overlay(alignment: .top) { Divider().opacity(0.6) }
     }
 }
 
-struct IdentityCard: View {
-    let config: OracleConfig; let acts: [OracleSnapshot.Activity]
+struct NavRow: View {
+    let symbol: String, title: String
+    let badge: String?
+    let on: Bool
+    let accent: Color
+    let action: () -> Void
+    @State private var hover = false
     var body: some View {
-        let need = acts.filter { $0.status == "blocked" || $0.status == "done" }.count
-        let working = acts.filter { $0.status == "working" }.count
-        HStack(spacing: 12) {
-            ZStack {
-                Circle().fill(config.color.gradient).frame(width: 48, height: 48)
-                Image(systemName: config.symbol).font(.title2.weight(.semibold)).foregroundStyle(.white)
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: symbol).font(.system(size: 14, weight: .medium)).frame(width: 18)
+                Text(title).font(.custom("Avenir Next", size: 15).weight(on ? .semibold : .medium)).lineLimit(1)
+                Spacer(minLength: 4)
+                if let badge {
+                    Text(badge).font(.system(size: 12, weight: .medium).monospacedDigit())
+                        .foregroundStyle(on ? accent : Color.secondary)
+                }
             }
-            VStack(alignment: .leading, spacing: 2) {
-                Text(config.name).font(.title2.bold())
-                Text(config.tagline).font(.callout).foregroundStyle(.secondary)
-                Text(config.repoSlug).font(.caption.monospaced()).foregroundStyle(.secondary)
-                Text(need > 0 ? "\(need) need you" : working > 0 ? "\(working) working" : "idle").font(.caption.bold())
-                    .foregroundStyle(need + working > 0 ? config.color : .secondary)
-            }
-        }.padding(.vertical, 8)
+            .foregroundStyle(on ? accent : Color.primary.opacity(0.8))
+            .padding(.horizontal, 14).padding(.vertical, 10)
+            .background(RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(on ? accent.opacity(0.16) : (hover ? Color.primary.opacity(0.06) : Color.clear)))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hover = $0 }
+    }
+}
+
+struct SidebarIconButton: View {
+    let symbol: String, help: String
+    let action: () -> Void
+    @State private var hover = false
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: symbol).font(.system(size: 13, weight: .medium))
+                .frame(width: 30, height: 30)
+                .foregroundStyle(hover ? Color.primary : Color.secondary)
+                .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(hover ? Color.primary.opacity(0.08) : Color.clear))
+        }
+        .buttonStyle(.plain).help(help)
+        .onHover { hover = $0 }
     }
 }
 
