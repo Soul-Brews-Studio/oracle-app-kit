@@ -63,10 +63,17 @@ struct ${N}StatusWidget: Widget {
         StaticConfiguration(kind: kind, provider: OracleProvider(config: .${low})) { OracleWidgetView(entry: \$0) }
             .configurationDisplayName("$N Oracle")
             .description("$N Oracle: working panes, open PRs, issues and inbox.")
-            .supportedFamilies([.systemSmall, .systemMedium])
+            .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }
 SWIFT
+# the widget's emblem: the oracle's Codex icon when design/icons/<Name>.png exists (else an SF Symbol)
+if [ -f $R/design/icons/$N.png ]; then
+  E=$D/Widget/Assets.xcassets/Emblem.imageset; mkdir -p $E
+  print -r -- '{"info":{"version":1,"author":"xcode"}}' > $D/Widget/Assets.xcassets/Contents.json
+  sips -Z 96 $R/design/icons/$N.png --out $E/emblem.png >/dev/null
+  print -r -- '{"images":[{"idiom":"universal","filename":"emblem.png"}],"info":{"version":1,"author":"xcode"}}' > $E/Contents.json
+fi
 cat > $D/${N}.entitlements <<PL
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

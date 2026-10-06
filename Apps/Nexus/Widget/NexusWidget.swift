@@ -17,6 +17,6 @@ struct NexusStatusWidget: Widget {
         StaticConfiguration(kind: kind, provider: OracleProvider(config: .nexus)) { OracleWidgetView(entry: $0) }
             .configurationDisplayName("Nexus Oracle")
             .description("Nexus Oracle: working panes, open PRs, issues and inbox.")
-            .supportedFamilies([.systemSmall, .systemMedium])
+            .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }

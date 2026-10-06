@@ -38,6 +38,12 @@ public final class OracleStore: ObservableObject {
         async let ib = Task.detached(priority: .utility) { OracleStore.scanInbox(path) }.value   // off the main thread
         let (tree, gh, inbox) = await (t, g, ib)
         if let tree { self.tree = tree.rows; self.panes = tree.panes } else { issuesSeen.append("maw / herdr not answering") }
+        self.activity = await loadActivity().map { a in
+            var a = a
+            if let prev = statusSince[a.place], prev.status == a.status { a.since = prev.since }
+            else { a.since = Date(); statusSince[a.place] = (a.status, a.since!) }
+            return a
+        }
         if let gh { self.prs = gh.0; self.issues = gh.1 } else { issuesSeen.append("gh failed — run `gh auth status`") }
         self.inbox = inbox
         #else
@@ -49,16 +55,35 @@ public final class OracleStore: ObservableObject {
         publishSnapshot()
     }
 
+    @Published public private(set) var activity: [OracleSnapshot.Activity] = []
+    private var statusSince: [String: (status: String, since: Date)] = [:]
+
     /// Hand the widget its numbers, then ask WidgetKit to redraw.
     private func publishSnapshot() {
+        let rank = ["blocked": 0, "done": 1, "working": 2, "idle": 3]
+        let acts = activity.sorted { (rank[$0.status] ?? 4, $0.place) < (rank[$1.status] ?? 4, $1.place) }
+        let dayAgo = Date().addingTimeInterval(-86_400)
+        let handoff = inbox.first { $0.folder == "handoff" }.map { OracleStore.prettify($0.name) }
         let snap = OracleSnapshot(name: config.name, colorHex: config.colorHex, symbol: config.symbol,
-                                  working: tree.filter { $0.depth == 2 && $0.status == "working" }.count,
-                                  panes: panes.count, prs: prs.count, issues: issues.count, inbox: inbox.count,
-                                  topPR: prs.first.map { "#\($0.number) \($0.title)" }, updated: Date())
+                                  working: acts.filter { $0.status == "working" }.count,
+                                  panes: acts.count, prs: prs.count, issues: issues.count, inbox: inbox.count,
+                                  topPR: prs.first.map { "#\($0.number) \($0.title)" }, updated: Date(),
+                                  needsYou: acts.filter { $0.status == "blocked" || $0.status == "done" }.count,
+                                  activity: Array(acts.prefix(4)),
+                                  prTitles: prs.prefix(3).map { "#\($0.number) \($0.title)" },
+                                  inboxNew: inbox.filter { $0.modified > dayAgo }.count,
+                                  latestHandoff: handoff)
         SnapshotStore.write(snap, config: config)
         #if canImport(WidgetKit)
         WidgetCenter.shared.reloadAllTimelines()
         #endif
+    }
+
+    /// "2026-10-05_13-47_fido-key-blocked-on-hardware.md" → "fido key blocked on hardware"
+    nonisolated static func prettify(_ file: String) -> String {
+        var s = (file as NSString).deletingPathExtension
+        s = s.replacingOccurrences(of: #"^\d{4}-\d{2}-\d{2}[_-]?(\d{2}[-_:]?\d{2}[_-]?)?"#, with: "", options: .regularExpression)
+        return s.replacingOccurrences(of: "[_-]+", with: " ", options: .regularExpression).trimmingCharacters(in: .whitespaces)
     }
 
     #if os(macOS)
@@ -75,6 +100,99 @@ public final class OracleStore: ObservableObject {
         guard let panes = await loadPanes() else { return nil }      // fallback: herdr directly
         return (panes.map { StatusRow(id: $0.id, depth: 2, glyph: "", live: $0.status == "working",
                                       title: "\($0.agent)  \($0.name)", detail: "\($0.session):\($0.paneId) · \($0.status)", status: $0.status) }, panes)
+    }
+
+    /// Each pane's current task: herdr's terminal title (Claude Code titles a session by its topic).
+    /// A pane named after the oracle carries no task, so fall back to its tab label.
+    private func loadActivity() async -> [OracleSnapshot.Activity] {
+        guard let table = await Shell.run("herdr", ["session", "list"]) else { return [] }
+        let repoName = (config.localPath as NSString).lastPathComponent
+        let herdrWT = NSHomeDirectory() + "/.herdr/worktrees/" + repoName
+        var out: [OracleSnapshot.Activity] = []
+        for s in HerdrParse.runningSessions(table: table) {
+            guard let json = await Shell.run("herdr", ["--session", s, "agent", "list"]),
+                  let root = try? JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any],
+                  let list = (root["result"] as? [String: Any])?["agents"] as? [[String: Any]] else { continue }
+            for a in list {
+                let cwd = a["cwd"] as? String ?? ""
+                guard HerdrParse.belongs(AgentPane(session: s, paneId: "", name: "", agent: "", status: "", cwd: cwd, title: ""), to: config.localPath)
+                        || cwd == herdrWT || cwd.hasPrefix(herdrWT + "/") else { continue }
+                let pane = a["pane_id"] as? String ?? "?"
+                var title = (a["terminal_title_stripped"] as? String ?? "").trimmingCharacters(in: .whitespaces)
+                let generic = title.isEmpty || title == (a["name"] as? String) || title.lowercased() == repoName.lowercased()
+                    || title == "Claude Code" || title == "zsh"
+                if generic {
+                    // what was last asked of this pane: its own transcript's last typed prompt
+                    let sid = (a["agent_session"] as? [String: Any])?["value"] as? String
+                    if (a["agent"] as? String) == "claude", let sid, let ask = OracleStore.lastPrompt(cwd: cwd, session: sid) {
+                        title = ask
+                    } else {
+                        let inWT = cwd.hasPrefix(config.localPath + "/wt/") || cwd.hasPrefix(herdrWT + "/")
+                        let leaf = (cwd as NSString).lastPathComponent
+                        title = inWT ? (leaf.hasPrefix("worktree") ? leaf : "worktree " + leaf) : "\(config.name) main"
+                    }
+                }
+                out.append(.init(title: title, status: a["agent_status"] as? String ?? "idle", place: "\(s):\(pane)"))
+            }
+        }
+        return out
+    }
+
+    /// Last prompt a human (or agent) typed into a Claude session: the tail of
+    /// ~/.claude/projects/<cwd with / and . as ->/<session>.jsonl, cached by file size.
+    nonisolated(unsafe) static var promptCache: [String: (size: UInt64, prompt: String?)] = [:]
+    /// One line of what a human asked, or nil for machine traffic (pane reports, agent relays, wrappers).
+    nonisolated static func humanAsk(_ raw: String) -> String? {
+        var s = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        // a slash command: <command-name>/impeccable</command-name> … <command-args>styling …</command-args>
+        if let n = s.range(of: #"<command-name>[^<]*</command-name>"#, options: .regularExpression) {
+            let name = s[n].replacingOccurrences(of: #"</?command-name>"#, with: "", options: .regularExpression)
+            var args = ""
+            if let r = s.range(of: #"<command-args>[\s\S]*?</command-args>"#, options: .regularExpression) {
+                args = s[r].replacingOccurrences(of: #"</?command-args>"#, with: "", options: .regularExpression)
+            }
+            s = (name + " " + args).trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        // pasted text: keep the inside, unless it is a pane/terminal report
+        if s.hasPrefix("<pasted_content") {
+            s = s.replacingOccurrences(of: #"</?pasted_content[^>]*>"#, with: "", options: .regularExpression)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        let machine = ["<", "PANE ", "TERMINAL ", "[from ", "[reply", "[CHECK-IN", "[checkin", "[SYSTEM", "[Request interrupted", "Caveat:", "[Image"]
+        if s.isEmpty || machine.contains(where: { s.hasPrefix($0) }) { return nil }
+        s = String(s.split(separator: "\n").first ?? "")
+        s = s.replacingOccurrences(of: #"^[❯>$#]\s+"#, with: "", options: .regularExpression).trimmingCharacters(in: .whitespaces)
+        return s.isEmpty ? nil : s
+    }
+
+    nonisolated static func lastPrompt(cwd: String, session: String) -> String? {
+        let dir = cwd.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ".", with: "-")
+        let path = NSHomeDirectory() + "/.claude/projects/" + dir + "/" + session + ".jsonl"
+        guard let attrs = try? FileManager.default.attributesOfItem(atPath: path),
+              let size = (attrs[.size] as? NSNumber)?.uint64Value else { return nil }
+        if let c = promptCache[path], c.size == size { return c.prompt }
+        guard let fh = FileHandle(forReadingAtPath: path) else { return nil }
+        defer { try? fh.close() }
+        let window: UInt64 = 2 * 1024 * 1024
+        try? fh.seek(toOffset: size > window ? size - window : 0)
+        let text = String(decoding: fh.readDataToEndOfFile(), as: UTF8.self)
+        var found: String?
+        for line in text.split(separator: "\n").reversed() {
+            guard line.contains("\"type\":\"user\""),
+                  let o = try? JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any],
+                  let m = o["message"] as? [String: Any] else { continue }
+            var t: String?
+            if let c = m["content"] as? String { t = c }
+            else if let parts = m["content"] as? [[String: Any]] {
+                if parts.contains(where: { ($0["type"] as? String) == "tool_result" }) { continue }
+                t = parts.compactMap { ($0["type"] as? String) == "text" ? $0["text"] as? String : nil }.first
+            }
+            guard let raw = t, let s = OracleStore.humanAsk(raw) else { continue }
+            found = s.count > 70 ? String(s.prefix(69)) + "…" : s
+            break
+        }
+        promptCache[path] = (size, found)
+        return found
     }
 
     private func loadPanes() async -> [AgentPane]? {

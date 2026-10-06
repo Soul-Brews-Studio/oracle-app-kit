@@ -33,3 +33,14 @@ final class MawParseTests: XCTestCase {
         XCTAssertFalse(rows.contains { $0.id.contains("neo-other") })  // sibling repo with the same prefix is not ours
     }
 }
+
+final class HumanAskTests: XCTestCase {
+    func testFilters() {
+        XCTAssertNil(OracleStore.humanAsk("\n\n<pasted_content id=\"d1\">\nPANE w22:p7 widget-titles\n** BUILD"))
+        XCTAssertNil(OracleStore.humanAsk("[from Pulse, laris-co:wA:p1, for Nat] Heads-up"))
+        XCTAssertEqual(OracleStore.humanAsk("❯ check again cc-chat-ui (Tauri)"), "check again cc-chat-ui (Tauri)")
+        XCTAssertEqual(OracleStore.humanAsk("<command-message>impeccable</command-message>\n<command-name>/impeccable</command-name>\n<command-args>styling do /oracle-prism</command-args>"),
+                       "/impeccable styling do /oracle-prism")
+        XCTAssertEqual(OracleStore.humanAsk("merge all to main"), "merge all to main")
+    }
+}

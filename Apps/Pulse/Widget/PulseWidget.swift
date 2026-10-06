@@ -17,6 +17,6 @@ struct PulseStatusWidget: Widget {
         StaticConfiguration(kind: kind, provider: OracleProvider(config: .pulse)) { OracleWidgetView(entry: $0) }
             .configurationDisplayName("Pulse Oracle")
             .description("Pulse Oracle: working panes, open PRs, issues and inbox.")
-            .supportedFamilies([.systemSmall, .systemMedium])
+            .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }

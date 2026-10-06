@@ -17,6 +17,6 @@ struct NeoStatusWidget: Widget {
         StaticConfiguration(kind: kind, provider: OracleProvider(config: .neo)) { OracleWidgetView(entry: $0) }
             .configurationDisplayName("Neo Oracle")
             .description("Neo Oracle: working panes, open PRs, issues and inbox.")
-            .supportedFamilies([.systemSmall, .systemMedium])
+            .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }
