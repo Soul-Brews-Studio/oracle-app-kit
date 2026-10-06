@@ -4,9 +4,12 @@ targets:
     supportedDestinations: [macOS, iOS]
     sources:
       - path: Apps/Neo
-        excludes: ["app.yml", "Info.plist"]
+        excludes: ["app.yml", "Info.plist", "Widget/**", "*.entitlements"]
     dependencies:
       - package: OracleKit
+      - target: NeoWidget
+    entitlements:
+      path: Apps/Neo/Neo.entitlements
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: co.laris.oracle.neo
@@ -30,3 +33,31 @@ targets:
             CFBundleTypeRole: Viewer
             LSHandlerRank: Alternate
             LSItemContentTypes: [public.item, public.content, public.folder, public.url, public.data]
+  NeoWidget:
+    type: app-extension
+    supportedDestinations: [macOS, iOS]
+    sources:
+      - path: Apps/Neo/Widget
+        excludes: ["*.entitlements", "Info.plist"]
+      - path: Apps/Neo/NeoConfig.swift
+    dependencies:
+      - package: OracleKit
+      - sdk: WidgetKit.framework
+      - sdk: SwiftUI.framework
+    entitlements:
+      path: Apps/Neo/Widget/NeoWidget.entitlements
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: co.laris.oracle.neo.widget
+        PRODUCT_NAME: NeoWidget
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SKIP_INSTALL: YES
+        ENABLE_APP_SANDBOX: YES
+    info:
+      path: Apps/Neo/Widget/Info.plist
+      properties:
+        CFBundleDisplayName: Neo
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension

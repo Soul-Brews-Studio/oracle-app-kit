@@ -29,6 +29,12 @@ public struct OracleConfig: Sendable {
     }
     public var inboxPath: String { localPath.isEmpty ? "" : localPath + "/ψ/inbox" }
 
+    /// App Group shared by this oracle's app and its widget (team-prefixed, as macOS expects).
+    public var widgetGroup: String { "6K28WEXX78.co.laris.oracle." + name.lowercased() }
+
+    /// The same identity with an app's own panels attached (the widget target uses the bare config).
+    public func with(extras: Extras) -> OracleConfig { var c = self; c.extras = extras; return c }
+
     /// Set once by the app before its scene is built (the delegate reads it).
     nonisolated(unsafe) public static var current = OracleConfig(
         name: "Oracle", tagline: "", repoSlug: "", localPath: "", colorHex: "#64b5f6", symbol: "circle")

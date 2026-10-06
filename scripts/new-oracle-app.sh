@@ -1,13 +1,27 @@
 #!/usr/bin/env zsh
-# new-oracle-app.sh <Name> <org/repo> <mac checkout path> <#hex> <sf-symbol> "<tagline>"
-# Creates Apps/<Name>/ (thin app: config + optional extras), its icon, its xcodegen target, then regenerates.
+# new-oracle-app.sh <Name> <org/repo> <mac checkout path> <#hex> <sf-symbol> "<tagline>" [--update]
+# Creates Apps/<Name>/: the identity (shared with the widget), the app, its Extras, a WidgetKit status
+# widget, entitlements (App Group), icon and xcodegen targets — then regenerates the project.
+# --update rewrites the generated files of an existing app but keeps <Name>Extras.swift and the icon.
 set -e
 N=${1:?Name}; SLUG=${2:?org/repo}; LP=${3:?mac path}; HEX=${4:?#hex}; SYM=${5:?symbol}; TAG=${6:-"$N oracle"}
-R=${0:A:h}/..; D=$R/Apps/$N; low=${(L)N}
-[ -e $D ] && { echo "Apps/$N exists — refusing to overwrite"; exit 2; }
-mkdir -p $D/Assets.xcassets
-print -r -- '{"info":{"version":1,"author":"xcode"}}' > $D/Assets.xcassets/Contents.json
-uv run --quiet --with pillow python $R/scripts/make_icon.py $D/Assets.xcassets/AppIcon.appiconset $HEX ${N[1]}
+UPDATE=0; [[ " $* " == *" --update "* ]] && UPDATE=1
+R=${0:A:h}/..; D=$R/Apps/$N; low=${(L)N}; GROUP="6K28WEXX78.co.laris.oracle.$low"
+[ -e $D ] && [ $UPDATE = 0 ] && { echo "Apps/$N exists — use --update to regenerate (keeps Extras + icon)"; exit 2; }
+mkdir -p $D/Widget $D/Assets.xcassets
+[ -f $D/Assets.xcassets/Contents.json ] || print -r -- '{"info":{"version":1,"author":"xcode"}}' > $D/Assets.xcassets/Contents.json
+[ -d $D/Assets.xcassets/AppIcon.appiconset ] || uv run --quiet --with pillow python $R/scripts/make_icon.py $D/Assets.xcassets/AppIcon.appiconset $HEX ${N[1]}
+cat > $D/${N}Config.swift <<SWIFT
+import OracleKit
+
+/// $N's identity — compiled into both the app and its widget.
+extension OracleConfig {
+    static let ${low} = OracleConfig(
+        name: "$N", tagline: "$TAG", repoSlug: "$SLUG",
+        localPath: OracleConfig.mac("$LP"),
+        colorHex: "$HEX", symbol: "$SYM")
+}
+SWIFT
 cat > $D/${N}App.swift <<SWIFT
 import SwiftUI
 import OracleKit
@@ -17,18 +31,10 @@ struct ${N}App: App {
     #if os(macOS)
     @NSApplicationDelegateAdaptor(OracleAppDelegate.self) var delegate
     #endif
-    var body: some Scene { OracleScene(config: .${low}) }
-}
-
-extension OracleConfig {
-    static let ${low} = OracleConfig(
-        name: "$N", tagline: "$TAG", repoSlug: "$SLUG",
-        localPath: OracleConfig.mac("$LP"),
-        colorHex: "$HEX", symbol: "$SYM",
-        extras: ${N}Extras.extras)
+    var body: some Scene { OracleScene(config: .${low}.with(extras: ${N}Extras.extras)) }
 }
 SWIFT
-cat > $D/${N}Extras.swift <<SWIFT
+[ -f $D/${N}Extras.swift ] || cat > $D/${N}Extras.swift <<SWIFT
 import SwiftUI
 import OracleKit
 
@@ -37,6 +43,35 @@ enum ${N}Extras {
     static let extras = Extras(sections: [])
 }
 SWIFT
+cat > $D/Widget/${N}Widget.swift <<SWIFT
+import WidgetKit
+import SwiftUI
+import OracleKit
+
+@main
+struct ${N}Widgets: WidgetBundle {
+    var body: some Widget { ${N}StatusWidget() }
+}
+
+struct ${N}StatusWidget: Widget {
+    var body: some WidgetConfiguration { OracleWidgetKit.configuration(.${low}) }
+}
+SWIFT
+cat > $D/${N}.entitlements <<PL
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>com.apple.security.application-groups</key><array><string>$GROUP</string></array>
+</dict></plist>
+PL
+cat > $D/Widget/${N}Widget.entitlements <<PL
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>com.apple.security.app-sandbox</key><true/>
+  <key>com.apple.security.application-groups</key><array><string>$GROUP</string></array>
+</dict></plist>
+PL
 cat > $D/app.yml <<YML
 targets:
   $N:
@@ -44,9 +79,12 @@ targets:
     supportedDestinations: [macOS, iOS]
     sources:
       - path: Apps/$N
-        excludes: ["app.yml", "Info.plist"]
+        excludes: ["app.yml", "Info.plist", "Widget/**", "*.entitlements"]
     dependencies:
       - package: OracleKit
+      - target: ${N}Widget
+    entitlements:
+      path: Apps/$N/${N}.entitlements
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: co.laris.oracle.$low
@@ -70,6 +108,34 @@ targets:
             CFBundleTypeRole: Viewer
             LSHandlerRank: Alternate
             LSItemContentTypes: [public.item, public.content, public.folder, public.url, public.data]
+  ${N}Widget:
+    type: app-extension
+    supportedDestinations: [macOS, iOS]
+    sources:
+      - path: Apps/$N/Widget
+        excludes: ["*.entitlements", "Info.plist"]
+      - path: Apps/$N/${N}Config.swift
+    dependencies:
+      - package: OracleKit
+      - sdk: WidgetKit.framework
+      - sdk: SwiftUI.framework
+    entitlements:
+      path: Apps/$N/Widget/${N}Widget.entitlements
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: co.laris.oracle.$low.widget
+        PRODUCT_NAME: ${N}Widget
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SKIP_INSTALL: YES
+        ENABLE_APP_SANDBOX: YES
+    info:
+      path: Apps/$N/Widget/Info.plist
+      properties:
+        CFBundleDisplayName: $N
+        CFBundleShortVersionString: \$(MARKETING_VERSION)
+        CFBundleVersion: \$(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
 YML
 zsh $R/scripts/regen.sh
-echo "created Apps/$N"
+echo "ready Apps/$N (+ ${N}Widget)"

@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(WidgetKit)
+import WidgetKit
+#endif
 
 /// Live state of one oracle, refreshed on a timer. macOS reads herdr, gh and ψ/ directly;
 /// iPad reads GitHub over REST with a token from the Keychain.
@@ -43,6 +46,19 @@ public final class OracleStore: ObservableObject {
         #endif
         problems = issuesSeen
         lastRefresh = Date()
+        publishSnapshot()
+    }
+
+    /// Hand the widget its numbers, then ask WidgetKit to redraw.
+    private func publishSnapshot() {
+        let snap = OracleSnapshot(name: config.name, colorHex: config.colorHex, symbol: config.symbol,
+                                  working: tree.filter { $0.depth == 2 && $0.status == "working" }.count,
+                                  panes: panes.count, prs: prs.count, issues: issues.count, inbox: inbox.count,
+                                  topPR: prs.first.map { "#\($0.number) \($0.title)" }, updated: Date())
+        SnapshotStore.write(snap, group: config.widgetGroup)
+        #if canImport(WidgetKit)
+        WidgetCenter.shared.reloadAllTimelines()
+        #endif
     }
 
     #if os(macOS)

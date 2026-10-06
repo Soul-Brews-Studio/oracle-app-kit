@@ -4,9 +4,12 @@ targets:
     supportedDestinations: [macOS, iOS]
     sources:
       - path: Apps/Nexus
-        excludes: ["app.yml", "Info.plist"]
+        excludes: ["app.yml", "Info.plist", "Widget/**", "*.entitlements"]
     dependencies:
       - package: OracleKit
+      - target: NexusWidget
+    entitlements:
+      path: Apps/Nexus/Nexus.entitlements
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: co.laris.oracle.nexus
@@ -30,3 +33,31 @@ targets:
             CFBundleTypeRole: Viewer
             LSHandlerRank: Alternate
             LSItemContentTypes: [public.item, public.content, public.folder, public.url, public.data]
+  NexusWidget:
+    type: app-extension
+    supportedDestinations: [macOS, iOS]
+    sources:
+      - path: Apps/Nexus/Widget
+        excludes: ["*.entitlements", "Info.plist"]
+      - path: Apps/Nexus/NexusConfig.swift
+    dependencies:
+      - package: OracleKit
+      - sdk: WidgetKit.framework
+      - sdk: SwiftUI.framework
+    entitlements:
+      path: Apps/Nexus/Widget/NexusWidget.entitlements
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: co.laris.oracle.nexus.widget
+        PRODUCT_NAME: NexusWidget
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SKIP_INSTALL: YES
+        ENABLE_APP_SANDBOX: YES
+    info:
+      path: Apps/Nexus/Widget/Info.plist
+      properties:
+        CFBundleDisplayName: Nexus
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension

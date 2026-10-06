@@ -4,9 +4,12 @@ targets:
     supportedDestinations: [macOS, iOS]
     sources:
       - path: Apps/Pulse
-        excludes: ["app.yml", "Info.plist"]
+        excludes: ["app.yml", "Info.plist", "Widget/**", "*.entitlements"]
     dependencies:
       - package: OracleKit
+      - target: PulseWidget
+    entitlements:
+      path: Apps/Pulse/Pulse.entitlements
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: co.laris.oracle.pulse
@@ -30,3 +33,31 @@ targets:
             CFBundleTypeRole: Viewer
             LSHandlerRank: Alternate
             LSItemContentTypes: [public.item, public.content, public.folder, public.url, public.data]
+  PulseWidget:
+    type: app-extension
+    supportedDestinations: [macOS, iOS]
+    sources:
+      - path: Apps/Pulse/Widget
+        excludes: ["*.entitlements", "Info.plist"]
+      - path: Apps/Pulse/PulseConfig.swift
+    dependencies:
+      - package: OracleKit
+      - sdk: WidgetKit.framework
+      - sdk: SwiftUI.framework
+    entitlements:
+      path: Apps/Pulse/Widget/PulseWidget.entitlements
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: co.laris.oracle.pulse.widget
+        PRODUCT_NAME: PulseWidget
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SKIP_INSTALL: YES
+        ENABLE_APP_SANDBOX: YES
+    info:
+      path: Apps/Pulse/Widget/Info.plist
+      properties:
+        CFBundleDisplayName: Pulse
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension

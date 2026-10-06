@@ -8,30 +8,122 @@
 
 /* Begin PBXBuildFile section */
 		0CE7AD6783E511A241CCE8B9 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9747F85F8B3132BD641525AE /* Assets.xcassets */; };
+		1219A0F40327E57A5C962C60 /* NexusConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = E596680FCB92D58641782D23 /* NexusConfig.swift */; };
 		135BC6904B6A6EF518DD7C74 /* NeoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA7B638D3B556C915C153B1E /* NeoApp.swift */; };
+		2314A1BB992922AD62B2E477 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E220E57022CA2B7EB0FD203 /* WidgetKit.framework */; };
 		2B9BC0A1DF0BE48BE8AFCF81 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97CF4DEE1C0D84FB0133816A /* Assets.xcassets */; };
+		3B76FA783180274DC3FF3684 /* PulseWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = BE742AC8F1D736B0152CD64B /* PulseWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		4771993584B814FF8A661A42 /* NexusApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C7F01FD47329725FDFEFBF7 /* NexusApp.swift */; };
+		4D873E55B912A714615E4FCF /* PulseWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 935A69762DBD19A005AFE22F /* PulseWidget.swift */; };
+		53CA0DD7DC807DAC6EF36E9B /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E220E57022CA2B7EB0FD203 /* WidgetKit.framework */; };
 		548EF9C7581D38F5E84BCD66 /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = AA25C26D192E25E4550F953D /* OracleKit */; };
 		59B26BEE9BCEFC70F0E9AEAB /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = B0F5F3BACE628CD6D829BFDE /* OracleKit */; };
 		5F73AFB86D0CF89FD12B49E0 /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = 9EB334B6C1B129FB8DF7D118 /* OracleKit */; };
+		6ACD97A55E30D1EB01D2493D /* NeoConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C722827C1DFF0CDB6F2F247 /* NeoConfig.swift */; };
+		6E1E55DE03EE6C092E7ED1E6 /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = 4B4657CD7678E1CEC26E7C94 /* OracleKit */; };
+		6F8DA303E4A8482015835CB7 /* NexusWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = B55D288BD45D60C57EC1FD16 /* NexusWidget.swift */; };
 		81B740EF69BBBEAB1B99740D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FE480FFFEE4B266EB37C8F5F /* Assets.xcassets */; };
 		8505E97A8977FEE81E2CB5D9 /* NeoExtras.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85CC7A862B4A57539A3EC547 /* NeoExtras.swift */; };
+		85A9367B8DDB37C40B9472FA /* NexusConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = E596680FCB92D58641782D23 /* NexusConfig.swift */; };
 		89201715E26C3A13D0949318 /* PulseApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9231C651A42F8ED3C6DF7549 /* PulseApp.swift */; };
+		92A18715358F7ABD3A3B9256 /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = 4BC6B464CFBBEF1106689585 /* OracleKit */; };
+		97098FAE2CDF70880DBCAAB7 /* NexusWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 83F5B866C705325F7C2918CF /* NexusWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		971E729911F9BD737E91F026 /* NeoConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C722827C1DFF0CDB6F2F247 /* NeoConfig.swift */; };
+		98C25B7301DD0170F482898B /* NeoWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD99D3EB0C88FD1452416FB0 /* NeoWidget.swift */; };
 		99080C841CF90F9DFACA1DF6 /* NexusExtras.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F0767639C078D6E55BCEA0E /* NexusExtras.swift */; };
 		9D882FA86DFB4F8F73ED7CB6 /* PulseExtras.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F13410DB812353A44FCE45E /* PulseExtras.swift */; };
+		A008A67DBBD278DCF0CBD7BC /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E220E57022CA2B7EB0FD203 /* WidgetKit.framework */; };
+		A92220ACB1EEA09648D09C9F /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = D8034BE3BE3303D05E137A02 /* OracleKit */; };
+		AA2DD123CEF605C9E6C787A3 /* NeoWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 5EDFE877D27D8F8E8ECC5030 /* NeoWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		D60C5A99551B4457FF12EE32 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 468221B2146BCBCC791C3B0B /* SwiftUI.framework */; };
+		E0835DAA39191350E3DB951A /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 468221B2146BCBCC791C3B0B /* SwiftUI.framework */; };
+		E237B244B33315B46DB5A310 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 468221B2146BCBCC791C3B0B /* SwiftUI.framework */; };
+		E73105C73F8AAB325D00F325 /* PulseConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = B137A3369CF3DC8269C32453 /* PulseConfig.swift */; };
+		FD7A77DBE3B1668A604D354B /* PulseConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = B137A3369CF3DC8269C32453 /* PulseConfig.swift */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		0A143AA29BF2AB14D5BDF335 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 430DB4AF39A44099EA106CF8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 01CF40E90577B244E67480F2;
+			remoteInfo = NeoWidget;
+		};
+		94212C719841CD3C4694701C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 430DB4AF39A44099EA106CF8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = DBA79B4153688EFC969DDF98;
+			remoteInfo = NexusWidget;
+		};
+		9BC6479CE848CFC6FC810E5C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 430DB4AF39A44099EA106CF8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 19EE540E3E022009C36A99F1;
+			remoteInfo = PulseWidget;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		22BC0855871B0BB4BDAEFC19 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				97098FAE2CDF70880DBCAAB7 /* NexusWidget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5D7DEB7C7D9ACCE9D8711503 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				3B76FA783180274DC3FF3684 /* PulseWidget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F541F9E4919C358A6F795CA4 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				AA2DD123CEF605C9E6C787A3 /* NeoWidget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		1F13410DB812353A44FCE45E /* PulseExtras.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PulseExtras.swift; sourceTree = "<group>"; };
 		2C7F01FD47329725FDFEFBF7 /* NexusApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusApp.swift; sourceTree = "<group>"; };
 		2F0767639C078D6E55BCEA0E /* NexusExtras.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusExtras.swift; sourceTree = "<group>"; };
 		33D307D5CF34490C5E34FD95 /* Neo.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Neo.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		468221B2146BCBCC791C3B0B /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		4C722827C1DFF0CDB6F2F247 /* NeoConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NeoConfig.swift; sourceTree = "<group>"; };
+		5E220E57022CA2B7EB0FD203 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		5EDFE877D27D8F8E8ECC5030 /* NeoWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = NeoWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		83F5B866C705325F7C2918CF /* NexusWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = NexusWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		85CC7A862B4A57539A3EC547 /* NeoExtras.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NeoExtras.swift; sourceTree = "<group>"; };
 		9231C651A42F8ED3C6DF7549 /* PulseApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PulseApp.swift; sourceTree = "<group>"; };
+		935A69762DBD19A005AFE22F /* PulseWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PulseWidget.swift; sourceTree = "<group>"; };
 		9747F85F8B3132BD641525AE /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		97CF4DEE1C0D84FB0133816A /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		B137A3369CF3DC8269C32453 /* PulseConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PulseConfig.swift; sourceTree = "<group>"; };
 		B530CFD74615840D1FD21D61 /* Pulse.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Pulse.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B55D288BD45D60C57EC1FD16 /* NexusWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusWidget.swift; sourceTree = "<group>"; };
+		BD99D3EB0C88FD1452416FB0 /* NeoWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NeoWidget.swift; sourceTree = "<group>"; };
+		BE742AC8F1D736B0152CD64B /* PulseWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = PulseWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		D4532687283B94E464FAF092 /* Nexus.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Nexus.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E596680FCB92D58641782D23 /* NexusConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusConfig.swift; sourceTree = "<group>"; };
 		E6B04B136F929B594FC6EF73 /* OracleKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = OracleKit; path = OracleKit; sourceTree = SOURCE_ROOT; };
 		FA7B638D3B556C915C153B1E /* NeoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NeoApp.swift; sourceTree = "<group>"; };
 		FE480FFFEE4B266EB37C8F5F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -54,6 +146,26 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		93D2C7785CB40242C2F5BBB5 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6E1E55DE03EE6C092E7ED1E6 /* OracleKit in Frameworks */,
+				53CA0DD7DC807DAC6EF36E9B /* WidgetKit.framework in Frameworks */,
+				E237B244B33315B46DB5A310 /* SwiftUI.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9628DF4DC38625536E4DA480 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				92A18715358F7ABD3A3B9256 /* OracleKit in Frameworks */,
+				2314A1BB992922AD62B2E477 /* WidgetKit.framework in Frameworks */,
+				E0835DAA39191350E3DB951A /* SwiftUI.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		DFCE1F7D865A8DEE74B406FB /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -62,14 +174,43 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		EBC875A5A30813481BAABA83 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A92220ACB1EEA09648D09C9F /* OracleKit in Frameworks */,
+				A008A67DBBD278DCF0CBD7BC /* WidgetKit.framework in Frameworks */,
+				D60C5A99551B4457FF12EE32 /* SwiftUI.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		01EF82A534256DBDA533DB95 /* Widget */ = {
+			isa = PBXGroup;
+			children = (
+				935A69762DBD19A005AFE22F /* PulseWidget.swift */,
+			);
+			name = Widget;
+			path = Apps/Pulse/Widget;
+			sourceTree = "<group>";
+		};
+		072B09D458817296196F9E72 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				468221B2146BCBCC791C3B0B /* SwiftUI.framework */,
+				5E220E57022CA2B7EB0FD203 /* WidgetKit.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		1A5B5B4F634938D87A244AA9 /* Pulse */ = {
 			isa = PBXGroup;
 			children = (
 				97CF4DEE1C0D84FB0133816A /* Assets.xcassets */,
 				9231C651A42F8ED3C6DF7549 /* PulseApp.swift */,
+				B137A3369CF3DC8269C32453 /* PulseConfig.swift */,
 				1F13410DB812353A44FCE45E /* PulseExtras.swift */,
 			);
 			name = Pulse;
@@ -91,6 +232,10 @@
 				47651820CEB16DF156C79410 /* Nexus */,
 				1A856B3A3480E3528CFF4233 /* Packages */,
 				1A5B5B4F634938D87A244AA9 /* Pulse */,
+				F838466B268DCCACEA2010A0 /* Widget */,
+				FFE632A0E473818E54EAD582 /* Widget */,
+				01EF82A534256DBDA533DB95 /* Widget */,
+				072B09D458817296196F9E72 /* Frameworks */,
 				4B3911DA704ADFCF590622F2 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -100,6 +245,7 @@
 			children = (
 				FE480FFFEE4B266EB37C8F5F /* Assets.xcassets */,
 				2C7F01FD47329725FDFEFBF7 /* NexusApp.swift */,
+				E596680FCB92D58641782D23 /* NexusConfig.swift */,
 				2F0767639C078D6E55BCEA0E /* NexusExtras.swift */,
 			);
 			name = Nexus;
@@ -110,8 +256,11 @@
 			isa = PBXGroup;
 			children = (
 				33D307D5CF34490C5E34FD95 /* Neo.app */,
+				5EDFE877D27D8F8E8ECC5030 /* NeoWidget.appex */,
 				D4532687283B94E464FAF092 /* Nexus.app */,
+				83F5B866C705325F7C2918CF /* NexusWidget.appex */,
 				B530CFD74615840D1FD21D61 /* Pulse.app */,
+				BE742AC8F1D736B0152CD64B /* PulseWidget.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -121,15 +270,72 @@
 			children = (
 				9747F85F8B3132BD641525AE /* Assets.xcassets */,
 				FA7B638D3B556C915C153B1E /* NeoApp.swift */,
+				4C722827C1DFF0CDB6F2F247 /* NeoConfig.swift */,
 				85CC7A862B4A57539A3EC547 /* NeoExtras.swift */,
 			);
 			name = Neo;
 			path = Apps/Neo;
 			sourceTree = "<group>";
 		};
+		F838466B268DCCACEA2010A0 /* Widget */ = {
+			isa = PBXGroup;
+			children = (
+				BD99D3EB0C88FD1452416FB0 /* NeoWidget.swift */,
+			);
+			name = Widget;
+			path = Apps/Neo/Widget;
+			sourceTree = "<group>";
+		};
+		FFE632A0E473818E54EAD582 /* Widget */ = {
+			isa = PBXGroup;
+			children = (
+				B55D288BD45D60C57EC1FD16 /* NexusWidget.swift */,
+			);
+			name = Widget;
+			path = Apps/Nexus/Widget;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		01CF40E90577B244E67480F2 /* NeoWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A18DA8942974B8E3D08FE873 /* Build configuration list for PBXNativeTarget "NeoWidget" */;
+			buildPhases = (
+				DA9DF48BAA5BE8C6647B2424 /* Sources */,
+				93D2C7785CB40242C2F5BBB5 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = NeoWidget;
+			packageProductDependencies = (
+				4B4657CD7678E1CEC26E7C94 /* OracleKit */,
+			);
+			productName = NeoWidget;
+			productReference = 5EDFE877D27D8F8E8ECC5030 /* NeoWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		19EE540E3E022009C36A99F1 /* PulseWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B30B2EDE950C065FEAABC334 /* Build configuration list for PBXNativeTarget "PulseWidget" */;
+			buildPhases = (
+				57DCBADD2F9B5D6EEE8D5005 /* Sources */,
+				9628DF4DC38625536E4DA480 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = PulseWidget;
+			packageProductDependencies = (
+				4BC6B464CFBBEF1106689585 /* OracleKit */,
+			);
+			productName = PulseWidget;
+			productReference = BE742AC8F1D736B0152CD64B /* PulseWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		C99D203A30114884D4BB548A /* Nexus */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 22492E9F4AAF37EBB0575612 /* Build configuration list for PBXNativeTarget "Nexus" */;
@@ -137,10 +343,12 @@
 				198D1CFD92F8BB0B1BE14374 /* Sources */,
 				49B200A1892D9E588DCE8DA8 /* Resources */,
 				76DDC45B0E5FB3543A5B1ABA /* Frameworks */,
+				22BC0855871B0BB4BDAEFC19 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				25BA7D1429D8E4A9D33200DC /* PBXTargetDependency */,
 			);
 			name = Nexus;
 			packageProductDependencies = (
@@ -150,6 +358,25 @@
 			productReference = D4532687283B94E464FAF092 /* Nexus.app */;
 			productType = "com.apple.product-type.application";
 		};
+		DBA79B4153688EFC969DDF98 /* NexusWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C708E339E107C8108031F8DE /* Build configuration list for PBXNativeTarget "NexusWidget" */;
+			buildPhases = (
+				D5C5193115A84A5B6B26EF07 /* Sources */,
+				EBC875A5A30813481BAABA83 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = NexusWidget;
+			packageProductDependencies = (
+				D8034BE3BE3303D05E137A02 /* OracleKit */,
+			);
+			productName = NexusWidget;
+			productReference = 83F5B866C705325F7C2918CF /* NexusWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		EA29C873AC2286317DA38636 /* Pulse */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 74122D6D08CE988E50D6054B /* Build configuration list for PBXNativeTarget "Pulse" */;
@@ -157,10 +384,12 @@
 				905E73BA18FA674646DF865F /* Sources */,
 				733D3F43D088BC304A4E2534 /* Resources */,
 				2B07F1976DCD80EC3F78A307 /* Frameworks */,
+				5D7DEB7C7D9ACCE9D8711503 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				F7E0EBFB87FA7EBF98C4E5C8 /* PBXTargetDependency */,
 			);
 			name = Pulse;
 			packageProductDependencies = (
@@ -177,10 +406,12 @@
 				F64C101027A592994D8188C3 /* Sources */,
 				CA52D00317CC60335AE4136E /* Resources */,
 				DFCE1F7D865A8DEE74B406FB /* Frameworks */,
+				F541F9E4919C358A6F795CA4 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				643EFF85B4AE6367F0B47C4C /* PBXTargetDependency */,
 			);
 			name = Neo;
 			packageProductDependencies = (
@@ -199,7 +430,19 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
+					01CF40E90577B244E67480F2 = {
+						DevelopmentTeam = 6K28WEXX78;
+						ProvisioningStyle = Automatic;
+					};
+					19EE540E3E022009C36A99F1 = {
+						DevelopmentTeam = 6K28WEXX78;
+						ProvisioningStyle = Automatic;
+					};
 					C99D203A30114884D4BB548A = {
+						DevelopmentTeam = 6K28WEXX78;
+						ProvisioningStyle = Automatic;
+					};
+					DBA79B4153688EFC969DDF98 = {
 						DevelopmentTeam = 6K28WEXX78;
 						ProvisioningStyle = Automatic;
 					};
@@ -231,8 +474,11 @@
 			projectRoot = "";
 			targets = (
 				F4C43E59E3D089F341776040 /* Neo */,
+				01CF40E90577B244E67480F2 /* NeoWidget */,
 				C99D203A30114884D4BB548A /* Nexus */,
+				DBA79B4153688EFC969DDF98 /* NexusWidget */,
 				EA29C873AC2286317DA38636 /* Pulse */,
+				19EE540E3E022009C36A99F1 /* PulseWidget */,
 			);
 		};
 /* End PBXProject section */
@@ -270,7 +516,17 @@
 			buildActionMask = 2147483647;
 			files = (
 				4771993584B814FF8A661A42 /* NexusApp.swift in Sources */,
+				85A9367B8DDB37C40B9472FA /* NexusConfig.swift in Sources */,
 				99080C841CF90F9DFACA1DF6 /* NexusExtras.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		57DCBADD2F9B5D6EEE8D5005 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E73105C73F8AAB325D00F325 /* PulseConfig.swift in Sources */,
+				4D873E55B912A714615E4FCF /* PulseWidget.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -279,7 +535,26 @@
 			buildActionMask = 2147483647;
 			files = (
 				89201715E26C3A13D0949318 /* PulseApp.swift in Sources */,
+				FD7A77DBE3B1668A604D354B /* PulseConfig.swift in Sources */,
 				9D882FA86DFB4F8F73ED7CB6 /* PulseExtras.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D5C5193115A84A5B6B26EF07 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1219A0F40327E57A5C962C60 /* NexusConfig.swift in Sources */,
+				6F8DA303E4A8482015835CB7 /* NexusWidget.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DA9DF48BAA5BE8C6647B2424 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				971E729911F9BD737E91F026 /* NeoConfig.swift in Sources */,
+				98C25B7301DD0170F482898B /* NeoWidget.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -288,13 +563,55 @@
 			buildActionMask = 2147483647;
 			files = (
 				135BC6904B6A6EF518DD7C74 /* NeoApp.swift in Sources */,
+				6ACD97A55E30D1EB01D2493D /* NeoConfig.swift in Sources */,
 				8505E97A8977FEE81E2CB5D9 /* NeoExtras.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		25BA7D1429D8E4A9D33200DC /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = DBA79B4153688EFC969DDF98 /* NexusWidget */;
+			targetProxy = 94212C719841CD3C4694701C /* PBXContainerItemProxy */;
+		};
+		643EFF85B4AE6367F0B47C4C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 01CF40E90577B244E67480F2 /* NeoWidget */;
+			targetProxy = 0A143AA29BF2AB14D5BDF335 /* PBXContainerItemProxy */;
+		};
+		F7E0EBFB87FA7EBF98C4E5C8 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 19EE540E3E022009C36A99F1 /* PulseWidget */;
+			targetProxy = 9BC6479CE848CFC6FC810E5C /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		07F9CD8CF473A4D397574F5C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Apps/Nexus/Widget/NexusWidget.entitlements;
+				ENABLE_APP_SANDBOX = YES;
+				INFOPLIST_FILE = Apps/Nexus/Widget/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = co.laris.oracle.nexus.widget;
+				PRODUCT_NAME = NexusWidget;
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		19203404D05A287CFAF94598 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -360,6 +677,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Apps/Pulse/Pulse.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = NO;
@@ -381,10 +699,57 @@
 			};
 			name = Release;
 		};
+		450E64A73A4654D69521DB5C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Apps/Nexus/Widget/NexusWidget.entitlements;
+				ENABLE_APP_SANDBOX = YES;
+				INFOPLIST_FILE = Apps/Nexus/Widget/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = co.laris.oracle.nexus.widget;
+				PRODUCT_NAME = NexusWidget;
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		4B0529496B0DA6C277C926E2 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Apps/Neo/Widget/NeoWidget.entitlements;
+				ENABLE_APP_SANDBOX = YES;
+				INFOPLIST_FILE = Apps/Neo/Widget/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = co.laris.oracle.neo.widget;
+				PRODUCT_NAME = NeoWidget;
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
 		54B280AAFB3B720DD49AD23E /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Apps/Pulse/Pulse.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = NO;
@@ -406,10 +771,80 @@
 			};
 			name = Debug;
 		};
+		5876257F8D7A170BE19CDAA7 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Apps/Pulse/Widget/PulseWidget.entitlements;
+				ENABLE_APP_SANDBOX = YES;
+				INFOPLIST_FILE = Apps/Pulse/Widget/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = co.laris.oracle.pulse.widget;
+				PRODUCT_NAME = PulseWidget;
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		59637AB946C70994A0156273 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Apps/Neo/Widget/NeoWidget.entitlements;
+				ENABLE_APP_SANDBOX = YES;
+				INFOPLIST_FILE = Apps/Neo/Widget/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = co.laris.oracle.neo.widget;
+				PRODUCT_NAME = NeoWidget;
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		6ACDA8AAF747476CF29997FA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Apps/Pulse/Widget/PulseWidget.entitlements;
+				ENABLE_APP_SANDBOX = YES;
+				INFOPLIST_FILE = Apps/Pulse/Widget/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = co.laris.oracle.pulse.widget;
+				PRODUCT_NAME = PulseWidget;
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		8819780CA64A0C0892B6242C /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Apps/Nexus/Nexus.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = NO;
@@ -503,6 +938,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Apps/Neo/Neo.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = NO;
@@ -528,6 +964,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Apps/Nexus/Nexus.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = NO;
@@ -553,6 +990,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Apps/Neo/Neo.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = NO;
@@ -613,6 +1051,33 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
+		A18DA8942974B8E3D08FE873 /* Build configuration list for PBXNativeTarget "NeoWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4B0529496B0DA6C277C926E2 /* Debug */,
+				59637AB946C70994A0156273 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		B30B2EDE950C065FEAABC334 /* Build configuration list for PBXNativeTarget "PulseWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5876257F8D7A170BE19CDAA7 /* Debug */,
+				6ACDA8AAF747476CF29997FA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		C708E339E107C8108031F8DE /* Build configuration list for PBXNativeTarget "NexusWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				450E64A73A4654D69521DB5C /* Debug */,
+				07F9CD8CF473A4D397574F5C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
@@ -623,6 +1088,14 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		4B4657CD7678E1CEC26E7C94 /* OracleKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = OracleKit;
+		};
+		4BC6B464CFBBEF1106689585 /* OracleKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = OracleKit;
+		};
 		9EB334B6C1B129FB8DF7D118 /* OracleKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = OracleKit;
@@ -632,6 +1105,10 @@
 			productName = OracleKit;
 		};
 		B0F5F3BACE628CD6D829BFDE /* OracleKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = OracleKit;
+		};
+		D8034BE3BE3303D05E137A02 /* OracleKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = OracleKit;
 		};
