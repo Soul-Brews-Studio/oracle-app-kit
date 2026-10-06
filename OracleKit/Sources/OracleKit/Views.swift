@@ -213,7 +213,8 @@ struct SidebarIconButton: View {
 struct WorkView: View {
     @ObservedObject var store: OracleStore
     @State private var allResumable = false
-    @State private var showCold = false
+    @State private var showCold = true          // open: a cold list on view is a list that gets cleaned up
+    @State private var copiedPlan = false
     @State private var copied: String?
     private var c: OracleConfig { store.config }
 
@@ -246,13 +247,19 @@ struct WorkView: View {
                 }
                 if !cold.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
-                        Button { withAnimation(.snappy) { showCold.toggle() } } label: {
-                            HStack(spacing: 6) {
-                                WorkFormat.header("COLD", cold.count, note: "no session to resume")
-                                Image(systemName: showCold ? "chevron.down" : "chevron.right")
-                                    .font(.caption2.bold()).foregroundStyle(.secondary)
-                            }.contentShape(Rectangle())
-                        }.buttonStyle(.plain)
+                        HStack(spacing: 10) {
+                            Button { withAnimation(.snappy) { showCold.toggle() } } label: {
+                                HStack(spacing: 6) {
+                                    WorkFormat.header("COLD", cold.count, note: "no session to resume — clean them up")
+                                    Image(systemName: showCold ? "chevron.down" : "chevron.right")
+                                        .font(.caption2.bold()).foregroundStyle(.secondary)
+                                }.contentShape(Rectangle())
+                            }.buttonStyle(.plain)
+                            // the plan only: maw herdr clean lists what it would remove; nothing changes without --go
+                            let plan = WorkFormat.cleanCommand(cold.map(\.path))
+                            Button(copiedPlan ? "plan copied" : "copy cleanup plan") { WorkFormat.copy(plan); copiedPlan = true }
+                                .buttonStyle(.link).font(.caption).help(plan)
+                        }
                         if showCold {
                             VStack(alignment: .leading, spacing: 2) {
                                 ForEach(cold) { TreeRow(item: $0, config: c, copied: $copied).opacity(0.7) }
@@ -364,7 +371,10 @@ struct TreeRow: View {
                     .buttonStyle(.borderless).help(cmd)
                     .frame(width: 64, alignment: .trailing)
             } else {
-                Color.clear.frame(width: 64, height: 1)
+                let clean = WorkFormat.cleanCommand([item.path])
+                Button(copied == item.id ? "copied" : "clean up") { WorkFormat.copy(clean); copied = item.id }
+                    .buttonStyle(.borderless).foregroundStyle(.secondary).help(clean)
+                    .frame(width: 64, alignment: .trailing)
             }
         }
         .padding(.vertical, 4).padding(.horizontal, 4)
@@ -515,6 +525,7 @@ struct WorkMenu: View {
         Button("Open folder") { WorkFormat.open(URL(fileURLWithPath: item.path)) }
         #endif
         if let cmd = item.resumeCommand { Button("Copy resume command") { WorkFormat.copy(cmd); copied = item.id } }
+        else { Button("Copy cleanup command") { WorkFormat.copy(WorkFormat.cleanCommand([item.path])) } }
         Button("Copy path") { WorkFormat.copy(item.path) }
         if let n = item.issue, let u = URL(string: "https://github.com/\(repo)/issues/\(n)") {
             Button("Open issue #\(n)") { WorkFormat.open(u) }
@@ -571,6 +582,11 @@ enum WorkFormat {
             if let tabId { _ = await Shell.run("herdr", ["--session", s.session, "tab", "focus", tabId]) }
         }
         #endif
+    }
+    /// `maw herdr clean` plans removing worktrees whose commits are pushed (or merged); it changes nothing
+    /// until run again with --go.
+    static func cleanCommand(_ paths: [String]) -> String {
+        "maw herdr clean " + paths.map { "'\($0)'" }.joined(separator: " ")
     }
     static func header(_ title: String, _ n: Int, note: String = "") -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
