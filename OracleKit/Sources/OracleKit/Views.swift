@@ -15,6 +15,7 @@ public struct OracleRootView: View {
     @State private var inboxHot = false
     @State private var issueHot = false
     @State private var draft: IssueDraft?
+    @State private var heyText = ""
     #if os(iOS)
     @State private var showSettings = false
     #endif
@@ -29,6 +30,9 @@ public struct OracleRootView: View {
                 .navigationSplitViewColumnWidth(min: 240, ideal: 272)
         } detail: {
             detail
+                #if os(macOS)
+                .safeAreaInset(edge: .bottom) { HeyComposer(store: store, text: $heyText) }
+                #endif
                 .toolbar {
                     #if os(iOS)
                     ToolbarItem { Button { Task { await store.refresh() } } label: { Image(systemName: "arrow.clockwise") } }
@@ -65,12 +69,17 @@ public struct OracleRootView: View {
         .onAppear { store.start() }
     }
 
+    /// What "Send to agent…" puts in the composer for an issue or PR — edited before it is sent.
+    static func brief(_ it: GHItem, pr: Bool) -> String {
+        (pr ? "Review PR #\(it.number): " : "Pick up issue #\(it.number): ") + it.title + (it.url.map { " — " + $0.absoluteString } ?? "")
+    }
+
     @ViewBuilder private var detail: some View {
         switch section ?? .status {
         case .status: WorkView(store: store)
         case .inbox: InboxList(store: store)
-        case .prs: GHList(kind: .prs, items: store.prs, work: store.work, accent: c.color)
-        case .issues: GHList(kind: .issues, items: store.issues, work: store.work, accent: c.color)
+        case .prs: GHList(kind: .prs, items: store.prs, work: store.work, accent: c.color) { heyText = Self.brief($0, pr: true) }
+        case .issues: GHList(kind: .issues, items: store.issues, work: store.work, accent: c.color) { heyText = Self.brief($0, pr: false) }
         case .extra(let id): c.extras.sections.first { $0.id == id }.map { $0.view() } ?? AnyView(EmptyView())
         }
     }
@@ -687,6 +696,7 @@ struct GHList: View {
     let items: [GHItem]
     let work: [WorkItem]
     let accent: Color
+    var onSend: ((GHItem) -> Void)? = nil
     @State private var filter = 0
     var body: some View {
         let groups = self.groups
@@ -700,7 +710,7 @@ struct GHList: View {
                 }
                 .pickerStyle(.segmented).labelsHidden().fixedSize()
                 VStack(spacing: 8) {
-                    ForEach(rows) { it in GHCard(item: it, status: status(it), detail: detail(it)) }
+                    ForEach(rows) { it in GHCard(item: it, status: status(it), detail: detail(it), onSend: onSend.map { f in { f(it) } }) }
                 }
             }
             .padding(28)
@@ -748,6 +758,7 @@ struct GHCard: View {
     let item: GHItem
     let status: (label: String, color: Color)
     let detail: String
+    var onSend: (() -> Void)? = nil
     @State private var hover = false
     @Environment(\.openURL) private var openURL
     var body: some View {
@@ -772,6 +783,10 @@ struct GHCard: View {
         .buttonStyle(.plain)
         .onHover { hover = $0 }
         .help(item.url?.absoluteString ?? "")
+        .contextMenu {
+            if let onSend { Button("Send to agent…", action: onSend) }
+            if let u = item.url { Button("Open on GitHub") { openURL(u) } }
+        }
     }
 }
 
@@ -890,3 +905,74 @@ struct OracleMenu: View {
     private func open() { openWindow(id: "main"); NSApp.activate(ignoringOtherApps: true) }
 }
 #endif
+
+#if os(macOS)
+/// Message the oracle's agents from the app — `maw herdr hey --session <s> <pane> <message>`, which runs
+/// `herdr --session <s> agent prompt <pane> <message>`. ARRA Chat's composer: one field, a target picker, send.
+struct HeyComposer: View {
+    @ObservedObject var store: OracleStore
+    @Binding var text: String
+    @State private var target: String?
+    @State private var note: String?
+    @State private var sending = false
+    var body: some View {
+        let c = store.config
+        let twins = WorkParse.twins(store.activity)
+        let panes = store.activity.filter { twins[$0.place] == nil }
+            .sorted { (WorkFormat.rank($0.status), $0.place) < (WorkFormat.rank($1.status), $1.place) }
+        let chosen = panes.first { $0.place == target } ?? panes.first { $0.cwd == c.localPath && $0.status == "idle" } ?? panes.first
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .bottom, spacing: 10) {
+                TextField("Message \(c.name) — maw herdr hey", text: $text, axis: .vertical)
+                    .textFieldStyle(.plain).font(.custom("Avenir Next", size: 15)).lineLimit(1...6)
+                    .onSubmit { send(to: chosen) }
+                Button { send(to: chosen) } label: {
+                    Image(systemName: sending ? "ellipsis.circle.fill" : "arrow.up.circle.fill")
+                        .font(.system(size: 24)).foregroundStyle(canSend(chosen) ? c.color : Color.secondary.opacity(0.4))
+                }
+                .buttonStyle(.plain).disabled(!canSend(chosen))
+                .keyboardShortcut(.return, modifiers: .command)
+                .help("Send (⌘↩)")
+            }
+            .padding(.horizontal, 16).padding(.vertical, 12)
+            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.primary.opacity(0.06)))
+            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color.primary.opacity(0.12)))
+            HStack(spacing: 10) {
+                Menu {
+                    ForEach(panes, id: \.place) { p in
+                        Button { target = p.place } label: {
+                            Text("\(WorkFormat.pane(p.place, home: WorkFormat.homeSession(store.activity))) · \(p.status) · \(String(p.title.prefix(40)))")
+                        }
+                    }
+                } label: {
+                    Text(chosen.map { "to \(WorkFormat.pane($0.place, home: WorkFormat.homeSession(store.activity))) · \($0.status)" } ?? "no agent pane open")
+                        .font(.caption)
+                }
+                .menuStyle(.borderlessButton).fixedSize().disabled(panes.isEmpty)
+                if let note { Text(note).font(.caption).foregroundStyle(note.hasPrefix("sent") ? Color.secondary : Color.orange).textSelection(.enabled).lineLimit(2) }
+                Spacer()
+                Text("⌘↩ to send").font(.caption).foregroundStyle(.tertiary)
+            }
+            .padding(.horizontal, 6)
+        }
+        .padding(.horizontal, 24).padding(.top, 10).padding(.bottom, 14)
+        .background(.bar)
+    }
+
+    private func canSend(_ p: OracleSnapshot.Activity?) -> Bool {
+        p != nil && !sending && !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+    private func send(to p: OracleSnapshot.Activity?) {
+        guard let p, canSend(p) else { return }
+        let message = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        sending = true; note = nil
+        Task {
+            let ok = await store.hey(place: p.place, message: message)
+            sending = false
+            if ok { text = ""; note = "sent to \(p.place)" }
+            else { note = "not sent — run: " + OracleStore.heyCommand(place: p.place, message: message) }
+        }
+    }
+}
+#endif
+
