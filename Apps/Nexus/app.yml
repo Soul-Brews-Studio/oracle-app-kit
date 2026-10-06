@@ -64,7 +64,7 @@ targets:
     info:
       path: Apps/Nexus/Widget/Info.plist
       properties:
-        CFBundleDisplayName: Nexus
+        CFBundleDisplayName: Nexus Oracle
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSExtension:

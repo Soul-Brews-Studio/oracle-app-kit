@@ -28,8 +28,10 @@ public struct OracleSnapshot: Codable, Sendable, Equatable {
         public var status: String        // working · blocked · done · idle
         public var place: String         // "laris-co:w22:p1"
         public var since: Date?          // when the app first saw it in this status
-        public init(title: String, status: String, place: String, since: Date? = nil) {
-            self.title = title; self.status = status; self.place = place; self.since = since
+        public var cwd: String?          // the pane's own folder: maps it to its worktree
+        public var session: String?      // agent session id: two panes on one id write one transcript
+        public init(title: String, status: String, place: String, since: Date? = nil, cwd: String? = nil, session: String? = nil) {
+            self.title = title; self.status = status; self.place = place; self.since = since; self.cwd = cwd; self.session = session
         }
     }
 
