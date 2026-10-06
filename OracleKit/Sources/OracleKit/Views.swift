@@ -69,8 +69,8 @@ public struct OracleRootView: View {
         switch section ?? .status {
         case .status: WorkView(store: store)
         case .inbox: InboxList(store: store)
-        case .prs: GHList(title: "Open pull requests", items: store.prs, empty: "No open pull requests")
-        case .issues: GHList(title: "Open issues", items: store.issues, empty: "No open issues")
+        case .prs: GHList(kind: .prs, items: store.prs, work: store.work, accent: c.color)
+        case .issues: GHList(kind: .issues, items: store.issues, work: store.work, accent: c.color)
         case .extra(let id): c.extras.sections.first { $0.id == id }.map { $0.view() } ?? AnyView(EmptyView())
         }
     }
@@ -679,21 +679,99 @@ struct InboxList: View {
     }
 }
 
+/// Pull requests and issues, after ARRA Chat's "Pick up a thread.": one big line, a segmented filter, one card
+/// per item — a status dot, the title, who and when, and which /herdr-wt worktree it belongs to.
 struct GHList: View {
-    let title: String; let items: [GHItem]; let empty: String
+    enum Kind { case prs, issues }
+    let kind: Kind
+    let items: [GHItem]
+    let work: [WorkItem]
+    let accent: Color
+    @State private var filter = 0
+    var body: some View {
+        let groups = self.groups
+        let rows = groups[min(filter, groups.count - 1)].items
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                Text(kind == .prs ? "Pick up a pull request." : "Pick up an issue.")
+                    .font(.custom("Avenir Next", size: 30).weight(.bold)).tracking(-0.5)
+                Picker("Show", selection: $filter) {
+                    ForEach(groups.indices, id: \.self) { i in Text("\(groups[i].name) · \(groups[i].items.count)").tag(i) }
+                }
+                .pickerStyle(.segmented).labelsHidden().fixedSize()
+                VStack(spacing: 8) {
+                    ForEach(rows) { it in GHCard(item: it, status: status(it), detail: detail(it)) }
+                }
+            }
+            .padding(28)
+            .frame(maxWidth: 900, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .overlay {
+            if rows.isEmpty { Text(kind == .prs ? "No open pull requests here" : "No open issues here").foregroundStyle(.secondary) }
+        }
+        .navigationTitle(kind == .prs ? "Pull requests" : "Issues")
+    }
+
+    private var groups: [(name: String, items: [GHItem])] {
+        switch kind {
+        case .prs:
+            return [("All", items), ("Ready", items.filter { !$0.isDraft }), ("Draft", items.filter(\.isDraft))]
+        case .issues:
+            let taken = Set(work.compactMap(\.issue))
+            return [("All", items), ("No worktree", items.filter { !taken.contains($0.number) }),
+                    ("In a worktree", items.filter { taken.contains($0.number) })]
+        }
+    }
+    private func tree(_ it: GHItem) -> WorkItem? {
+        switch kind {
+        case .prs: return work.first { w in it.branch.map { $0 == w.branch } == true || (w.issue.map { it.closes.contains($0) } ?? false) }
+        case .issues: return work.first { $0.issue == it.number }
+        }
+    }
+    private func status(_ it: GHItem) -> (label: String, color: Color) {
+        switch kind {
+        case .prs: return it.isDraft ? ("draft", Color.secondary.opacity(0.6)) : ("open", .green)
+        case .issues: return tree(it) != nil ? ("in a worktree", .green) : ("no worktree yet", accent)
+        }
+    }
+    private func detail(_ it: GHItem) -> String {
+        var parts = [it.author]
+        if let d = it.updatedAt { parts.append(d.formatted(.relative(presentation: .named))) }
+        if let w = tree(it) { parts.append("worktree " + (w.isMain ? w.folder : w.slug)) }
+        else if kind == .prs, let b = it.branch { parts.append(b) }
+        return parts.filter { !$0.isEmpty }.joined(separator: " · ")
+    }
+}
+
+struct GHCard: View {
+    let item: GHItem
+    let status: (label: String, color: Color)
+    let detail: String
+    @State private var hover = false
     @Environment(\.openURL) private var openURL
     var body: some View {
-        List(items) { it in
-            Button { if let u = it.url { openURL(u) } } label: {
-                VStack(alignment: .leading) {
-                    Text("#\(it.number) \(it.title)").font(.body)
-                    Text("\(it.author)\(it.isDraft ? " · draft" : "")\(it.updatedAt.map { " · " + $0.formatted(.relative(presentation: .named)) } ?? "")")
-                        .font(.caption).foregroundStyle(.secondary)
+        Button { if let u = item.url { openURL(u) } } label: {
+            HStack(spacing: 12) {
+                Circle().fill(status.color).frame(width: 8, height: 8)
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text("#\(item.number)").font(.callout.monospacedDigit()).foregroundStyle(.secondary)
+                        Text(item.title).font(.custom("Avenir Next", size: 15).weight(.semibold)).lineLimit(1)
+                    }
+                    Text(detail).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
                 }
-            }.buttonStyle(.plain)
+                Spacer(minLength: 8)
+                Text(status.label).font(.caption).foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 16).padding(.vertical, 12)
+            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.primary.opacity(hover ? 0.08 : 0.05)))
+            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.primary.opacity(0.06)))
+            .contentShape(Rectangle())
         }
-        .overlay { if items.isEmpty { Text(empty).foregroundStyle(.secondary) } }
-        .navigationTitle(title)
+        .buttonStyle(.plain)
+        .onHover { hover = $0 }
+        .help(item.url?.absoluteString ?? "")
     }
 }
 
