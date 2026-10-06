@@ -5,12 +5,11 @@ import AppKit
 import UIKit
 #endif
 
-enum Section: Hashable { case space(String), tree(String), inbox, prs, issues, extra(String) }
+enum Section: Hashable { case status, inbox, prs, issues, extra(String) }
 
 public struct OracleRootView: View {
     @StateObject private var store: OracleStore
-    @State private var section: Section?
-    @State private var showCold = false
+    @State private var section: Section? = .status
     @State private var dropTargeted = false
     @State private var inboxHot = false
     @State private var issueHot = false
@@ -28,48 +27,18 @@ public struct OracleRootView: View {
             List(selection: $section) {
                 IdentityCard(config: c, acts: store.activity)
                     .listRowSeparator(.hidden)
-                let home = WorkFormat.homeSession(store.activity)
-                let spaces = orderedSpaces(home: home)
-                let closed = closedTrees(spaces)
-                if !spaces.isEmpty {
-                    SwiftUI.Section("Spaces") {
-                        ForEach(rootSpaces(spaces)) { s in
-                            SpaceRowLabel(space: s, item: workItem(for: s), child: false, home: home, accent: c.color)
-                                .tag(Section.space(s.place))
-                            ForEach(childSpaces(of: s, in: spaces)) { k in
-                                SpaceRowLabel(space: k, item: workItem(for: k), child: true, home: home, accent: c.color)
-                                    .tag(Section.space(k.place))
-                            }
-                        }
-                    }
-                }
-                if !closed.isEmpty {
-                    let resumable = closed.filter { $0.state == .resumable }
-                    let cold = closed.filter { $0.state == .cold }
-                    SwiftUI.Section("Resumable") {
-                        ForEach(resumable) { w in
-                            TreeRowLabel(item: w, status: "resumable", accent: c.color).tag(Section.tree(w.path))
-                        }
-                        if !cold.isEmpty {
-                            DisclosureGroup(isExpanded: $showCold) {
-                                ForEach(cold) { w in TreeRowLabel(item: w, status: "cold", accent: c.color).tag(Section.tree(w.path)) }
-                            } label: { Text("\(cold.count) cold").foregroundStyle(.secondary) }
-                        }
-                    }
-                }
-                SwiftUI.Section {
-                    #if os(macOS)
-                    Label("Inbox", systemImage: store.unread.isEmpty ? "tray" : "tray.full")
-                        .badge(store.unread.isEmpty ? Text(store.inbox.count >= 300 ? "300+" : "\(store.inbox.count)")
-                                                    : Text("\(store.unread.count) new"))
-                        .tag(Section.inbox)
-                    #endif
-                    Label("Pull requests", systemImage: "arrow.triangle.pull").badge(store.prs.count).tag(Section.prs)
-                    Label("Issues", systemImage: "exclamationmark.circle").badge(store.issues.count).tag(Section.issues)
-                    ForEach(c.extras.sections) { x in Label(x.title, systemImage: x.symbol).tag(Section.extra(x.id)) }
-                }
+                Label("Work", systemImage: "square.stack.3d.up").badge(store.work.count).tag(Section.status)
+                #if os(macOS)
+                Label("Inbox", systemImage: store.unread.isEmpty ? "tray" : "tray.full")
+                    .badge(store.unread.isEmpty ? Text(store.inbox.count >= 300 ? "300+" : "\(store.inbox.count)")
+                                                : Text("\(store.unread.count) new"))
+                    .tag(Section.inbox)
+                #endif
+                Label("Pull requests", systemImage: "arrow.triangle.pull").badge(store.prs.count).tag(Section.prs)
+                Label("Issues", systemImage: "exclamationmark.circle").badge(store.issues.count).tag(Section.issues)
+                ForEach(c.extras.sections) { x in Label(x.title, systemImage: x.symbol).tag(Section.extra(x.id)) }
             }
-            .navigationSplitViewColumnWidth(min: 250, ideal: 290)
+            .navigationSplitViewColumnWidth(min: 230, ideal: 260)
         } detail: {
             detail
                 .toolbar {
@@ -98,7 +67,7 @@ public struct OracleRootView: View {
         .animation(.easeOut(duration: 0.12), value: dropTargeted || inboxHot || issueHot)
         .sheet(item: $draft) { d in IssueDraftSheet(store: store, title: d.title, text: d.text) { draft = nil } }
         .onReceive(NotificationCenter.default.publisher(for: .oracleOpenSection)) { _ in
-            section = store.unread.isEmpty ? nil : .inbox         // a widget tap lands where the news is
+            section = store.unread.isEmpty ? .status : .inbox     // a widget tap lands where the news is
         }
         .onReceive(NotificationCenter.default.publisher(for: .oracleFilesDropped)) { n in
             if let count = n.object as? Int { store.noteDrop(count); section = .inbox }
@@ -107,79 +76,15 @@ public struct OracleRootView: View {
         .sheet(isPresented: $showSettings) { TokenSettings(onSave: { Task { await store.refresh() } }) }
         #endif
         .onAppear { store.start() }
-        .onChange(of: store.spaces) { _, _ in fixSelection() }
-        .onChange(of: store.work) { _, _ in fixSelection() }
-    }
-
-    /// Show the pick in the sidebar too: nothing picked, or the picked space closed → the default.
-    private func fixSelection() {
-        switch section {
-        case nil: section = defaultSection
-        case .space(let p)? where !store.spaces.contains(where: { $0.place == p }): section = defaultSection
-        case .tree(let path)? where !store.work.contains(where: { $0.path == path }): section = defaultSection
-        default: break
-        }
-    }
-
-    // MARK: spaces and worktrees for the sidebar — herdr's order, linked worktrees nested under their repo
-
-    private func orderedSpaces(home: String) -> [HerdrSpace] {
-        store.spaces.sorted { a, b in
-            if (a.session == home) != (b.session == home) { return a.session == home }
-            return a.session != b.session ? a.session < b.session : a.number < b.number
-        }
-    }
-    private func rootSpaces(_ spaces: [HerdrSpace]) -> [HerdrSpace] {
-        spaces.filter { s in
-            !s.linked || !spaces.contains { !$0.linked && $0.repoRoot != nil && $0.repoRoot == s.repoRoot && $0.session == s.session }
-        }
-    }
-    private func childSpaces(of s: HerdrSpace, in spaces: [HerdrSpace]) -> [HerdrSpace] {
-        guard !s.linked, let root = s.repoRoot else { return [] }
-        return spaces.filter { $0.linked && $0.repoRoot == root && $0.session == s.session }
-    }
-    private func workItem(for s: HerdrSpace) -> WorkItem? {
-        if let path = s.checkout { return store.work.first { $0.path == path } }
-        // herdr does not always know a plain space's repo; its label is the checkout folder
-        return store.work.first { $0.isMain && $0.folder == s.label }
-    }
-    /// Worktrees with no herdr space and no pane: the ones to resume, and the cold ones.
-    private func closedTrees(_ spaces: [HerdrSpace]) -> [WorkItem] {
-        store.work.filter { w in
-            w.panes.isEmpty && !spaces.contains { $0.checkout == w.path || (w.isMain && $0.checkout == nil && $0.label == w.folder) }
-        }
-    }
-    /// Nothing picked yet: the most urgent space, else the first worktree to resume.
-    private var defaultSection: Section? {
-        let spaces = orderedSpaces(home: WorkFormat.homeSession(store.activity))
-        if let s = spaces.min(by: { WorkFormat.rank($0.status) < WorkFormat.rank($1.status) }) { return .space(s.place) }
-        return closedTrees(spaces).first.map { .tree($0.path) }
     }
 
     @ViewBuilder private var detail: some View {
-        switch section ?? defaultSection {
-        case .space(let p)?:
-            if let s = store.spaces.first(where: { $0.place == p }) {
-                SpaceDetail(store: store, space: s, item: workItem(for: s)).id(p)
-            } else {
-                Text("That space is closed now.").foregroundStyle(.secondary)
-            }
-        case .tree(let path)?:
-            if let w = store.work.first(where: { $0.path == path }) {
-                ClosedTreeDetail(item: w, repo: c.repoSlug).id(path)
-            } else {
-                Text("That worktree is gone.").foregroundStyle(.secondary)
-            }
-        case nil:
-            #if os(macOS)
-            Text("Nothing from herdr or maw for \(c.localPath)").foregroundStyle(.secondary)
-            #else
-            Text("Work is read from herdr on the Mac.").foregroundStyle(.secondary)
-            #endif
-        case .inbox?: InboxList(store: store)
-        case .prs?: GHList(title: "Open pull requests", items: store.prs, empty: "No open pull requests")
-        case .issues?: GHList(title: "Open issues", items: store.issues, empty: "No open issues")
-        case .extra(let id)?: c.extras.sections.first { $0.id == id }.map { $0.view() } ?? AnyView(EmptyView())
+        switch section ?? .status {
+        case .status: WorkView(store: store)
+        case .inbox: InboxList(store: store)
+        case .prs: GHList(title: "Open pull requests", items: store.prs, empty: "No open pull requests")
+        case .issues: GHList(title: "Open issues", items: store.issues, empty: "No open issues")
+        case .extra(let id): c.extras.sections.first { $0.id == id }.map { $0.view() } ?? AnyView(EmptyView())
         }
     }
 
@@ -215,236 +120,195 @@ struct IdentityCard: View {
     }
 }
 
-// MARK: - Work: the sidebar lists herdr's spaces (linked worktrees nested) and the worktrees to resume;
-// the detail is the picked space with every pane at its real size.
-// Cards: neo-oracle ψ/writing/diagrams/2026-10-07_oracle-app-herdr-layout.txt (and …-work-view.txt)
+// MARK: - Work: one row per /herdr-wt worktree
+// Layout card: neo-oracle ψ/writing/diagrams/2026-10-07_oracle-app-work-view.txt
 
-struct SpaceRowLabel: View {
-    let space: HerdrSpace; let item: WorkItem?; let child: Bool; let home: String; let accent: Color
-    var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 7) {
-            if child { Text("└").font(.callout.monospaced()).foregroundStyle(.tertiary) }
-            StatusGlyph(status: space.status, accent: accent)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(child ? (item?.slug ?? space.label) : space.label).lineLimit(1).truncationMode(.middle)
-                if !child, let b = item?.branch, !b.isEmpty {
-                    Text(b).font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
-                }
-            }
-            Spacer(minLength: 0)
-            if space.session != home { Text(space.session).font(.caption2).foregroundStyle(.tertiary) }
-        }
-        .padding(.leading, child ? 10 : 0)
-    }
-}
-
-struct TreeRowLabel: View {
-    let item: WorkItem; let status: String; let accent: Color
-    var body: some View {
-        HStack(spacing: 7) {
-            StatusGlyph(status: status, accent: accent)
-            Text(item.isMain ? item.folder : item.slug).lineLimit(1).truncationMode(.middle)
-            Spacer(minLength: 4)
-            if let n = item.issue { Text("#\(n)").font(.caption.monospacedDigit()).foregroundStyle(.secondary) }
-            Text(item.born.map(WorkFormat.ago) ?? "").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-        }
-    }
-}
-
-/// One herdr space: its name, branch, issue and PR, then its tabs with every pane drawn at its real size.
-struct SpaceDetail: View {
+struct WorkView: View {
     @ObservedObject var store: OracleStore
-    let space: HerdrSpace
-    let item: WorkItem?
-    @State private var tabPick: String?
-    var body: some View {
-        let c = store.config
-        let home = WorkFormat.homeSession(store.activity)
-        let tab = space.tabs.first { $0.place == (tabPick ?? space.activeTab) } ?? space.tabs.first
-        let acts = Dictionary(store.activity.map { ($0.place, $0) }, uniquingKeysWith: { a, _ in a })
-        let twins = WorkParse.twins(store.activity)
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(alignment: .firstTextBaseline, spacing: 10) {
-                    // the same name the sidebar shows: a linked worktree by its slug, any other space by herdr's label
-                    Text(space.linked ? (item?.slug ?? space.label) : space.label)
-                        .font(.title2.weight(.semibold)).lineLimit(1).layoutPriority(1)
-                    let sub = [(!space.linked && item?.folder != space.label) ? item?.folder : nil,
-                               item?.branch.replacingOccurrences(of: "/", with: "-") == item?.slug ? nil : item?.branch]
-                        .compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
-                    if !sub.isEmpty {
-                        Text(sub).font(.callout.monospaced()).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
-                    }
-                    if let item { WorkLinks(item: item, repo: c.repoSlug) }
-                    Spacer(minLength: 8)
-                    #if os(macOS)
-                    Button("Show in herdr") { WorkFormat.showInHerdr(space, tabId: tab?.tabId) }.controlSize(.small)
-                    #endif
-                }
-                if space.tabs.count > 1, let tab {
-                    HStack(spacing: 6) {
-                        ForEach(space.tabs) { t in
-                            let on = t.place == tab.place
-                            Button { tabPick = t.place } label: {
-                                Text(t.label.isEmpty ? "tab" : t.label).font(.callout.monospacedDigit().weight(.medium))
-                                    .padding(.horizontal, 14).padding(.vertical, 4)
-                                    .foregroundStyle(on ? Color.white : Color.primary)
-                                    .background(RoundedRectangle(cornerRadius: 5, style: .continuous)
-                                        .fill(on ? c.color : Color.primary.opacity(0.08)))
-                            }
-                            .buttonStyle(.plain)
-                        }
-                        if tab.zoomed { Text("zoomed").font(.caption).foregroundStyle(.secondary) }
-                    }
-                }
-                if let tab { LayoutCanvas(tab: tab, acts: acts, twins: twins, home: home, accent: c.color) }
-            }
-            .padding(24)
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .navigationTitle(space.label)
-    }
-}
-
-/// A worktree with no herdr space: its name, branch, issue and PR, and the way back in.
-struct ClosedTreeDetail: View {
-    let item: WorkItem
-    let repo: String
+    @State private var allResumable = false
+    @State private var showCold = false
     @State private var copied: String?
+    private var c: OracleConfig { store.config }
+
     var body: some View {
+        let work = store.work
+        let live = work.filter { $0.state <= .open }
+        let resumable = work.filter { $0.state == .resumable }
+        let cold = work.filter { $0.state == .cold }
+        let next: [WorkParse.NextIssue] = work.isEmpty ? [] : WorkParse.unstarted(issues: store.issues, prs: store.prs, work: work)
+        let twins = WorkParse.twins(store.activity)
+        let home = WorkFormat.homeSession(store.activity)
         ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(alignment: .firstTextBaseline, spacing: 10) {
-                    Text(item.isMain ? item.folder : item.slug).font(.title2.weight(.semibold)).lineLimit(1).layoutPriority(1)
-                    if !item.branch.isEmpty, item.branch.replacingOccurrences(of: "/", with: "-") != item.slug {
-                        Text(item.branch).font(.callout.monospaced()).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+            VStack(alignment: .leading, spacing: 26) {
+                WorkHero(acts: store.activity, color: c.color)
+                if !live.isEmpty {
+                    block("LIVE", live.count) {
+                        ForEach(live) { LiveCard(item: $0, config: c, twins: twins, home: home, copied: $copied) }
                     }
-                    WorkLinks(item: item, repo: repo)
-                    Spacer(minLength: 8)
                 }
-                ClosedTreePanel(item: item, copied: $copied)
+                if !next.isEmpty {
+                    block("NEXT", next.count, note: next.count == 1 ? "issue with no worktree yet" : "issues with no worktree yet") {
+                        NextBox(next: next)
+                    }
+                }
+                if !resumable.isEmpty {
+                    block("RESUMABLE", resumable.count) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            ForEach(allResumable ? resumable : Array(resumable.prefix(6))) { TreeRow(item: $0, config: c, copied: $copied) }
+                        }
+                        if resumable.count > 6 {
+                            Button(allResumable ? "show less" : "\(resumable.count - 6) more") { allResumable.toggle() }
+                                .buttonStyle(.link).padding(.leading, 4)
+                        }
+                    }
+                }
+                if !cold.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Button { withAnimation(.snappy) { showCold.toggle() } } label: {
+                            HStack(spacing: 6) {
+                                WorkFormat.header("COLD", cold.count, note: "no session to resume")
+                                Image(systemName: showCold ? "chevron.down" : "chevron.right")
+                                    .font(.caption2.bold()).foregroundStyle(.secondary)
+                            }.contentShape(Rectangle())
+                        }.buttonStyle(.plain)
+                        if showCold {
+                            VStack(alignment: .leading, spacing: 2) {
+                                ForEach(cold) { TreeRow(item: $0, config: c, copied: $copied).opacity(0.7) }
+                            }
+                        }
+                    }
+                }
             }
-            .padding(24)
+            .padding(28)
+            .frame(maxWidth: 760, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .navigationTitle(item.slug)
+        .overlay { if work.isEmpty { emptyNote } }
+        .navigationTitle("Work")
     }
-}
 
-/// The tab as herdr draws it: every pane at its real rectangle (terminal cells, scaled).
-struct LayoutCanvas: View {
-    let tab: HerdrTab
-    let acts: [String: OracleSnapshot.Activity]
-    let twins: [String: String]
-    let home: String
-    let accent: Color
-    var body: some View {
-        let a = tab.area
-        GeometryReader { g in
-            let sx = g.size.width / CGFloat(max(a.width, 1)), sy = g.size.height / CGFloat(max(a.height, 1))
-            ZStack(alignment: .topLeading) {
-                ForEach(tab.panes) { p in
-                    PaneBoxView(box: p, act: acts[p.place], twin: twins[p.place], home: home, accent: accent)
-                        .frame(width: max(0, CGFloat(p.rect.width) * sx - 6), height: max(0, CGFloat(p.rect.height) * sy - 6))
-                        .offset(x: CGFloat(p.rect.x - a.x) * sx + 3, y: CGFloat(p.rect.y - a.y) * sy + 3)
-                }
-            }
-            .frame(width: g.size.width, height: g.size.height, alignment: .topLeading)
+    private func block<Content: View>(_ title: String, _ n: Int, note: String = "",
+                                      @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            WorkFormat.header(title, n, note: note)
+            content()
         }
-        .aspectRatio(CGFloat(a.width) / (CGFloat(max(a.height, 1)) * 2.1), contentMode: .fit)   // a cell is ~2.1x taller than wide
+    }
+
+    @ViewBuilder private var emptyNote: some View {
+        #if os(macOS)
+        Text("Nothing from maw herdr ls for \(c.localPath)").foregroundStyle(.secondary)
+        #else
+        Text("Work is read from herdr on the Mac.").foregroundStyle(.secondary)
+        #endif
     }
 }
 
-struct PaneBoxView: View {
-    let box: HerdrPaneBox
-    let act: OracleSnapshot.Activity?
-    let twin: String?
-    let home: String
-    let accent: Color
+/// The widget's rule: needs you > working > idle — one big word, the counts, the urgent pane's ask.
+struct WorkHero: View {
+    let acts: [OracleSnapshot.Activity]; let color: Color
     var body: some View {
+        let need = acts.filter { $0.status == "blocked" || $0.status == "done" }.count
+        let working = acts.filter { $0.status == "working" }.count
+        let urgent = acts.min { WorkFormat.rank($0.status) < WorkFormat.rank($1.status) }
         VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 6) {
-                StatusGlyph(status: box.agent == nil ? "shell" : box.status, accent: accent)
-                Text(WorkFormat.pane(box.place, home: home)).font(.caption.monospaced()).foregroundStyle(.secondary)
-                Text(box.name ?? box.agent ?? box.label ?? "shell").font(.caption.weight(.medium))
-                    .foregroundStyle(.secondary).lineLimit(1)
-                Spacer(minLength: 2)
-                if let s = act?.since { Text(WorkFormat.ago(s)).font(.caption2.monospacedDigit()).foregroundStyle(.tertiary) }
+            Text(need > 0 ? "needs you" : working > 0 ? "working" : "idle")
+                .font(.system(size: 40, weight: .bold, design: .rounded))
+                .foregroundStyle(need + working > 0 ? color : Color.secondary)
+            Text("\(acts.count) \(acts.count == 1 ? "pane" : "panes") · \(working) working · \(need) need you")
+                .font(.callout).foregroundStyle(.secondary)
+            if let t = urgent?.title, !t.isEmpty {
+                Text("“\(t)”").font(.callout).lineLimit(2).foregroundStyle(.primary.opacity(0.85))
             }
-            if let twin {
-                Text("same session as \(WorkFormat.pane(twin, home: home)) — two panes, one transcript")
-                    .font(.callout).foregroundStyle(.orange)
-            } else if box.agent != nil {
-                Text(act?.title ?? box.status).font(.callout).foregroundStyle(.primary.opacity(act == nil ? 0.5 : 0.9))
-            } else {
-                Text((box.label.map { $0 + " · " } ?? "") + (box.cwd as NSString).lastPathComponent)
-                    .font(.callout.monospaced()).foregroundStyle(.secondary)
-            }
-        }
-        .padding(10)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.primary.opacity(box.focused ? 0.075 : 0.04)))
-        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous)
-            .strokeBorder(box.focused ? accent.opacity(0.9) : Color.primary.opacity(0.13), lineWidth: box.focused ? 1.5 : 1))
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .contextMenu {
-            Button("Copy pane id") { WorkFormat.copy(box.paneId) }
-            if let sid = act?.session {
-                Button("Copy resume command") {
-                    WorkFormat.copy("cd '\(box.cwd)' && " + (box.agent == "codex" ? "codex resume \(sid)" : "claude --resume \(sid)"))
-                }
-            }
-            Button("Copy folder path") { WorkFormat.copy(box.cwd) }
         }
     }
 }
 
-/// herdr's sidebar marks: ◐ working · ✓ done · ! blocked · ○ idle.
-struct StatusGlyph: View {
-    let status: String
-    let accent: Color
-    var body: some View {
-        let look: (symbol: String, color: Color) = {
-            switch status {
-            case "working": return ("circle.lefthalf.filled", accent)
-            case "done": return ("checkmark", .green)
-            case "blocked": return ("exclamationmark.circle.fill", .orange)
-            case "idle": return ("circle", Color.secondary)
-            case "shell": return ("terminal", Color.secondary)
-            case "resumable": return ("arrow.uturn.backward", Color.secondary)
-            case "cold": return ("moon.zzz", Color.secondary.opacity(0.6))
-            default: return ("circle.dotted", Color.secondary.opacity(0.6))
-            }
-        }()
-        Image(systemName: look.symbol).font(.system(size: 10, weight: .bold)).foregroundStyle(look.color).frame(width: 12)
-    }
-}
-
-/// A worktree with no herdr space open: the way back in.
-struct ClosedTreePanel: View {
-    let item: WorkItem
+struct LiveCard: View {
+    let item: WorkItem; let config: OracleConfig; let twins: [String: String]; let home: String
     @Binding var copied: String?
     var body: some View {
-        VStack(spacing: 14) {
-            Image(systemName: item.resumeCommand == nil ? "moon.zzz" : "arrow.uturn.backward.circle")
-                .font(.system(size: 30, weight: .light)).foregroundStyle(.secondary)
-            Text(item.resumeCommand == nil ? "No herdr space, no session to resume" : "No herdr space open — the session is waiting")
-                .foregroundStyle(.secondary)
-            if let b = item.born { Text("made \(WorkFormat.ago(b)) ago").font(.caption).foregroundStyle(.secondary) }
-            if let cmd = item.resumeCommand {
-                Text(cmd).font(.caption.monospaced()).textSelection(.enabled).multilineTextAlignment(.center)
-                Button(copied == item.id ? "Copied" : "Copy resume command") { WorkFormat.copy(cmd); copied = item.id }
-                    .buttonStyle(.borderedProminent)
+        VStack(alignment: .leading, spacing: 9) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(item.slug).font(.headline).lineLimit(1)
+                Text(item.branch).font(.caption.monospaced()).foregroundStyle(.secondary)
+                    .lineLimit(1).truncationMode(.middle)
+                Spacer(minLength: 8)
+                WorkLinks(item: item, repo: config.repoSlug)
+                Text(item.state.label).font(.caption).foregroundStyle(.secondary)
             }
-            #if os(macOS)
-            Button("Open folder") { WorkFormat.open(URL(fileURLWithPath: item.path)) }.buttonStyle(.link)
-            #endif
+            ForEach(item.panes.sorted { WorkFormat.rank($0.status) < WorkFormat.rank($1.status) }, id: \.place) { p in
+                HStack(spacing: 8) {
+                    Circle().fill(WorkFormat.dot(p.status, config.color)).frame(width: 7, height: 7)
+                    Text(WorkFormat.pane(p.place, home: home)).font(.caption.monospaced()).foregroundStyle(.secondary)
+                        .frame(width: 104, alignment: .leading)
+                    if let twin = twins[p.place] {
+                        Text("same session as \(WorkFormat.pane(twin, home: home)) — two panes, one transcript")
+                            .foregroundStyle(.orange).lineLimit(1)
+                    } else {
+                        Text(p.title).lineLimit(1).truncationMode(.tail)
+                    }
+                    Spacer(minLength: 6)
+                    if let s = p.since { Text(WorkFormat.ago(s)).font(.caption.monospacedDigit()).foregroundStyle(.secondary) }
+                }
+                .font(.callout)
+            }
         }
-        .padding(24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(14)
+        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.primary.opacity(0.045)))
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.primary.opacity(0.08)))
+        .contextMenu { WorkMenu(item: item, repo: config.repoSlug, copied: $copied) }
+    }
+}
+
+/// A resumable or cold worktree: slug, its issue and PR, age, and the way back in.
+struct TreeRow: View {
+    let item: WorkItem; let config: OracleConfig
+    @Binding var copied: String?
+    var body: some View {
+        HStack(spacing: 10) {
+            Text(item.slug).lineLimit(1).truncationMode(.middle)
+            WorkLinks(item: item, repo: config.repoSlug)
+            Spacer(minLength: 8)
+            Text(item.born.map(WorkFormat.ago) ?? "").font(.callout.monospacedDigit()).foregroundStyle(.secondary)
+                .frame(width: 44, alignment: .trailing)
+            if let cmd = item.resumeCommand {
+                Button(copied == item.id ? "copied" : "resume") { WorkFormat.copy(cmd); copied = item.id }
+                    .buttonStyle(.borderless).help(cmd)
+                    .frame(width: 64, alignment: .trailing)
+            } else {
+                Color.clear.frame(width: 64, height: 1)
+            }
+        }
+        .padding(.vertical, 4).padding(.horizontal, 4)
+        .contentShape(Rectangle())
+        .contextMenu { WorkMenu(item: item, repo: config.repoSlug, copied: $copied) }
+    }
+}
+
+/// Open issues no worktree names — /herdr-wt starts here: issue first, then the tree.
+struct NextBox: View {
+    let next: [WorkParse.NextIssue]
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ForEach(next) { n in
+                HStack(spacing: 10) {
+                    Text("#\(n.issue.number)").font(.callout.monospacedDigit()).foregroundStyle(.secondary)
+                    Text(n.issue.title).lineLimit(1)
+                    Spacer(minLength: 8)
+                    if let pr = n.pr { WorkChip(text: "PR #\(pr.number)") { if let u = pr.url { WorkFormat.open(u) } } }
+                }
+                .contentShape(Rectangle())
+                .onTapGesture { if let u = n.issue.url { WorkFormat.open(u) } }
+                .contextMenu {
+                    if let u = n.issue.url { Button("Open issue #\(n.issue.number)") { WorkFormat.open(u) } }
+                    if let pr = n.pr, let u = pr.url { Button("Open PR #\(pr.number)") { WorkFormat.open(u) } }
+                }
+            }
+        }
+        .padding(12)
         .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
-            .strokeBorder(Color.secondary.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [6, 5])))
-        .aspectRatio(168 / (42 * 2.1), contentMode: .fit)
+            .strokeBorder(Color.secondary.opacity(0.6), style: StrokeStyle(lineWidth: 1, dash: [5, 4])))
     }
 }
 

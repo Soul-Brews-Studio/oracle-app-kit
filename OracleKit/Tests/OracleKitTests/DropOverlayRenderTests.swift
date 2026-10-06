@@ -21,23 +21,6 @@ final class DropOverlayRenderTests: XCTestCase {
     }
 }
 
-/// `RENDER_LAYOUT=<dir> SNAPSHOT=<herdr api snapshot json> SPACE=w22 swift test --filter LayoutRenderTests`
-/// → one PNG per tab of that space, drawn the way the Work view draws it.
-final class LayoutRenderTests: XCTestCase {
-    @MainActor func testRenderSpaceTabs() throws {
-        let env = ProcessInfo.processInfo.environment
-        guard let dir = env["RENDER_LAYOUT"], let snap = env["SNAPSHOT"], let ws = env["SPACE"] else { throw XCTSkip("set RENDER_LAYOUT, SNAPSHOT, SPACE") }
-        try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
-        let parsed = HerdrSnapshot.parse(try Data(contentsOf: URL(fileURLWithPath: snap)), session: "laris-co")
-        guard let space = parsed.spaces.first(where: { $0.workspaceId == ws }) else { return XCTFail("no space \(ws)") }
-        for t in space.tabs {
-            let v = LayoutCanvas(tab: t, acts: [:], twins: [:], home: "laris-co", accent: Color(hex: "#64b5f6"))
-                .frame(width: 900).padding(16).background(Color(red: 0.12, green: 0.12, blue: 0.13)).environment(\.colorScheme, .dark)
-            try write(v, to: "\(dir)/\(t.tabId.replacingOccurrences(of: ":", with: "-")).png")
-        }
-    }
-}
-
 @MainActor private func write<V: View>(_ v: V, to path: String) throws {
     let r = ImageRenderer(content: v); r.scale = 2
     guard let img = r.nsImage, let tiff = img.tiffRepresentation, let rep = NSBitmapImageRep(data: tiff),
