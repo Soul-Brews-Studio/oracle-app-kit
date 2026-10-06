@@ -81,6 +81,9 @@ public struct OracleRootView: View {
 struct OracleSidebar: View {
     @ObservedObject var store: OracleStore
     @Binding var section: Section?
+    #if os(macOS)
+    static let hubApp = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "co.laris.oracle.hub")
+    #endif
     var body: some View {
         let c = store.config
         VStack(alignment: .leading, spacing: 0) {
@@ -112,6 +115,16 @@ struct OracleSidebar: View {
                 }
             }
             .padding(.horizontal, 12)
+            #if os(macOS)
+            // back to the landing app: every oracle and every herdr session
+            if let hub = OracleSidebar.hubApp {
+                NavRow(symbol: "circle.hexagongrid", title: "ARRA Oracles", badge: "↗", on: false, accent: c.color) {
+                    NSWorkspace.shared.openApplication(at: hub, configuration: NSWorkspace.OpenConfiguration())
+                }
+                .help("Open ARRA Oracles — every oracle and every herdr session")
+                .padding(.horizontal, 12).padding(.top, 14)
+            }
+            #endif
             Spacer(minLength: 16)
             footer(c)
         }

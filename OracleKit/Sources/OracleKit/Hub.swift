@@ -217,46 +217,88 @@ public final class HubStore: ObservableObject {
 public enum WezTerm {
     public static let bundleId = "com.github.wez.wezterm"
 
-    /// Go to the session the way Window Arranger's ⏎ does: herdr retitles its client "<host>: <space>" after the
-    /// focus, and yabai focuses that WezTerm window — switching Space and display. Without a match (no yabai, the
-    /// title not updated yet), the WezTerm CLI path: activate the session's client pane, or open one.
+    /// Bring the session to Nat: find the WezTerm window that shows it (herdr titles its client
+    /// "<host>: <space>"), move it to the main display's visible space, centre it and focus it — Window
+    /// Arranger's ⌘⏎ "ย้ายมา". No client yet: open one in a new WezTerm window and bring that. No yabai: the
+    /// WezTerm CLI alone (activate the client pane, or spawn one) and raise WezTerm.
     public static func show(session: String, label: String? = nil) async {
-        if let label, Shell.which("yabai") != nil {
-            try? await Task.sleep(nanoseconds: 350_000_000)
-            if let id = await yabaiWindow(titled: label) {
-                _ = await Shell.run("yabai", ["-m", "window", String(id), "--focus"])
-                return
+        let yabai = Shell.which("yabai") != nil
+        var window: Int?
+        if yabai, let label {
+            try? await Task.sleep(nanoseconds: 350_000_000)          // herdr retitles the client after the focus
+            window = await yabaiWindow(titled: { $0 == label || $0.hasSuffix(": " + label) })
+        }
+        let clients = await panes(running: session)
+        if window == nil, yabai, let c = clients.first {
+            window = await yabaiWindow(titled: { $0 == c.windowTitle })
+        }
+        if window == nil {
+            if let c = clients.first {
+                _ = await Shell.run("wezterm", ["cli", "activate-pane", "--pane-id", String(c.pane)])
+            } else {
+                let before = Set(await weztermWindows())
+                var args = ["cli", "spawn", "--new-window", "--", Shell.which("herdr") ?? "herdr"]
+                if session != "default" { args += ["--session", session] }
+                _ = await Shell.run("wezterm", args)
+                for _ in 0..<12 where yabai && window == nil {          // the new window shows up within ~1 s
+                    try? await Task.sleep(nanoseconds: 200_000_000)
+                    window = await weztermWindows().first { !before.contains($0) }
+                }
             }
         }
-        if let pane = await panes(running: session).first {
-            _ = await Shell.run("wezterm", ["cli", "activate-pane", "--pane-id", String(pane)])
-        } else {
-            var args = ["cli", "spawn", "--new-window", "--", Shell.which("herdr") ?? "herdr"]
-            if session != "default" { args += ["--session", session] }
-            _ = await Shell.run("wezterm", args)
-        }
-        await MainActor.run { _ = NSRunningApplication.runningApplications(withBundleIdentifier: bundleId).first?.activate() }
+        if let window { await bringToMain(window) }
+        else { await MainActor.run { _ = NSRunningApplication.runningApplications(withBundleIdentifier: bundleId).first?.activate() } }
     }
 
-    /// The yabai id of a WezTerm window whose title is herdr's "<host>: <label>" (or the bare label).
-    static func yabaiWindow(titled label: String) async -> Int? {
-        guard let json = await Shell.run("yabai", ["-m", "query", "--windows"]),
-              let list = try? JSONSerialization.jsonObject(with: Data(json.utf8)) as? [[String: Any]] else { return nil }
-        return list.first { w in
-            guard (w["app"] as? String) == "WezTerm", let t = w["title"] as? String else { return false }
-            return t == label || t.hasSuffix(": " + label)
+    /// Move a window to the main display (the one at the origin), centred on its visible space, and focus it.
+    static func bringToMain(_ id: Int) async {
+        guard let displays = await yabaiJSON(["--displays"]) as? [[String: Any]],
+              let main = displays.first(where: { d in
+                  let f = d["frame"] as? [String: Double]; return f?["x"] == 0 && f?["y"] == 0
+              }) ?? displays.first(where: { ($0["index"] as? Int) == 1 }),
+              let index = main["index"] as? Int, let frame = main["frame"] as? [String: Double],
+              let spaces = await yabaiJSON(["--spaces", "--display", String(index)]) as? [[String: Any]],
+              let here = spaces.first(where: { ($0["is-visible"] as? Bool) == true })?["index"] as? Int,
+              let win = await yabaiJSON(["--windows", "--window", String(id)]) as? [String: Any] else {
+            _ = await Shell.run("yabai", ["-m", "window", String(id), "--focus"]); return
+        }
+        if (win["space"] as? Int) != here {
+            _ = await Shell.run("yabai", ["-m", "window", String(id), "--space", String(here)])
+            let wf = win["frame"] as? [String: Double] ?? [:]
+            if let w = wf["w"], let h = wf["h"], let x = frame["x"], let y = frame["y"], let W = frame["w"], let H = frame["h"] {
+                _ = await Shell.run("yabai", ["-m", "window", String(id), "--move", "abs:\(Int(x + (W - w) / 2)):\(Int(y + (H - h) / 2))"])
+            }
+        }
+        _ = await Shell.run("yabai", ["-m", "window", String(id), "--focus"])
+    }
+
+    static func yabaiJSON(_ query: [String]) async -> Any? {
+        guard let out = await Shell.run("yabai", ["-m", "query"] + query) else { return nil }
+        return try? JSONSerialization.jsonObject(with: Data(out.utf8))
+    }
+
+    static func weztermWindows() async -> [Int] {
+        (await yabaiJSON(["--windows"]) as? [[String: Any]] ?? [])
+            .filter { ($0["app"] as? String) == "WezTerm" }.compactMap { $0["id"] as? Int }
+    }
+
+    static func yabaiWindow(titled match: (String) -> Bool) async -> Int? {
+        (await yabaiJSON(["--windows"]) as? [[String: Any]] ?? []).first { w in
+            (w["app"] as? String) == "WezTerm" && (w["title"] as? String).map(match) == true
         }?["id"] as? Int
     }
 
-    /// WezTerm pane ids whose terminal runs a local herdr client attached to `session`.
-    public static func panes(running session: String) async -> [Int] {
+    /// WezTerm panes whose terminal runs a local herdr client attached to `session`, with their window's title.
+    public static func panes(running session: String) async -> [(pane: Int, windowTitle: String)] {
         guard let json = await Shell.run("wezterm", ["cli", "list", "--format", "json"]),
               let list = try? JSONSerialization.jsonObject(with: Data(json.utf8)) as? [[String: Any]] else { return [] }
-        var out: [Int] = []
+        var out: [(pane: Int, windowTitle: String)] = []
         for p in list {
             guard let id = p["pane_id"] as? Int, let tty = (p["tty_name"] as? String)?.replacingOccurrences(of: "/dev/", with: "") else { continue }
             let ps = await Shell.run("ps", ["-o", "args=", "-t", tty]) ?? ""
-            if ps.split(separator: "\n").contains(where: { herdrSession(of: String($0)) == session }) { out.append(id) }
+            if ps.split(separator: "\n").contains(where: { herdrSession(of: String($0)) == session }) {
+                out.append((id, p["window_title"] as? String ?? ""))
+            }
         }
         return out
     }
