@@ -1,0 +1,19 @@
+name: OracleApps
+options:
+  bundleIdPrefix: co.laris.oracle
+  deploymentTarget:
+    macOS: "14.0"
+    iOS: "17.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    DEVELOPMENT_TEAM: 6K28WEXX78
+    CODE_SIGN_STYLE: Automatic
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: 1
+packages:
+  OracleKit:
+    path: OracleKit
+include:
+  - path: apps.yml
+    relativePaths: false

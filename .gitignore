@@ -1,0 +1,5 @@
+build/
+*.xcodeproj/xcuserdata/
+.DS_Store
+OracleKit/.build/
+OracleKit/.swiftpm/

@@ -1,0 +1,641 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0CE7AD6783E511A241CCE8B9 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9747F85F8B3132BD641525AE /* Assets.xcassets */; };
+		135BC6904B6A6EF518DD7C74 /* NeoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA7B638D3B556C915C153B1E /* NeoApp.swift */; };
+		2B9BC0A1DF0BE48BE8AFCF81 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97CF4DEE1C0D84FB0133816A /* Assets.xcassets */; };
+		4771993584B814FF8A661A42 /* NexusApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C7F01FD47329725FDFEFBF7 /* NexusApp.swift */; };
+		548EF9C7581D38F5E84BCD66 /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = AA25C26D192E25E4550F953D /* OracleKit */; };
+		59B26BEE9BCEFC70F0E9AEAB /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = B0F5F3BACE628CD6D829BFDE /* OracleKit */; };
+		5F73AFB86D0CF89FD12B49E0 /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = 9EB334B6C1B129FB8DF7D118 /* OracleKit */; };
+		81B740EF69BBBEAB1B99740D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FE480FFFEE4B266EB37C8F5F /* Assets.xcassets */; };
+		8505E97A8977FEE81E2CB5D9 /* NeoExtras.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85CC7A862B4A57539A3EC547 /* NeoExtras.swift */; };
+		89201715E26C3A13D0949318 /* PulseApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9231C651A42F8ED3C6DF7549 /* PulseApp.swift */; };
+		99080C841CF90F9DFACA1DF6 /* NexusExtras.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F0767639C078D6E55BCEA0E /* NexusExtras.swift */; };
+		9D882FA86DFB4F8F73ED7CB6 /* PulseExtras.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F13410DB812353A44FCE45E /* PulseExtras.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		1F13410DB812353A44FCE45E /* PulseExtras.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PulseExtras.swift; sourceTree = "<group>"; };
+		2C7F01FD47329725FDFEFBF7 /* NexusApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusApp.swift; sourceTree = "<group>"; };
+		2F0767639C078D6E55BCEA0E /* NexusExtras.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusExtras.swift; sourceTree = "<group>"; };
+		33D307D5CF34490C5E34FD95 /* Neo.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Neo.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		85CC7A862B4A57539A3EC547 /* NeoExtras.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NeoExtras.swift; sourceTree = "<group>"; };
+		9231C651A42F8ED3C6DF7549 /* PulseApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PulseApp.swift; sourceTree = "<group>"; };
+		9747F85F8B3132BD641525AE /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		97CF4DEE1C0D84FB0133816A /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		B530CFD74615840D1FD21D61 /* Pulse.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Pulse.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D4532687283B94E464FAF092 /* Nexus.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Nexus.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E6B04B136F929B594FC6EF73 /* OracleKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = OracleKit; path = OracleKit; sourceTree = SOURCE_ROOT; };
+		FA7B638D3B556C915C153B1E /* NeoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NeoApp.swift; sourceTree = "<group>"; };
+		FE480FFFEE4B266EB37C8F5F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		2B07F1976DCD80EC3F78A307 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				548EF9C7581D38F5E84BCD66 /* OracleKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		76DDC45B0E5FB3543A5B1ABA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				59B26BEE9BCEFC70F0E9AEAB /* OracleKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DFCE1F7D865A8DEE74B406FB /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5F73AFB86D0CF89FD12B49E0 /* OracleKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		1A5B5B4F634938D87A244AA9 /* Pulse */ = {
+			isa = PBXGroup;
+			children = (
+				97CF4DEE1C0D84FB0133816A /* Assets.xcassets */,
+				9231C651A42F8ED3C6DF7549 /* PulseApp.swift */,
+				1F13410DB812353A44FCE45E /* PulseExtras.swift */,
+			);
+			name = Pulse;
+			path = Apps/Pulse;
+			sourceTree = "<group>";
+		};
+		1A856B3A3480E3528CFF4233 /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				E6B04B136F929B594FC6EF73 /* OracleKit */,
+			);
+			name = Packages;
+			sourceTree = "<group>";
+		};
+		3F531203EF9C81FB862684E9 = {
+			isa = PBXGroup;
+			children = (
+				79EA5A1B63E63D54532633FF /* Neo */,
+				47651820CEB16DF156C79410 /* Nexus */,
+				1A856B3A3480E3528CFF4233 /* Packages */,
+				1A5B5B4F634938D87A244AA9 /* Pulse */,
+				4B3911DA704ADFCF590622F2 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		47651820CEB16DF156C79410 /* Nexus */ = {
+			isa = PBXGroup;
+			children = (
+				FE480FFFEE4B266EB37C8F5F /* Assets.xcassets */,
+				2C7F01FD47329725FDFEFBF7 /* NexusApp.swift */,
+				2F0767639C078D6E55BCEA0E /* NexusExtras.swift */,
+			);
+			name = Nexus;
+			path = Apps/Nexus;
+			sourceTree = "<group>";
+		};
+		4B3911DA704ADFCF590622F2 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				33D307D5CF34490C5E34FD95 /* Neo.app */,
+				D4532687283B94E464FAF092 /* Nexus.app */,
+				B530CFD74615840D1FD21D61 /* Pulse.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		79EA5A1B63E63D54532633FF /* Neo */ = {
+			isa = PBXGroup;
+			children = (
+				9747F85F8B3132BD641525AE /* Assets.xcassets */,
+				FA7B638D3B556C915C153B1E /* NeoApp.swift */,
+				85CC7A862B4A57539A3EC547 /* NeoExtras.swift */,
+			);
+			name = Neo;
+			path = Apps/Neo;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		C99D203A30114884D4BB548A /* Nexus */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 22492E9F4AAF37EBB0575612 /* Build configuration list for PBXNativeTarget "Nexus" */;
+			buildPhases = (
+				198D1CFD92F8BB0B1BE14374 /* Sources */,
+				49B200A1892D9E588DCE8DA8 /* Resources */,
+				76DDC45B0E5FB3543A5B1ABA /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Nexus;
+			packageProductDependencies = (
+				B0F5F3BACE628CD6D829BFDE /* OracleKit */,
+			);
+			productName = Nexus;
+			productReference = D4532687283B94E464FAF092 /* Nexus.app */;
+			productType = "com.apple.product-type.application";
+		};
+		EA29C873AC2286317DA38636 /* Pulse */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 74122D6D08CE988E50D6054B /* Build configuration list for PBXNativeTarget "Pulse" */;
+			buildPhases = (
+				905E73BA18FA674646DF865F /* Sources */,
+				733D3F43D088BC304A4E2534 /* Resources */,
+				2B07F1976DCD80EC3F78A307 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Pulse;
+			packageProductDependencies = (
+				AA25C26D192E25E4550F953D /* OracleKit */,
+			);
+			productName = Pulse;
+			productReference = B530CFD74615840D1FD21D61 /* Pulse.app */;
+			productType = "com.apple.product-type.application";
+		};
+		F4C43E59E3D089F341776040 /* Neo */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 41A40E1DD68DBC6E94C53362 /* Build configuration list for PBXNativeTarget "Neo" */;
+			buildPhases = (
+				F64C101027A592994D8188C3 /* Sources */,
+				CA52D00317CC60335AE4136E /* Resources */,
+				DFCE1F7D865A8DEE74B406FB /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Neo;
+			packageProductDependencies = (
+				9EB334B6C1B129FB8DF7D118 /* OracleKit */,
+			);
+			productName = Neo;
+			productReference = 33D307D5CF34490C5E34FD95 /* Neo.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		430DB4AF39A44099EA106CF8 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					C99D203A30114884D4BB548A = {
+						DevelopmentTeam = 6K28WEXX78;
+						ProvisioningStyle = Automatic;
+					};
+					EA29C873AC2286317DA38636 = {
+						DevelopmentTeam = 6K28WEXX78;
+						ProvisioningStyle = Automatic;
+					};
+					F4C43E59E3D089F341776040 = {
+						DevelopmentTeam = 6K28WEXX78;
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 64FB300109F284BE4D151BF5 /* Build configuration list for PBXProject "OracleApps" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 3F531203EF9C81FB862684E9;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				294EE4DEF81BAF52228E424F /* XCLocalSwiftPackageReference "OracleKit" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 4B3911DA704ADFCF590622F2 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				F4C43E59E3D089F341776040 /* Neo */,
+				C99D203A30114884D4BB548A /* Nexus */,
+				EA29C873AC2286317DA38636 /* Pulse */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		49B200A1892D9E588DCE8DA8 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				81B740EF69BBBEAB1B99740D /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		733D3F43D088BC304A4E2534 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2B9BC0A1DF0BE48BE8AFCF81 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CA52D00317CC60335AE4136E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0CE7AD6783E511A241CCE8B9 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		198D1CFD92F8BB0B1BE14374 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4771993584B814FF8A661A42 /* NexusApp.swift in Sources */,
+				99080C841CF90F9DFACA1DF6 /* NexusExtras.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		905E73BA18FA674646DF865F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				89201715E26C3A13D0949318 /* PulseApp.swift in Sources */,
+				9D882FA86DFB4F8F73ED7CB6 /* PulseExtras.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F64C101027A592994D8188C3 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				135BC6904B6A6EF518DD7C74 /* NeoApp.swift in Sources */,
+				8505E97A8977FEE81E2CB5D9 /* NeoExtras.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		19203404D05A287CFAF94598 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = 6K28WEXX78;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		355BEE1F58AACE63A371A489 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = NO;
+				INFOPLIST_FILE = Apps/Pulse/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Pulse;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = co.laris.oracle.pulse;
+				PRODUCT_NAME = Pulse;
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		54B280AAFB3B720DD49AD23E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = NO;
+				INFOPLIST_FILE = Apps/Pulse/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Pulse;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = co.laris.oracle.pulse;
+				PRODUCT_NAME = Pulse;
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		8819780CA64A0C0892B6242C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = NO;
+				INFOPLIST_FILE = Apps/Nexus/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Nexus;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = co.laris.oracle.nexus;
+				PRODUCT_NAME = Nexus;
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		8B1AC41CD1F5BE813D374A96 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 6K28WEXX78;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		9C61075B9EF3ACC783F8B62C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = NO;
+				INFOPLIST_FILE = Apps/Neo/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Neo;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = co.laris.oracle.neo;
+				PRODUCT_NAME = Neo;
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		A976E630B98AE5E3042501D3 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = NO;
+				INFOPLIST_FILE = Apps/Nexus/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Nexus;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = co.laris.oracle.nexus;
+				PRODUCT_NAME = Nexus;
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		B0B11DBACFB893E589CEFA06 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = NO;
+				INFOPLIST_FILE = Apps/Neo/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Neo;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = co.laris.oracle.neo;
+				PRODUCT_NAME = Neo;
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		22492E9F4AAF37EBB0575612 /* Build configuration list for PBXNativeTarget "Nexus" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				8819780CA64A0C0892B6242C /* Debug */,
+				A976E630B98AE5E3042501D3 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		41A40E1DD68DBC6E94C53362 /* Build configuration list for PBXNativeTarget "Neo" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9C61075B9EF3ACC783F8B62C /* Debug */,
+				B0B11DBACFB893E589CEFA06 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		64FB300109F284BE4D151BF5 /* Build configuration list for PBXProject "OracleApps" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				8B1AC41CD1F5BE813D374A96 /* Debug */,
+				19203404D05A287CFAF94598 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		74122D6D08CE988E50D6054B /* Build configuration list for PBXNativeTarget "Pulse" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				54B280AAFB3B720DD49AD23E /* Debug */,
+				355BEE1F58AACE63A371A489 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		294EE4DEF81BAF52228E424F /* XCLocalSwiftPackageReference "OracleKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = OracleKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		9EB334B6C1B129FB8DF7D118 /* OracleKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = OracleKit;
+		};
+		AA25C26D192E25E4550F953D /* OracleKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = OracleKit;
+		};
+		B0F5F3BACE628CD6D829BFDE /* OracleKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = OracleKit;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 430DB4AF39A44099EA106CF8 /* Project object */;
+}

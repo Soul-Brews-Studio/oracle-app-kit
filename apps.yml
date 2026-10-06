@@ -1,0 +1,7 @@
+include:
+  - path: Apps/Neo/app.yml
+    relativePaths: false
+  - path: Apps/Nexus/app.yml
+    relativePaths: false
+  - path: Apps/Pulse/app.yml
+    relativePaths: false

@@ -1,0 +1,32 @@
+targets:
+  Nexus:
+    type: application
+    supportedDestinations: [macOS, iOS]
+    sources:
+      - path: Apps/Nexus
+        excludes: ["app.yml", "Info.plist"]
+    dependencies:
+      - package: OracleKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: co.laris.oracle.nexus
+        PRODUCT_NAME: Nexus
+        INFOPLIST_KEY_CFBundleDisplayName: Nexus
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        TARGETED_DEVICE_FAMILY: "1,2"
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        ENABLE_APP_SANDBOX: NO
+        ENABLE_HARDENED_RUNTIME: NO
+    info:
+      path: Apps/Nexus/Info.plist
+      properties:
+        CFBundleName: Nexus
+        CFBundleDisplayName: Nexus
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen: {}
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: Anything for Nexus
+            CFBundleTypeRole: Viewer
+            LSHandlerRank: Alternate
+            LSItemContentTypes: [public.item, public.content, public.folder, public.url, public.data]
