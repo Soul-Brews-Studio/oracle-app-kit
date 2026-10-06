@@ -64,7 +64,7 @@ targets:
     info:
       path: Apps/Pulse/Widget/Info.plist
       properties:
-        CFBundleDisplayName: Pulse
+        CFBundleDisplayName: Pulse Oracle
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSExtension:

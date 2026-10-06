@@ -156,7 +156,7 @@ targets:
     info:
       path: Apps/$N/Widget/Info.plist
       properties:
-        CFBundleDisplayName: $N
+        CFBundleDisplayName: $N Oracle
         CFBundleShortVersionString: \$(MARKETING_VERSION)
         CFBundleVersion: \$(CURRENT_PROJECT_VERSION)
         NSExtension:

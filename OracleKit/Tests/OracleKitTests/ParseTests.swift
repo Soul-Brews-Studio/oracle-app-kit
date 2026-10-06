@@ -54,3 +54,51 @@ final class PrettifyTests: XCTestCase {
         XCTAssertEqual(OracleStore.prettify("2026-09-30_0834_maw-cli-neo-fleet-restart.md"), "maw cli neo fleet restart")
     }
 }
+
+final class WorkParseTests: XCTestCase {
+    func testFolderNames() {
+        let new = WorkParse.parseFolder("heartrate-ble-nexus-issue11-29sep-tue2026", oracle: "nexus")
+        XCTAssertEqual(new.slug, "heartrate-ble"); XCTAssertEqual(new.issue, 11)
+        XCTAssertEqual(new.born.map { Calendar(identifier: .gregorian).component(.day, from: $0) }, 29)
+        XCTAssertEqual(WorkParse.parseFolder("neo-voice-bot-19sep-sat2026", oracle: "neo").slug, "voice-bot")
+        let lead = WorkParse.parseFolder("issue-3-research-lancedb-nexus-24sep-thu2026", oracle: "nexus")
+        XCTAssertEqual(lead.slug, "research-lancedb"); XCTAssertEqual(lead.issue, 3)
+        XCTAssertEqual(WorkParse.parseFolder("codex-buddy", oracle: "nexus").slug, "codex-buddy")
+    }
+    func testLocks() {
+        let porcelain = "worktree /r/wt/a\nHEAD x\nlocked herdr|beta@m5|2026-09-29T12:24:26+07:00|heartrate-ble|#11|herdr-send\n\nworktree /r/wt/b\n"
+        let locks = WorkParse.lockReasons(porcelain)
+        XCTAssertEqual(locks.count, 1)
+        let l = WorkParse.parseLock(locks["/r/wt/a"]!)
+        XCTAssertEqual(l.issue, 11); XCTAssertNotNil(l.born)
+        XCTAssertNil(WorkParse.parseLock("herdr|beta@m5|2026-09-14T12:15|retro-locked, created before lock convention").born)
+    }
+    func testPanesGoToTheDeepestWorktreeAndPRsByBranch() {
+        let ls = #"{"worktrees":[{"path":"/c/neo-oracle","branch":"main","state":"running"},{"path":"/c/neo-oracle/wt/x-neo-1oct-wed2026","branch":"x-neo-1oct-wed2026","state":"open"},{"path":"/c/other","state":"running"}]}"#
+        let act = [OracleSnapshot.Activity(title: "fix it", status: "working", place: "s:w1:p1", cwd: "/c/neo-oracle/wt/x-neo-1oct-wed2026/src"),
+                   OracleSnapshot.Activity(title: "plan", status: "blocked", place: "s:w2:p1", cwd: "/c/neo-oracle")]
+        let pr = GHItem(number: 7, title: "x", author: "nazt", updatedAt: nil, url: nil, isDraft: false, branch: "x-neo-1oct-wed2026")
+        let items = WorkParse.items(ls: Data(ls.utf8), locks: [:], activity: act, prs: [pr], localPath: "/c/neo-oracle")
+        XCTAssertEqual(items.map(\.slug), ["neo-oracle", "x"])                     // needs-you (main, blocked) before working
+        XCTAssertEqual(items[0].state, .needsYou); XCTAssertEqual(items[1].state, .working)
+        XCTAssertEqual(items[1].panes.map(\.title), ["fix it"]); XCTAssertEqual(items[1].pr?.number, 7)
+    }
+}
+
+final class WorkLinkTests: XCTestCase {
+    func testNextIssuesAndTwins() {
+        let pr = GHItem(number: 7, title: "report", author: "copilot", updatedAt: nil, url: nil, isDraft: false,
+                        branch: "copilot/x", closes: [6])
+        let issues = [6, 8].map { GHItem(number: $0, title: "i\($0)", author: "", updatedAt: nil, url: nil, isDraft: false) }
+        let ls = #"{"worktrees":[{"path":"/c/nexus-oracle/wt/influxdb3-s3-nexus-28sep-mon2026","branch":"b","state":"resumable","resume":{"provider":"claude","id":"1358"}}]}"#
+        let locks = ["/c/nexus-oracle/wt/influxdb3-s3-nexus-28sep-mon2026": "herdr|beta@m5|2026-09-28T05:45:11+07:00|influxdb3-s3|#8"]
+        let work = WorkParse.items(ls: Data(ls.utf8), locks: locks, activity: [], prs: [pr], localPath: "/c/nexus-oracle")
+        XCTAssertEqual(work.first?.issue, 8)
+        XCTAssertEqual(work.first?.resumeCommand, "cd '/c/nexus-oracle/wt/influxdb3-s3-nexus-28sep-mon2026' && claude --resume 1358")
+        let next = WorkParse.unstarted(issues: issues, prs: [pr], work: work)
+        XCTAssertEqual(next.map(\.id), [6]); XCTAssertEqual(next.first?.pr?.number, 7)
+        let a = OracleSnapshot.Activity(title: "x", status: "working", place: "laris-co:w22:pA", session: "d4e8")
+        let b = OracleSnapshot.Activity(title: "x", status: "idle", place: "default:wD:p4", session: "d4e8")
+        XCTAssertEqual(WorkParse.twins([b, a]), ["default:wD:p4": "laris-co:w22:pA"])
+    }
+}

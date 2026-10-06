@@ -9,6 +9,9 @@ import WidgetKit
 public final class OracleStore: ObservableObject {
     @Published public private(set) var panes: [AgentPane] = []
     @Published public private(set) var tree: [StatusRow] = []
+    @Published public private(set) var work: [WorkItem] = []
+    @Published public private(set) var spaces: [HerdrSpace] = []
+    private var lastLs: Data?
     @Published public private(set) var prs: [GHItem] = []
     @Published public private(set) var issues: [GHItem] = []
     @Published public private(set) var inbox: [InboxItem] = []
@@ -38,13 +41,20 @@ public final class OracleStore: ObservableObject {
         async let ib = Task.detached(priority: .utility) { OracleStore.scanInbox(path) }.value   // off the main thread
         let (tree, gh, inbox) = await (t, g, ib)
         if let tree { self.tree = tree.rows; self.panes = tree.panes } else { issuesSeen.append("maw / herdr not answering") }
+        if let gh { self.prs = gh.0; self.issues = gh.1 } else { issuesSeen.append("gh failed — run `gh auth status`") }
         self.activity = await loadActivity().map { a in
             var a = a
             if let prev = statusSince[a.place], prev.status == a.status { a.since = prev.since }
             else { a.since = Date(); statusSince[a.place] = (a.status, a.since!) }
             return a
         }
-        if let gh { self.prs = gh.0; self.issues = gh.1 } else { issuesSeen.append("gh failed — run `gh auth status`") }
+        if let ls = lastLs {
+            let porcelain = await Shell.run("git", ["-C", config.localPath, "worktree", "list", "--porcelain"]) ?? ""
+            let repoName = (config.localPath as NSString).lastPathComponent
+            self.work = WorkParse.items(ls: ls, locks: WorkParse.lockReasons(porcelain), activity: activity, prs: prs,
+                                        localPath: config.localPath,
+                                        extraRoots: [NSHomeDirectory() + "/.herdr/worktrees/" + repoName])
+        }
         self.inbox = inbox
         recomputeUnread()
         #else
@@ -54,6 +64,37 @@ public final class OracleStore: ObservableObject {
         problems = issuesSeen
         lastRefresh = Date()
         publishSnapshot()
+    }
+
+    /// Draft → GitHub issue through gh (macOS). The sheet that calls this is the human's confirm step.
+    public func createIssue(title: String, body: String) async -> String? {
+        #if os(macOS)
+        let out = await Shell.run("gh", ["issue", "create", "-R", config.repoSlug, "--title", title, "--body", body], timeout: 30)
+        if let url = out?.split(separator: "\n").last.map(String.init), url.contains("/issues/") {
+            lastDrop = "created issue #" + (url.split(separator: "/").last.map(String.init) ?? "?")
+            await refresh()
+            return url
+        }
+        problems.append("gh issue create failed — run: gh auth status && gh issue create -R \(config.repoSlug)")
+        #endif
+        return nil
+    }
+
+    /// Title and body for an issue made from dropped links or files; small text files travel inside it.
+    public nonisolated static func issueDraft(_ urls: [URL], oracle: String) -> (title: String, body: String) {
+        let title: String
+        if let u = urls.first {
+            title = u.isFileURL ? "Look at \(u.lastPathComponent)" : "Look at \(u.host ?? "")\(u.path == "/" ? "" : u.path)"
+        } else { title = "" }
+        var lines = urls.map { u in u.isFileURL ? "- file: `\(u.path)`" : "- link: <\(u.absoluteString)>" }
+        for u in urls where u.isFileURL && ["md", "txt"].contains(u.pathExtension.lowercased()) {
+            if let d = try? Data(contentsOf: u), d.count < 8_000, let t = String(data: d, encoding: .utf8) {
+                lines.append("\n<details><summary>\(u.lastPathComponent)</summary>\n\n```\n\(t)\n```\n</details>")
+            }
+        }
+        let f = ISO8601DateFormatter(); f.timeZone = .current
+        lines.append("\n_Dropped into the \(oracle) app, \(f.string(from: Date()))._")
+        return (String(title.prefix(120)), lines.joined(separator: "\n"))
     }
 
     @Published public private(set) var activity: [OracleSnapshot.Activity] = []
@@ -141,6 +182,7 @@ public final class OracleStore: ObservableObject {
         async let ls = Shell.run("maw", ["herdr", "ls", "--json"], timeout: 15)
         async let ag = Shell.run("maw", ["herdr", "ls", "--agents", "--json"], timeout: 15)
         if let l = await ls, let a = await ag {
+            lastLs = Data(l.utf8)
             let rows = MawParse.rows(ls: Data(l.utf8), agents: Data(a.utf8), localPath: config.localPath)
             let panes = rows.filter { $0.depth == 2 }.map {
                 AgentPane(session: "", paneId: $0.id, name: $0.title, agent: "", status: $0.status, cwd: "", title: $0.title) }
@@ -158,11 +200,13 @@ public final class OracleStore: ObservableObject {
         let repoName = (config.localPath as NSString).lastPathComponent
         let herdrWT = NSHomeDirectory() + "/.herdr/worktrees/" + repoName
         var out: [OracleSnapshot.Activity] = []
+        var found: [HerdrSpace] = []
         for s in HerdrParse.runningSessions(table: table) {
-            guard let json = await Shell.run("herdr", ["--session", s, "agent", "list"]),
-                  let root = try? JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any],
-                  let list = (root["result"] as? [String: Any])?["agents"] as? [[String: Any]] else { continue }
-            for a in list {
+            // one call per session gives both the agents and herdr's own layout (spaces · tabs · split rects)
+            guard let json = await Shell.run("herdr", ["--session", s, "api", "snapshot"]) else { continue }
+            let snap = HerdrSnapshot.parse(Data(json.utf8), session: s)
+            found += HerdrSnapshot.mine(snap.spaces, roots: [config.localPath, herdrWT])
+            for a in snap.agents {
                 let cwd = a["cwd"] as? String ?? ""
                 guard HerdrParse.belongs(AgentPane(session: s, paneId: "", name: "", agent: "", status: "", cwd: cwd, title: ""), to: config.localPath)
                         || cwd == herdrWT || cwd.hasPrefix(herdrWT + "/") else { continue }
@@ -170,9 +214,9 @@ public final class OracleStore: ObservableObject {
                 var title = (a["terminal_title_stripped"] as? String ?? "").trimmingCharacters(in: .whitespaces)
                 let generic = title.isEmpty || title == (a["name"] as? String) || title.lowercased() == repoName.lowercased()
                     || title == "Claude Code" || title == "zsh"
+                let sid = (a["agent_session"] as? [String: Any])?["value"] as? String
                 if generic {
                     // what was last asked of this pane: its own transcript's last typed prompt
-                    let sid = (a["agent_session"] as? [String: Any])?["value"] as? String
                     if (a["agent"] as? String) == "claude", let sid, let ask = OracleStore.lastPrompt(cwd: cwd, session: sid) {
                         title = ask
                     } else {
@@ -181,9 +225,10 @@ public final class OracleStore: ObservableObject {
                         title = inWT ? (leaf.hasPrefix("worktree") ? leaf : "worktree " + leaf) : "\(config.name) main"
                     }
                 }
-                out.append(.init(title: title, status: a["agent_status"] as? String ?? "idle", place: "\(s):\(pane)"))
+                out.append(.init(title: title, status: a["agent_status"] as? String ?? "idle", place: "\(s):\(pane)", cwd: cwd, session: sid))
             }
         }
+        spaces = found
         return out
     }
 
@@ -269,7 +314,7 @@ public final class OracleStore: ObservableObject {
 
     private func loadGitHubCLI() async -> ([GHItem], [GHItem])? {
         async let pr = Shell.run("gh", ["pr", "list", "-R", config.repoSlug, "--state", "open", "--limit", "50",
-                                        "--json", "number,title,author,updatedAt,url,isDraft"], timeout: 20)
+                                        "--json", "number,title,author,updatedAt,url,isDraft,headRefName,closingIssuesReferences"], timeout: 20)
         async let iss = Shell.run("gh", ["issue", "list", "-R", config.repoSlug, "--state", "open", "--limit", "50",
                                          "--json", "number,title,author,updatedAt,url"], timeout: 20)
         guard let a = await pr, let b = await iss else { return nil }

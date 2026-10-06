@@ -153,7 +153,7 @@ public struct OracleWidgetContent: View {
     private var footer: some View {
         HStack(spacing: 6) {
             emblemMark
-            Text(snap.name).font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
+            Text("\(snap.name) Oracle").font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
             if size == .medium, let u = snap.inboxUnread, u > 0 {
                 Text("· \(u) unread").font(.system(size: 11, weight: .medium).monospacedDigit()).foregroundStyle(.secondary)
             }
