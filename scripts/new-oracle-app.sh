@@ -31,7 +31,9 @@ struct ${N}App: App {
     #if os(macOS)
     @NSApplicationDelegateAdaptor(OracleAppDelegate.self) var delegate
     #endif
-    var body: some Scene { OracleScene(config: .${low}.with(extras: ${N}Extras.extras)) }
+    @StateObject private var store = OracleStore(config: .${low}.with(extras: ${N}Extras.extras))
+    @AppStorage("oracle.menuBar") private var menuBar = false      // the oracle's tray: off until switched on
+    var body: some Scene { OracleScene(store: store, menuBar: \$menuBar) }
 }
 SWIFT
 [ -f $D/${N}Extras.swift ] || cat > $D/${N}Extras.swift <<SWIFT

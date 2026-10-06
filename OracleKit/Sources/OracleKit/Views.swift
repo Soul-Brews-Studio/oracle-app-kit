@@ -8,7 +8,8 @@ import UIKit
 enum Section: Hashable { case status, inbox, prs, issues, extra(String) }
 
 public struct OracleRootView: View {
-    @StateObject private var store: OracleStore
+    @ObservedObject private var store: OracleStore
+    @Binding private var menuBar: Bool
     @State private var section: Section? = .status
     @State private var dropTargeted = false
     @State private var inboxHot = false
@@ -18,13 +19,13 @@ public struct OracleRootView: View {
     @State private var showSettings = false
     #endif
 
-    public init(config: OracleConfig) { _store = StateObject(wrappedValue: OracleStore(config: config)) }
+    public init(store: OracleStore, menuBar: Binding<Bool>) { self.store = store; _menuBar = menuBar }
 
     private var c: OracleConfig { store.config }
 
     public var body: some View {
         NavigationSplitView {
-            OracleSidebar(store: store, section: $section)
+            OracleSidebar(store: store, section: $section, menuBar: $menuBar)
                 .navigationSplitViewColumnWidth(min: 240, ideal: 272)
         } detail: {
             detail
@@ -81,6 +82,7 @@ public struct OracleRootView: View {
 struct OracleSidebar: View {
     @ObservedObject var store: OracleStore
     @Binding var section: Section?
+    @Binding var menuBar: Bool
     #if os(macOS)
     static let hubApp = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "co.laris.oracle.hub")
     #endif
@@ -150,6 +152,9 @@ struct OracleSidebar: View {
             ForEach(store.problems, id: \.self) { p in
                 Text(p).font(.system(size: 11)).foregroundStyle(.orange).textSelection(.enabled)
             }
+            #if os(macOS)
+            Toggle("Show in menu bar", isOn: $menuBar).toggleStyle(.switch).controlSize(.mini).font(.system(size: 11))
+            #endif
         }
         .padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -713,16 +718,63 @@ public final class OracleAppDelegate: NSObject, NSApplicationDelegate {
 #endif
 
 /// The whole app in one scene; a thin app's @main body is just `OracleScene(config:)`.
+/// The store and the menu-bar switch belong to the App (`@StateObject` + `@AppStorage` there) — the shape
+/// ARRA Oracles ended up with after its MenuBarExtra loop. Each oracle app passes them in:
+///     @StateObject private var store = OracleStore(config: .neo)
+///     @AppStorage("oracle.menuBar") private var menuBar = false
+///     var body: some Scene { OracleScene(store: store, menuBar: $menuBar) }
 public struct OracleScene: Scene {
-    let config: OracleConfig
-    public init(config: OracleConfig) { self.config = config; OracleConfig.current = config }
+    let store: OracleStore
+    @Binding var menuBar: Bool
+    public init(store: OracleStore, menuBar: Binding<Bool>) {
+        self.store = store; _menuBar = menuBar; OracleConfig.current = store.config
+    }
     public var body: some Scene {
         #if os(macOS)
         // One window per oracle app: a Dock drop or a restored state must never open a second one.
-        Window(config.name, id: "main") { OracleRootView(config: config) }
+        Window(store.config.name, id: "main") { OracleRootView(store: store, menuBar: $menuBar) }
             .defaultSize(width: 980, height: 640)
+        // The oracle's own status tray, off until switched on. The binding writes on change only — the
+        // status item writes the same value back on every update, and an @AppStorage write re-renders forever.
+        MenuBarExtra("\(store.config.name) Oracle", systemImage: store.config.symbol,
+                     isInserted: Binding(get: { menuBar }, set: { if $0 != menuBar { menuBar = $0 } })) {
+            OracleMenu(store: store, menuBar: $menuBar)
+        }
         #else
-        WindowGroup(config.name) { OracleRootView(config: config) }
+        WindowGroup(store.config.name) { OracleRootView(store: store, menuBar: $menuBar) }
         #endif
     }
 }
+
+#if os(macOS)
+/// The tray's menu: the oracle's state, its panes by urgency, unread inbox, and the way back to the window.
+struct OracleMenu: View {
+    @ObservedObject var store: OracleStore
+    @Binding var menuBar: Bool
+    @Environment(\.openWindow) private var openWindow
+    var body: some View {
+        let need = store.activity.filter { $0.status == "blocked" || $0.status == "done" }.count
+        let working = store.activity.filter { $0.status == "working" }.count
+        let name = store.config.name
+        Text("\(name) Oracle — " + (need > 0 ? "\(need) need you" : working > 0 ? "\(working) working" : "idle"))
+        Divider()
+        ForEach(store.activity.sorted { WorkFormat.rank($0.status) < WorkFormat.rank($1.status) }.prefix(8), id: \.place) { a in
+            Button { open() } label: {
+                Label(String(a.title.prefix(64)), systemImage: a.status == "working" ? "circle.lefthalf.filled"
+                      : (a.status == "done" || a.status == "blocked") ? "checkmark.circle" : "circle")
+            }
+        }
+        if !store.unread.isEmpty {
+            Divider()
+            Button("\(store.unread.count) unread in the inbox") { open() }
+        }
+        Divider()
+        Button("Open \(name) Oracle") { open() }
+        Button("Refresh") { Task { await store.refresh() } }
+        Divider()
+        Button("Hide from menu bar") { menuBar = false }
+        Button("Quit \(name)") { NSApp.terminate(nil) }
+    }
+    private func open() { openWindow(id: "main"); NSApp.activate(ignoringOtherApps: true) }
+}
+#endif
