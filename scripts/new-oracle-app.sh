@@ -132,6 +132,25 @@ targets:
             CFBundleTypeRole: Viewer
             LSHandlerRank: Alternate
             LSItemContentTypes: [public.item, public.content, public.folder, public.url, public.data]
+        NSServices:                  # right-click → Services, anywhere: selected text, links, Finder files
+          - NSMenuItem: { default: "New $N Oracle issue" }
+            NSMessage: newIssue
+            NSPortName: $N
+            NSSendTypes: [public.utf8-plain-text, public.plain-text, public.url, public.file-url]
+            NSSendFileTypes: [public.item]
+            NSRequiredContext: {}       # enabled by default — without it macOS hides the service until switched on
+          - NSMenuItem: { default: "Send to $N Oracle inbox" }
+            NSMessage: sendToInbox
+            NSPortName: $N
+            NSSendTypes: [public.utf8-plain-text, public.plain-text, public.url, public.file-url]
+            NSSendFileTypes: [public.item]
+            NSRequiredContext: {}
+          - NSMenuItem: { default: "Message $N Oracle" }
+            NSMessage: messageOracle
+            NSPortName: $N
+            NSSendTypes: [public.utf8-plain-text, public.plain-text, public.url, public.file-url]
+            NSSendFileTypes: [public.item]
+            NSRequiredContext: {}
   ${N}Widget:
     type: app-extension
     supportedDestinations: [macOS, iOS]

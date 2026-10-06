@@ -38,6 +38,25 @@ targets:
             CFBundleTypeRole: Viewer
             LSHandlerRank: Alternate
             LSItemContentTypes: [public.item, public.content, public.folder, public.url, public.data]
+        NSServices:                  # right-click → Services, anywhere: selected text, links, Finder files
+          - NSMenuItem: { default: "New Nexus Oracle issue" }
+            NSMessage: newIssue
+            NSPortName: Nexus
+            NSSendTypes: [public.utf8-plain-text, public.plain-text, public.url, public.file-url]
+            NSSendFileTypes: [public.item]
+            NSRequiredContext: {}       # enabled by default — without it macOS hides the service until switched on
+          - NSMenuItem: { default: "Send to Nexus Oracle inbox" }
+            NSMessage: sendToInbox
+            NSPortName: Nexus
+            NSSendTypes: [public.utf8-plain-text, public.plain-text, public.url, public.file-url]
+            NSSendFileTypes: [public.item]
+            NSRequiredContext: {}
+          - NSMenuItem: { default: "Message Nexus Oracle" }
+            NSMessage: messageOracle
+            NSPortName: Nexus
+            NSSendTypes: [public.utf8-plain-text, public.plain-text, public.url, public.file-url]
+            NSSendFileTypes: [public.item]
+            NSRequiredContext: {}
   NexusWidget:
     type: app-extension
     supportedDestinations: [macOS, iOS]

@@ -60,6 +60,9 @@ public struct OracleRootView: View {
         .onReceive(NotificationCenter.default.publisher(for: .oracleOpenSection)) { _ in
             section = store.unread.isEmpty ? .status : .inbox     // a widget tap lands where the news is
         }
+        .onReceive(NotificationCenter.default.publisher(for: .oracleServiceIssue)) { _ in takeServiceIssue() }
+        .onReceive(NotificationCenter.default.publisher(for: .oracleServiceMessage)) { _ in takeServiceIssue() }
+        .onAppear { takeServiceIssue() }
         .onReceive(NotificationCenter.default.publisher(for: .oracleFilesDropped)) { n in
             if let count = n.object as? Int { store.noteDrop(count); section = .inbox }
         }
@@ -68,6 +71,13 @@ public struct OracleRootView: View {
         #endif
         .onAppear { store.start() }
     }
+
+    #if os(macOS)
+    private func takeServiceIssue() {
+        if let d = ServiceInbox.pendingIssue { draft = d; ServiceInbox.pendingIssue = nil }
+        if let m = ServiceInbox.pendingMessage { heyText = m; ServiceInbox.pendingMessage = nil }
+    }
+    #endif
 
     /// What "Send to agent…" puts in the composer for an issue or PR — edited before it is sent.
     static func brief(_ it: GHItem, pr: Bool) -> String {
@@ -811,6 +821,8 @@ struct TokenSettings: View {
 public extension Notification.Name {
     static let oracleFilesDropped = Notification.Name("oracleFilesDropped")
     static let oracleOpenSection = Notification.Name("oracleOpenSection")
+    static let oracleServiceIssue = Notification.Name("oracleServiceIssue")
+    static let oracleServiceMessage = Notification.Name("oracleServiceMessage")
 }
 
 #if os(macOS)
@@ -836,12 +848,67 @@ public final class OracleAppDelegate: NSObject, NSApplicationDelegate {
     }
     public func applicationDidFinishLaunching(_ notification: Notification) {
         ready = true
+        NSApp.servicesProvider = self          // right-click → Services → New <Name> Oracle issue / Send to … inbox
+        NSUpdateDynamicServices()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [self] in
             if !pending.isEmpty { deliver(pending); pending = [] }
         }
     }
     public func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
+
+    // MARK: Services menu — NSServices in each app's Info.plist (app.yml) names these two messages.
+
+    /// "New <Name> Oracle issue": the selection (text, links or files) becomes an issue draft in the app;
+    /// Nat edits it and presses Create — nothing posts by itself.
+    @MainActor @objc public func newIssue(_ pboard: NSPasteboard, userData: String, error: AutoreleasingUnsafeMutablePointer<NSString>) {
+        let (urls, text) = Self.read(pboard)
+        ServiceInbox.pendingIssue = Self.issueDraft(urls: urls, text: text, oracle: OracleConfig.current.name)
+        NSApp.activate(ignoringOtherApps: true)
+        NSApp.windows.first { $0.canBecomeMain }?.makeKeyAndOrderFront(nil)
+        NotificationCenter.default.post(name: .oracleServiceIssue, object: nil)
+    }
+
+    /// "Send to <Name> Oracle inbox": files are copied, links become notes, selected text becomes a note —
+    /// the same landing as a Dock drop.
+    @MainActor @objc public func sendToInbox(_ pboard: NSPasteboard, userData: String, error: AutoreleasingUnsafeMutablePointer<NSString>) {
+        var (urls, text) = Self.read(pboard)
+        if urls.isEmpty, let t = text?.trimmingCharacters(in: .whitespacesAndNewlines), !t.isEmpty {
+            let note = FileManager.default.temporaryDirectory.appendingPathComponent("selection.md")
+            if (try? t.write(to: note, atomically: true, encoding: .utf8)) != nil { urls = [note] }
+            text = nil
+        }
+        if !urls.isEmpty { deliver(urls) }
+    }
+
+    /// "Message <Name> Oracle": the selection goes into the app's message box (maw herdr hey); Nat checks the
+    /// target pane and sends with ⌘↩ — nothing is sent by the right-click itself.
+    @MainActor @objc public func messageOracle(_ pboard: NSPasteboard, userData: String, error: AutoreleasingUnsafeMutablePointer<NSString>) {
+        let (urls, text) = Self.read(pboard)
+        let t = (text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let links = urls.map { $0.isFileURL ? $0.path : $0.absoluteString }.filter { $0 != t }
+        ServiceInbox.pendingMessage = ([t] + links).filter { !$0.isEmpty }.joined(separator: "\n")
+        NSApp.activate(ignoringOtherApps: true)
+        NSApp.windows.first { $0.canBecomeMain }?.makeKeyAndOrderFront(nil)
+        NotificationCenter.default.post(name: .oracleServiceMessage, object: nil)
+    }
+
+    static func read(_ pb: NSPasteboard) -> (urls: [URL], text: String?) {
+        ((pb.readObjects(forClasses: [NSURL.self], options: nil) as? [URL]) ?? [], pb.string(forType: .string))
+    }
+
+    static func issueDraft(urls: [URL], text: String?, oracle: String) -> IssueDraft {
+        let t = (text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if !urls.isEmpty {
+            let d = OracleStore.issueDraft(urls, oracle: oracle)
+            return IssueDraft(title: d.title, text: (t.isEmpty || urls.contains { $0.absoluteString == t } ? "" : t + "\n\n") + d.body)
+        }
+        let first = t.split(separator: "\n").first.map(String.init) ?? ""
+        return IssueDraft(title: String(first.prefix(100)), text: t + "\n\n_Sent to the \(oracle) app from the right-click menu._")
+    }
 }
+
+/// A right-click issue that arrives before (or while) the window shows: the root view picks it up.
+@MainActor enum ServiceInbox { static var pendingIssue: IssueDraft?; static var pendingMessage: String? }
 #endif
 
 /// The whole app in one scene; a thin app's @main body is just `OracleScene(config:)`.
