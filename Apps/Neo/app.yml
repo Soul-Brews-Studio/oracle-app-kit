@@ -38,6 +38,19 @@ targets:
             CFBundleTypeRole: Viewer
             LSHandlerRank: Alternate
             LSItemContentTypes: [public.item, public.content, public.folder, public.url, public.data]
+        NSServices:                  # right-click → Services, anywhere: selected text, links, Finder files
+          - NSMenuItem: { default: "New Neo Oracle issue" }
+            NSMessage: newIssue
+            NSPortName: Neo
+            NSSendTypes: [public.utf8-plain-text, public.plain-text, public.url, public.file-url]
+            NSSendFileTypes: [public.item]
+            NSRequiredContext: {}       # enabled by default — without it macOS hides the service until switched on
+          - NSMenuItem: { default: "Send to Neo Oracle inbox" }
+            NSMessage: sendToInbox
+            NSPortName: Neo
+            NSSendTypes: [public.utf8-plain-text, public.plain-text, public.url, public.file-url]
+            NSSendFileTypes: [public.item]
+            NSRequiredContext: {}
   NeoWidget:
     type: app-extension
     supportedDestinations: [macOS, iOS]
