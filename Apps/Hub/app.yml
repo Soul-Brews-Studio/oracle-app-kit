@@ -1,0 +1,27 @@
+targets:
+  Oracles:
+    type: application
+    supportedDestinations: [macOS]
+    sources:
+      - path: Apps/Hub
+        excludes: ["app.yml", "Info.plist"]
+    dependencies:
+      - package: OracleKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: co.laris.oracle.hub
+        PRODUCT_NAME: ARRA Oracles
+        INFOPLIST_KEY_CFBundleDisplayName: ARRA Oracles
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ENABLE_APP_SANDBOX: NO             # runs herdr and maw, opens the other oracle apps
+        ENABLE_HARDENED_RUNTIME: NO
+    info:
+      path: Apps/Hub/Info.plist
+      properties:
+        CFBundleName: ARRA Oracles
+        CFBundleDisplayName: ARRA Oracles
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleURLTypes:
+          - CFBundleURLName: co.laris.oracle.hub
+            CFBundleURLSchemes: [oracle-hub]

@@ -102,3 +102,31 @@ final class WorkLinkTests: XCTestCase {
         XCTAssertEqual(WorkParse.twins([b, a]), ["default:wD:p4": "laris-co:w22:pA"])
     }
 }
+
+final class HubParseTests: XCTestCase {
+    func testNamesSessionsOraclesAndRegistry() {
+        XCTAssertEqual(HubParse.displayName("neo-oracle"), "Neo")
+        XCTAssertEqual(HubParse.displayName("DustBoy-Phd-Oracle"), "DustBoy-Phd")
+        XCTAssertEqual(HubParse.displayName("pulse"), "Pulse")
+        let s = HubParse.sessions(Data(#"{"sessions":[{"name":"laris-co","running":true},{"name":"phd","running":false}]}"#.utf8))
+        XCTAssertEqual(s.map(\.name), ["laris-co", "phd"]); XCTAssertEqual(s.map(\.running), [true, false])
+        let ls = #"{"workspaces":[{"session":"laris-co","id":"w28","label":"nexus-oracle","number":13,"status":"done","repo":"nexus-oracle","panes":1,"agents":1}],"worktrees":[{"path":"/c/nexus-oracle","repo":"nexus-oracle","repoRoot":"/c/nexus-oracle","linked":false,"state":"running","resume":{"provider":"claude","id":"16bed"}},{"path":"/c/nexus-oracle/wt/a","repo":"nexus-oracle","linked":true,"state":"resumable"},{"path":"/c/haos-oracle","repo":"haos-oracle","linked":false,"state":"cold"}]}"#
+        let p = HubParse.parse(ls: Data(ls.utf8))
+        XCTAssertEqual(p.oracles.map(\.repo), ["nexus-oracle", "haos-oracle"])          // needs-you first
+        XCTAssertEqual(p.oracles[0].status, "done"); XCTAssertEqual(p.oracles[0].resumable, 1)
+        XCTAssertEqual(p.oracles[0].resume, "cd '/c/nexus-oracle' && claude --resume 16bed")
+        XCTAssertEqual(p.oracles[1].status, "cold"); XCTAssertEqual(p.spaces.first?.spaceId, "w28")
+        let reg = HubParse.registry(Data(#"{"oracles":[{"name":"--help","repo":"--help-oracle"},{"name":"pulse","repo":"pulse","local_path":"/c/pulse"},{"name":"pulse","repo":"pulse"}]}"#.utf8))
+        XCTAssertEqual(reg.map(\.repo), ["pulse"]); XCTAssertEqual(reg.first?.path, "/c/pulse")
+    }
+}
+
+final class WezTermTests: XCTestCase {
+    func testHerdrClientSession() {
+        XCTAssertEqual(WezTerm.herdrSession(of: "herdr --session laris-co"), "laris-co")
+        XCTAssertEqual(WezTerm.herdrSession(of: "/Users/beta/.local/bin/herdr"), "default")
+        XCTAssertNil(WezTerm.herdrSession(of: "herdr --remote nat@white --session infra-team"))
+        XCTAssertNil(WezTerm.herdrSession(of: "herdr --session ccdc agent list"))   // a one-shot CLI call, not a client
+        XCTAssertNil(WezTerm.herdrSession(of: "-zsh"))
+    }
+}
