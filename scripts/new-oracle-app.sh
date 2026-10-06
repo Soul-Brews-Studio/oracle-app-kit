@@ -53,8 +53,16 @@ struct ${N}Widgets: WidgetBundle {
     var body: some Widget { ${N}StatusWidget() }
 }
 
+/// The configuration lives HERE, in the extension, with literal names (like homelab's working widget).
+/// Built inside the OracleKit package it crashed at load: WidgetKit asserts on configurations made in a package.
 struct ${N}StatusWidget: Widget {
-    var body: some WidgetConfiguration { OracleWidgetKit.configuration(.${low}) }
+    let kind = "${N}Status"
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: kind, provider: OracleProvider(config: .${low})) { OracleWidgetView(entry: \$0) }
+            .configurationDisplayName("$N status")
+            .description("$N: working panes, open PRs, issues and inbox.")
+            .supportedFamilies([.systemSmall, .systemMedium])
+    }
 }
 SWIFT
 cat > $D/${N}.entitlements <<PL

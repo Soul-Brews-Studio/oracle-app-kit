@@ -66,11 +66,15 @@ public struct OracleWidgetView: View {
 /// One status widget for an oracle; the per-oracle widget target is three lines that call this.
 public enum OracleWidgetKit {
     public static func configuration(_ config: OracleConfig) -> some WidgetConfiguration {
-        StaticConfiguration(kind: "oracle.status.\(config.name.lowercased())", provider: OracleProvider(config: config)) {
+        // Plain Strings, not interpolated literals: a literal becomes a LocalizedStringKey and WidgetKit
+        // asserts (crash at load) when it cannot localize it from inside a Swift package.
+        let title: String = config.name + " status"
+        let about: String = config.name + ": working panes, open PRs, issues and inbox."
+        return StaticConfiguration(kind: "oracle.status.\(config.name.lowercased())", provider: OracleProvider(config: config)) {
             OracleWidgetView(entry: $0)
         }
-        .configurationDisplayName("\(config.name) status")
-        .description("\(config.name): working panes, open PRs, issues and inbox.")
+        .configurationDisplayName(title)
+        .description(about)
         .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
