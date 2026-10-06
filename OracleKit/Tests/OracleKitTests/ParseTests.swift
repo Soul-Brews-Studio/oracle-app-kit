@@ -130,3 +130,10 @@ final class WezTermTests: XCTestCase {
         XCTAssertNil(WezTerm.herdrSession(of: "-zsh"))
     }
 }
+
+final class HeyCommandTests: XCTestCase {
+    func testHeyCommandSplitsSessionAndQuotes() {
+        XCTAssertEqual(OracleStore.heyCommand(place: "laris-co:w22:p2", message: "it's done"),
+                       "maw herdr hey --session laris-co w22:p2 'it'\\''s done'")
+    }
+}

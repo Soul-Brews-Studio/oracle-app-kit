@@ -80,6 +80,21 @@ public final class OracleStore: ObservableObject {
     }
     #endif
 
+    #if os(macOS)
+    /// Prompt one of this oracle's agents: `maw herdr hey --session <s> <pane> <message>`.
+    public func hey(place: String, message: String) async -> Bool {
+        let parts = place.split(separator: ":", maxSplits: 1).map(String.init)    // "laris-co:w22:p2"
+        guard parts.count == 2 else { return false }
+        return await Shell.run("maw", ["herdr", "hey", "--session", parts[0], parts[1], message], timeout: 20) != nil
+    }
+    #endif
+    /// The same send as a command Nat can paste when the app could not deliver it.
+    public nonisolated static func heyCommand(place: String, message: String) -> String {
+        let parts = place.split(separator: ":", maxSplits: 1).map(String.init)
+        let quoted = "'" + message.replacingOccurrences(of: "'", with: "'\\''") + "'"
+        return parts.count == 2 ? "maw herdr hey --session \(parts[0]) \(parts[1]) \(quoted)" : "maw herdr hey \(place) \(quoted)"
+    }
+
     /// Draft → GitHub issue through gh (macOS). The sheet that calls this is the human's confirm step.
     public func createIssue(title: String, body: String) async -> String? {
         #if os(macOS)
