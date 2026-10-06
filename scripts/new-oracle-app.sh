@@ -8,7 +8,7 @@ N=${1:?Name}; SLUG=${2:?org/repo}; LP=${3:?mac path}; HEX=${4:?#hex}; SYM=${5:?s
 UPDATE=0; [[ " $* " == *" --update "* ]] && UPDATE=1
 R=${0:A:h}/..; D=$R/Apps/$N; low=${(L)N}; GROUP="6K28WEXX78.co.laris.oracle.$low"
 [ -e $D ] && [ $UPDATE = 0 ] && { echo "Apps/$N exists — use --update to regenerate (keeps Extras + icon)"; exit 2; }
-mkdir -p $D/Widget $D/Assets.xcassets
+mkdir -p $D/Widget $D/Share $D/Assets.xcassets
 [ -f $D/Assets.xcassets/Contents.json ] || print -r -- '{"info":{"version":1,"author":"xcode"}}' > $D/Assets.xcassets/Contents.json
 [ -d $D/Assets.xcassets/AppIcon.appiconset ] || uv run --quiet --with pillow python $R/scripts/make_icon.py $D/Assets.xcassets/AppIcon.appiconset $HEX ${N[1]}
 cat > $D/${N}Config.swift <<SWIFT
@@ -98,10 +98,12 @@ targets:
     supportedDestinations: [macOS, iOS]
     sources:
       - path: Apps/$N
-        excludes: ["app.yml", "Info.plist", "Widget/**", "*.entitlements"]
+        excludes: ["app.yml", "Info.plist", "Widget/**", "Share/**", "*.entitlements"]
     dependencies:
       - package: OracleKit
       - target: ${N}Widget
+      - target: ${N}Share
+        destinationFilters: [macOS]
     entitlements:
       path: Apps/$N/${N}.entitlements
       properties:          # xcodegen WRITES this file from here — a path alone becomes an empty <dict/>
@@ -182,6 +184,48 @@ targets:
         CFBundleVersion: \$(CURRENT_PROJECT_VERSION)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
+  ${N}Share:                    # the macOS Share menu entry (Share ▸ ${N} Oracle) — OracleShareViewController
+    type: app-extension
+    supportedDestinations: [macOS]
+    sources:
+      - path: Apps/${N}/Share
+        excludes: ["*.entitlements", "Info.plist"]
+      - path: Apps/${N}/${N}Config.swift
+    dependencies:
+      - package: OracleKit
+    entitlements:
+      path: Apps/${N}/Share/${N}Share.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: co.laris.oracle.${low}.share
+        PRODUCT_NAME: ${N}Share
+        SKIP_INSTALL: YES
+        ENABLE_APP_SANDBOX: YES
+    info:
+      path: Apps/${N}/Share/Info.plist
+      properties:
+        CFBundleDisplayName: ${N} Oracle
+        CFBundleShortVersionString: \$(MARKETING_VERSION)
+        CFBundleVersion: \$(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: \$(PRODUCT_MODULE_NAME).ShareViewController
+          NSExtensionAttributes:
+            NSExtensionActivationRule:
+              NSExtensionActivationSupportsWebURLWithMaxCount: 1
+              NSExtensionActivationSupportsText: true
+              NSExtensionActivationSupportsFileWithMaxCount: 1
 YML
+cat > $D/Share/ShareViewController.swift <<SWIFT
+import AppKit
+import OracleKit
+
+/// Share ▸ ${N} Oracle — the panel lives in OracleKit (OracleShareViewController); this names the oracle.
+final class ShareViewController: OracleShareViewController {
+    override var config: OracleConfig { .${low} }
+}
+SWIFT
 zsh $R/scripts/regen.sh
-echo "ready Apps/$N (+ ${N}Widget)"
+echo "ready Apps/$N (+ ${N}Widget, ${N}Share)"
