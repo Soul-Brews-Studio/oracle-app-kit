@@ -231,7 +231,13 @@ struct WorkView: View {
                 WorkHero(acts: store.activity, color: c.color)
                 if !live.isEmpty {
                     block("LIVE", live.count) {
-                        ForEach(live) { LiveCard(item: $0, config: c, twins: twins, home: home, copied: $copied) }
+                        ForEach(live) { w in
+                            LiveCard(item: w, config: c, twins: twins, home: home, copied: $copied) {
+                                #if os(macOS)
+                                store.bringToMain(w)
+                                #endif
+                            }
+                        }
                     }
                 }
                 if !resumable.isEmpty {
@@ -321,6 +327,7 @@ struct WorkHero: View {
 struct LiveCard: View {
     let item: WorkItem; let config: OracleConfig; let twins: [String: String]; let home: String
     @Binding var copied: String?
+    var bring: () -> Void = {}
     var body: some View {
         VStack(alignment: .leading, spacing: 9) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -330,6 +337,11 @@ struct LiveCard: View {
                 Spacer(minLength: 8)
                 WorkLinks(item: item, repo: config.repoSlug)
                 Text(item.state.label).font(.caption).foregroundStyle(.secondary)
+                #if os(macOS)
+                // its WezTerm window, moved to the main display and focused — Window Arranger's ⌘⏎ "ย้ายมา"
+                Button("bring here", action: bring).buttonStyle(.borderless).font(.caption.weight(.medium))
+                    .help("Bring this worktree's WezTerm window to the main display and focus it")
+                #endif
             }
             ForEach(item.panes.sorted { WorkFormat.rank($0.status) < WorkFormat.rank($1.status) }, id: \.place) { p in
                 HStack(spacing: 8) {
@@ -351,7 +363,13 @@ struct LiveCard: View {
         .padding(14)
         .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.primary.opacity(0.045)))
         .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.primary.opacity(0.08)))
-        .contextMenu { WorkMenu(item: item, repo: config.repoSlug, copied: $copied) }
+        .contextMenu {
+            #if os(macOS)
+            Button("Bring WezTerm here", action: bring)
+            Divider()
+            #endif
+            WorkMenu(item: item, repo: config.repoSlug, copied: $copied)
+        }
     }
 }
 
