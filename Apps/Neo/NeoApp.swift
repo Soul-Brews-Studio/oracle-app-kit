@@ -6,5 +6,7 @@ struct NeoApp: App {
     #if os(macOS)
     @NSApplicationDelegateAdaptor(OracleAppDelegate.self) var delegate
     #endif
-    var body: some Scene { OracleScene(config: .neo.with(extras: NeoExtras.extras)) }
+    @StateObject private var store = OracleStore(config: .neo.with(extras: NeoExtras.extras))
+    @AppStorage("oracle.menuBar") private var menuBar = false      // the oracle's tray: off until switched on
+    var body: some Scene { OracleScene(store: store, menuBar: $menuBar) }
 }
