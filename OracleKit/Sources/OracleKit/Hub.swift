@@ -201,7 +201,7 @@ public final class HubStore: ObservableObject {
     public func showInHerdr(_ s: HubSpace) {
         Task.detached {
             _ = await Shell.run("herdr", ["--session", s.session, "workspace", "focus", s.spaceId])
-            await WezTerm.show(session: s.session)
+            await WezTerm.show(session: s.session, label: s.label)
         }
     }
 
@@ -217,7 +217,17 @@ public final class HubStore: ObservableObject {
 public enum WezTerm {
     public static let bundleId = "com.github.wez.wezterm"
 
-    public static func show(session: String) async {
+    /// Go to the session the way Window Arranger's ⏎ does: herdr retitles its client "<host>: <space>" after the
+    /// focus, and yabai focuses that WezTerm window — switching Space and display. Without a match (no yabai, the
+    /// title not updated yet), the WezTerm CLI path: activate the session's client pane, or open one.
+    public static func show(session: String, label: String? = nil) async {
+        if let label, Shell.which("yabai") != nil {
+            try? await Task.sleep(nanoseconds: 350_000_000)
+            if let id = await yabaiWindow(titled: label) {
+                _ = await Shell.run("yabai", ["-m", "window", String(id), "--focus"])
+                return
+            }
+        }
         if let pane = await panes(running: session).first {
             _ = await Shell.run("wezterm", ["cli", "activate-pane", "--pane-id", String(pane)])
         } else {
@@ -226,6 +236,16 @@ public enum WezTerm {
             _ = await Shell.run("wezterm", args)
         }
         await MainActor.run { _ = NSRunningApplication.runningApplications(withBundleIdentifier: bundleId).first?.activate() }
+    }
+
+    /// The yabai id of a WezTerm window whose title is herdr's "<host>: <label>" (or the bare label).
+    static func yabaiWindow(titled label: String) async -> Int? {
+        guard let json = await Shell.run("yabai", ["-m", "query", "--windows"]),
+              let list = try? JSONSerialization.jsonObject(with: Data(json.utf8)) as? [[String: Any]] else { return nil }
+        return list.first { w in
+            guard (w["app"] as? String) == "WezTerm", let t = w["title"] as? String else { return false }
+            return t == label || t.hasSuffix(": " + label)
+        }?["id"] as? Int
     }
 
     /// WezTerm pane ids whose terminal runs a local herdr client attached to `session`.
