@@ -480,7 +480,7 @@ struct SessionSpaces: View {
                         let key = sp.session + ":" + (sp.repo ?? "")
                         let kids = sp.linked || sp.repo == nil ? [] : spaces.filter { $0.linked && $0.repo == sp.repo }
                         if !(sp.linked && folded.contains(key)) {   // a worktree row hides while its main space is folded
-                            SpaceLine(space: sp, app: sp.repo.map { store.apps[HubParse.displayName($0).lowercased()] } ?? nil, store: store,
+                            SpaceLine(space: sp, app: sp.repo.map { store.apps[HubParse.appKey(forRepo: $0)] } ?? nil, store: store,
                                       children: kids,
                                       fold: kids.isEmpty ? nil : Binding(get: { folded.contains(key) },
                                                                           set: { if $0 { folded.insert(key) } else { folded.remove(key) } }),
@@ -611,7 +611,7 @@ struct SpaceLine: View {
             Text("\(space.panes) \(space.panes == 1 ? "pane" : "panes") · \(space.agents) \(space.agents == 1 ? "agent" : "agents")")
                 .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
             if app != nil, let r = space.repo {
-                Button("Open app") { store.openApp(HubParse.displayName(r).lowercased()) }.controlSize(.small).handCursor()
+                Button("Open app") { store.openApp(HubParse.appKey(forRepo: r)) }.controlSize(.small).handCursor()
             }
             Button("Show in herdr") { store.showInHerdr(space) }.controlSize(.small).tint(.secondary).handCursor()
             Button("Close") {

@@ -179,7 +179,7 @@ public final class OracleStore: ObservableObject {
         let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("OracleKit", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir.appendingPathComponent("\(config.name.lowercased())-read.json")
+        return dir.appendingPathComponent("\(config.appKey)-read.json")
     }
     private func loadReadState() {
         if let d = try? Data(contentsOf: readURL), let s = try? JSONDecoder().decode(ReadState.self, from: d) { readState = s }
