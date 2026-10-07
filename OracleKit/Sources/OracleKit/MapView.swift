@@ -14,6 +14,7 @@ public struct MapView: View {
     @ObservedObject var index: GHIndex
     @ObservedObject var layout: MapLayout
     @ObservedObject var clusters: MapClusters
+    @ObservedObject private var trace = TraceLog.shared
     @StateObject private var scene: MapScene
     @State private var escMonitor: Any?
     @State private var query = ""
@@ -77,6 +78,13 @@ public struct MapView: View {
         }
         .onChange(of: layout.xyz.count) { scene.needsRebuild = true }
         .onChange(of: clusters.labels.count) { scene.setGroups(clusters.labels) }
+        // #36: every query asked of this memory — a page, the map, another oracle over MCP — fires its hits
+        // keyed on the newest entry, not the count: TraceLog keeps 500, so past that the count stops changing
+        .onChange(of: trace.entries.last?.id) { _, _ in
+            guard let e = trace.entries.last, e.index == index.name else { return }
+            let rows = e.top.compactMap { layout.row(of: $0.id) }
+            scene.fire(rows: rows, color: MapScene.callerColor(e.caller, source: e.source, accent: accent), label: Self.who(e))
+        }
         .onChange(of: scene.built) { scene.setGroups(clusters.labels) }
         .animation(.easeOut(duration: 0.18), value: scene.selectedRow)
         .onAppear {   // esc: clear the selection, then the lit hits
@@ -121,6 +129,10 @@ public struct MapView: View {
                         Text("\(grouped(n)) \(label)").font(.caption).foregroundStyle(.secondary)
                     }
                 }
+            }
+            ForEach(scene.recentFirings.prefix(3), id: \.id) { f in
+                HStack(spacing: 6) { Circle().fill(Color(nsColor: f.color)).frame(width: 8, height: 8).shadow(color: Color(nsColor: f.color), radius: 4)
+                    Text(f.label).font(.caption).foregroundStyle(.secondary).lineLimit(1) }
             }
             if !scene.lit.isEmpty {
                 HStack(spacing: 6) { Circle().fill(.white).frame(width: 8, height: 8).shadow(color: .white, radius: 4)
@@ -206,6 +218,12 @@ public struct MapView: View {
         .padding(14)
         .background(.black.opacity(0.78), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(accent.opacity(0.45)))
+    }
+
+    /// "Pulse asked" / "you asked" — the firing's caption.
+    static func who(_ e: TraceLog.Entry) -> String {
+        let oracle = e.source == "mcp" ? (e.caller?.components(separatedBy: " · ").first ?? "an agent") : "you"
+        return "\(oracle) asked “\(e.query.prefix(40))”"
     }
 
     private func meta(_ d: IndexDoc) -> String {
@@ -476,6 +494,68 @@ final class MapScene: ObservableObject {
     func group(of row: Int) -> Int? { row < groupOf.count ? groupOf[row] : nil }
     func members(of g: Int) -> [Int] { groupOf.indices.filter { groupOf[$0] == g } }
 
+    // MARK: firing (#36)
+
+    struct Firing: Identifiable { let id = UUID(); let rows: [Int]; let color: NSColor; let start: Date; let label: String }
+    @Published var recentFirings: [Firing] = []
+    private var firings: [Firing] = []
+    private var fireEntities: [ModelEntity] = []
+    private var pulseEntity: ModelEntity?
+    static let fireSeconds = 2.4, pulseSeconds = 0.9
+
+    /// The caller's colour: an oracle's own accent when another oracle asked over MCP, the app's accent for "you".
+    static func callerColor(_ caller: String?, source: String, accent: Color) -> NSColor {
+        guard source == "mcp" else { return NSColor(accent) }
+        switch caller?.components(separatedBy: " · ").first?.lowercased() {
+        case "neo": return NSColor(red: 0.39, green: 0.71, blue: 0.96, alpha: 1)      // #64b5f6
+        case "pulse": return NSColor(red: 0.94, green: 0.33, blue: 0.31, alpha: 1)    // #ef5350
+        case "nexus": return NSColor(red: 0.67, green: 0.28, blue: 0.74, alpha: 1)    // #ab47bc
+        default: return .white
+        }
+    }
+
+    /// A query's hits flash, and pulses run from the best hit to its neighbours (1 hop), then everything decays.
+    /// Many queries at once (an agent in a loop) are kept to the last 6 firings, so the map never stalls.
+    func fire(rows: [Int], color: NSColor, label: String) {
+        let r = rows.filter { $0 < xyz.count }
+        guard !r.isEmpty else { return }
+        let f = Firing(rows: r, color: color, start: Date(), label: label)
+        firings.append(f); if firings.count > 6 { firings.removeFirst(firings.count - 6) }
+        recentFirings.insert(f, at: 0); if recentFirings.count > 5 { recentFirings.removeLast() }
+        HubLog.shared.add(.info, "map: fire \(r.count) hits — \(label)")
+    }
+
+    /// Per frame: the firings' glow (rebuilt only when the set changes or every 4th frame as it decays) and the
+    /// pulses' positions along their edges.
+    private func animateFirings(_ now: Date) {
+        firings.removeAll { now.timeIntervalSince($0.start) > Self.fireSeconds }
+        if frames % 4 == 0 || fireEntities.count != firings.count {
+            fireEntities.forEach { $0.removeFromParent() }; fireEntities = []
+            for f in firings {
+                let k = Float(max(0, 1 - now.timeIntervalSince(f.start) / Self.fireSeconds))   // 1 → 0
+                var m = PhysicallyBasedMaterial()
+                m.emissiveColor = .init(color: f.color); m.emissiveIntensity = 2 + 8 * k; m.baseColor = .init(tint: f.color)
+                let pts = flat ? xyz.map { SIMD3($0.x, $0.y, 0) } : xyz
+                if let e = Self.instanced(f.rows, xyz: pts, mesh: MeshResource.generateSphere(radius: 0.004 + 0.004 * k), material: m) {
+                    root.addChild(e); fireEntities.append(e)
+                }
+            }
+        }
+        pulseEntity?.removeFromParent(); pulseEntity = nil
+        var pos: [SIMD3<Float>] = []
+        for f in firings {
+            let t = Float(now.timeIntervalSince(f.start) / Self.pulseSeconds)
+            guard t < 1, let a = f.rows.first else { continue }
+            for b in neighbours(of: a).prefix(10) { pos.append(simd_mix(xyz[a], xyz[b], SIMD3(repeating: t))) }
+            for a2 in f.rows.dropFirst().prefix(4) { for b in neighbours(of: a2).prefix(3) { pos.append(simd_mix(xyz[a2], xyz[b], SIMD3(repeating: t))) } }
+        }
+        guard !pos.isEmpty else { return }
+        var m = PhysicallyBasedMaterial()
+        m.emissiveColor = .init(color: .white); m.emissiveIntensity = 9; m.baseColor = .init(tint: .white)
+        let pts = flat ? pos.map { SIMD3($0.x, $0.y, 0) } : pos
+        if let e = Self.instanced(Array(pts.indices), xyz: pts, mesh: MeshResource.generateSphere(radius: 0.0028), material: m) { root.addChild(e); pulseEntity = e }
+    }
+
     /// Groups from MapClusters: each group's centre on the map, for its floating name.
     func setGroups(_ labels: [Int]) {
         guard labels.count == xyz.count else { return }
@@ -533,6 +613,7 @@ final class MapScene: ObservableObject {
             root.orientation = simd_slerp(root.orientation, want, 0.08)
             if abs(simd_dot(root.orientation.vector, want.vector)) > 0.9995 { target = nil }
         }
+        if !firings.isEmpty || pulseEntity != nil || !fireEntities.isEmpty { animateFirings(now) }
         if let p = pointer, now.timeIntervalSince(lastPick) > (xyz.count > 15_000 ? 0.1 : 0.05) { lastPick = now; pick(at: p) }   // a pick projects every point: ~22 ms at 49k
         if frames % 6 == 0, let content, !groupCentre.isEmpty {
             var at: [Int: CGPoint] = [:]
