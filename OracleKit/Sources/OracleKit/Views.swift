@@ -33,22 +33,22 @@ public struct OracleRootView: View {
             OracleSidebar(store: store, section: $section, menuBar: $menuBar)
                 .navigationSplitViewColumnWidth(min: 240, ideal: 272)
         } detail: {
-            GeometryReader { geo in HStack(spacing: 0) {
+            HStack(spacing: 0) {
                 detail
-                    .frame(minWidth: 420)
+                    .frame(minWidth: 420, maxWidth: .infinity, maxHeight: .infinity)   // Work always fills its column
                     #if os(macOS)
                     .safeAreaInset(edge: .bottom) { HeyComposer(store: store, text: $heyText, focus: openPane) }
                     #endif
                 #if os(macOS)
                 // the 3rd column exists only while a pane is open (Nat: 3 columns all the time was "too nested")
                 if let place = openPane, section == .status {
-                    DrawerHandle(width: $drawerWidth, maxWidth: max(360, geo.size.width - 420 - DrawerHandle.width))
+                    DrawerHandle(width: $drawerWidth)
                     TerminalColumn(store: store, place: place) { openPane = nil }
                         .frame(width: drawerWidth)
                         .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
                 #endif
-            } }
+            }
             #if os(macOS)
             // a right DRAWER: the window grows by the drawer's width so Work keeps its size (Nat: "not resize the current")
             .onChange(of: openPane) { old, new in
@@ -1244,7 +1244,11 @@ struct TerminalColumn: View {
 struct DrawerHandle: View {
     static let width: CGFloat = 7
     @Binding var width: Double
-    var maxWidth: CGFloat = 1200
+    /// how wide the drawer may get: the window's content minus the sidebar (~260) and Work's 420 minimum
+    private var maxWidth: CGFloat {
+        let win = (NSApp.keyWindow ?? NSApp.windows.first { $0.isVisible && $0.canBecomeMain })?.contentView?.bounds.width ?? 1400
+        return max(360, win - 260 - 420 - Self.width)
+    }
     @State private var start: Double?
     @State private var inside = false
     var body: some View {
