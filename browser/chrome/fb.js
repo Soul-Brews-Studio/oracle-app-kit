@@ -62,12 +62,27 @@
     return { own: own ? clean(own) : '', shared: shared.slice(0, 3) };
   }
 
+  // Photo and video pages have no story_message: the caption is the first span/div[dir=auto] that is not a name,
+  // a button, a link, a heading, a count ("22K views") or inside a comment (role=article) — measured 2026-10-07 on
+  // Nat's photo URL (side panel) and the Sira Ekabut video (post container).
+  const SEE = /\s*…?\s*(see more|see less|ดูเพิ่มเติม|ดูน้อยลง)$/i;
+  function captionIn(root, author) {
+    if (!root) return '';
+    const isName = e => { const a = e.querySelector('a'); return a && a.innerText.trim() === e.innerText.trim(); };
+    const inComment = e => { const a = e.closest('[role="article"]'); return a && a !== root && root.contains(a); };
+    return [...root.querySelectorAll('[dir="auto"]')]
+      .filter(e => !inComment(e) && !e.closest('[role="button"], a, h1, h2, h3, h4') && !isName(e))
+      .map(e => e.innerText.trim().replace(SEE, ''))
+      .find(t => t.length > 1 && t !== author && !/^[\d.,]+\s*[KMB]?\s+\S+$/i.test(t)) || '';
+  }
+
   async function details(post) {
     const message = post.querySelector('[data-ad-rendering-role="story_message"]');
     const more = [...(message?.querySelectorAll('[role="button"]') || [])].find(b => /^(see more|ดูเพิ่มเติม)$/i.test(b.innerText.trim()));
     if (more) { more.click(); await tick(300); }   // the full text, not the "… See more" cut
     const author = (post.querySelector('[data-ad-rendering-role="profile_name"]')?.innerText || '').split('\n')[0].trim();
-    const text = (post.querySelector('[data-ad-rendering-role="story_message"]')?.innerText || '').trim();
+    const text = (post.querySelector('[data-ad-rendering-role="story_message"]')?.innerText || '').trim() ||
+      captionIn(post, author);
     const first = text.split('\n').find(l => l.trim()) || 'Facebook post';
     const { own, shared } = await links(post);
     return { url: own || shared[0] || '', title: (author ? author + ': ' : '') + first.slice(0, 90),
@@ -91,7 +106,7 @@
       b.onmouseenter = () => (b.style.background = '#3a3b3c'); b.onmouseleave = () => (b.style.background = '');
       b.onclick = async (e) => {
         e.stopPropagation(); m.remove();
-        const d = getDetails ? getDetails() : await details(post);
+        const d = getDetails ? await getDetails() : await details(post);
         if (window.chrome?.runtime?.sendMessage) chrome.runtime.sendMessage({ kind: 'issue', oracle: o, ...d });
         else console.log('[oracle] would send', o, d);
       };
@@ -144,15 +159,28 @@
     Object.assign(p.style, { position: 'fixed', right: '24px', bottom: '24px', zIndex: 2147483646, cursor: 'pointer',
       background: '#242526', color: '#e4e6eb', border: '1px solid #3a3b3c', borderRadius: '999px', padding: '10px 16px',
       font: '600 15px system-ui, sans-serif', boxShadow: '0 6px 20px rgba(0,0,0,.45)' });
-    const page = () => {
-      const title = document.title.replace(/^\(\d+\+?\)\s*/, '').replace(/\s*\|\s*Facebook$/, '').trim() || 'Facebook';
-      const caption = (document.querySelector('[data-ad-rendering-role="story_message"]')?.innerText || String(getSelection() || '')).trim();
-      return { url: clean(location.href), title: title.slice(0, 100), text: caption.slice(0, 2000) };
+    // photo/video pages: the author and caption sit in the right panel (role=complementary); the document title is
+    // just "Facebook", and the time links there belong to comments (measured on Nat's photo URL, 2026-10-07)
+    const page = async () => {
+      const side = document.querySelector('[role="complementary"]');
+      const more = side && [...side.querySelectorAll('[role="button"]')].find(b => /^(see more|ดูเพิ่มเติม)$/i.test(b.innerText.trim()));
+      if (more) { more.click(); await tick(300); }
+      const authorEl = side && [...side.querySelectorAll('h2 a, h3 a, strong a, span > a[role="link"]')]
+        .find(a => a.innerText.trim() && !/online status|^active$/i.test(a.innerText.trim()));
+      const author = (authorEl?.innerText || '').trim().split('\n')[0];
+      const caption = ((side?.querySelector('[data-ad-rendering-role="story_message"]')?.innerText) ||
+        captionIn(side, author) || (document.querySelector('[data-ad-rendering-role="story_message"]')?.innerText) ||
+        String(getSelection() || '')).trim().replace(SEE, '');
+      const first = caption.split('\n').find(l => l.trim()) || '';
+      const docTitle = document.title.replace(/^\(\d+\+?\)\s*/, '').replace(/\s*\|\s*Facebook$/, '').trim();
+      const title = author ? `${author}: ${first || 'Facebook ' + (/photo/.test(location.pathname) ? 'photo' : 'video')}` : (first || docTitle || 'Facebook');
+      return { url: clean(location.href), title: title.slice(0, 100),
+               text: caption.slice(0, 2000) + (author ? `\n\nby ${author} on Facebook` : '') };
     };
-    p.onclick = (e) => {
+    p.onclick = async (e) => {
       e.stopPropagation(); e.preventDefault();
       if (e.shiftKey) return menu(p, document.body, page);
-      const d = page();
+      const d = await page();
       if (window.chrome?.runtime?.sendMessage) chrome.runtime.sendMessage({ kind: 'issue', oracle: DEFAULT, ...d });
       else console.log('[oracle] would send', DEFAULT, d);
     };
