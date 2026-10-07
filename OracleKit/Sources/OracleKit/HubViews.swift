@@ -167,7 +167,7 @@ struct SessionRow: View {
     }
 }
 
-/// herdr's marks: ◐ working · ✓ needs you (done) · ! blocked · ○ idle.
+/// herdr's marks: ◐ working · ✓ needs you (done) · ! blocked · ○ idle · \u{00B7} no agent (drawn small).
 struct HubGlyph: View {
     let status: String
     var body: some View {
@@ -178,10 +178,11 @@ struct HubGlyph: View {
             case "blocked": return ("exclamationmark.circle.fill", .orange)
             case "idle": return ("circle", .secondary)
             case "resumable": return ("arrow.uturn.backward", .secondary)
-            default: return ("moon.zzz", Color.secondary.opacity(0.6))
+            default: return ("circle.fill", Color.secondary.opacity(0.6))   // herdr's "·": no agent in it
             }
         }()
         Image(systemName: look.0).font(.system(size: 10, weight: .bold)).foregroundStyle(look.1)
+            .scaleEffect(look.0 == "circle.fill" ? 0.4 : 1)   // a dot, as small as herdr's "·"
     }
 }
 
@@ -249,7 +250,7 @@ struct OracleBoard: View {
             }
             .padding(28)
             .frame(maxWidth: 1100, alignment: .leading)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity)   // centred in what the sidebar and the drawer leave (#57); a narrow window is unchanged
         }
         .overlay { if store.oracles.isEmpty && store.apps.isEmpty { Text("Nothing from herdr or maw yet").foregroundStyle(.secondary) } }
         .searchable(text: $query, placement: .toolbar, prompt: "Filter oracles")
@@ -492,7 +493,7 @@ struct SessionSpaces: View {
             }
             .padding(28)
             .frame(maxWidth: 900, alignment: .leading)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity)   // centred in what the sidebar and the drawer leave (#57); a narrow window is unchanged
         }
         .navigationTitle(session)
         .onChange(of: session) { _, _ in closeDrawer() }
