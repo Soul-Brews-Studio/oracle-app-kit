@@ -9,8 +9,10 @@ now() {
   V=$(TZ=Asia/Bangkok date +%y.%-m.%-d)
   H=$(( 10#$(TZ=Asia/Bangkok date +%H) * 100 + 10#$(TZ=Asia/Bangkok date +%M) ))
 }
+mkdir -p "$OBJROOT"
 if [ "${1:-}" = begin ]; then
-  now; mkdir -p "$OBJROOT" && echo "$V $H" > "$F"; exit 0
+  if [ -n "${ORACLE_CALVER:-}" ]; then echo "$ORACLE_CALVER" > "$F"; else now; echo "$V $H" > "$F"; fi   # build.sh fixes it once
+  exit 0
 fi
 PLIST="$TARGET_BUILD_DIR/$INFOPLIST_PATH"
 [ -f "$PLIST" ] || exit 0

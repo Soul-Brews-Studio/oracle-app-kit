@@ -29,10 +29,15 @@ if [ -z "${ORACLE_APP_TEAM:-}" ]; then
 fi
 mkdir -p build/logs
 zsh scripts/regen.sh >/dev/null || { echo "✗ regen failed:  zsh $R/scripts/regen.sh"; exit 3; }
+# this run's CalVer, fixed once: every target (app, widget, share) gets it as its version BUILD SETTING, so the
+# processed Info.plists differ from the last build's and Xcode re-signs and re-embeds the extensions (a stamp edited in
+# afterwards does not make an incremental build re-copy them). calver-stamp.sh adds ARRACalVer from the same value.
+CV_V=$(TZ=Asia/Bangkok date +%y.%-m.%-d); CV_H=$(( 10#$(TZ=Asia/Bangkok date +%H) * 100 + 10#$(TZ=Asia/Bangkok date +%M) ))
+export ORACLE_CALVER="$CV_V $CV_H"
 rc=0; built=()
 for s in $schemes; do
   log=build/logs/$s.log
-  xcodebuild -project OracleApps.xcodeproj -scheme $s -configuration Release -destination 'platform=macOS' -derivedDataPath build ${ORACLE_APP_TEAM:+DEVELOPMENT_TEAM=$ORACLE_APP_TEAM} build >$log 2>&1
+  xcodebuild -project OracleApps.xcodeproj -scheme $s -configuration Release -destination 'platform=macOS' -derivedDataPath build MARKETING_VERSION=$CV_V CURRENT_PROJECT_VERSION=$CV_H ${ORACLE_APP_TEAM:+DEVELOPMENT_TEAM=$ORACLE_APP_TEAM} build >$log 2>&1
   r=$?; (( r )) && rc=$r || built+=($s)
   echo "== $s rc=$r $(rg -o 'BUILD (SUCCEEDED|FAILED)' $log | tail -1)"
   (( r )) && { rg 'error:' $log | sed "s|^$R/||" | sort -u | head -12; echo "  full log: $R/$log"; }

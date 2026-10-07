@@ -1895,6 +1895,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = Apps/Athena/Widget/AthenaWidget.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = "Apps/Athena/Widget/AthenaWidget-iOS.entitlements";
 				ENABLE_APP_SANDBOX = YES;
 				INFOPLIST_FILE = Apps/Athena/Widget/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1918,6 +1919,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = Apps/Nexus/Widget/NexusWidget.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = "Apps/Nexus/Widget/NexusWidget-iOS.entitlements";
 				ENABLE_APP_SANDBOX = YES;
 				INFOPLIST_FILE = Apps/Nexus/Widget/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -2074,6 +2076,7 @@
 				"ARCHS[sdk=macosx*]" = arm64;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Apps/Pulse/Pulse.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = "Apps/Pulse/Pulse-iOS.entitlements";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = NO;
@@ -2100,6 +2103,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = Apps/Nexus/Widget/NexusWidget.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = "Apps/Nexus/Widget/NexusWidget-iOS.entitlements";
 				ENABLE_APP_SANDBOX = YES;
 				INFOPLIST_FILE = Apps/Nexus/Widget/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -2123,6 +2127,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = Apps/Neo/Widget/NeoWidget.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = "Apps/Neo/Widget/NeoWidget-iOS.entitlements";
 				ENABLE_APP_SANDBOX = YES;
 				INFOPLIST_FILE = Apps/Neo/Widget/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -2148,6 +2153,7 @@
 				"ARCHS[sdk=macosx*]" = arm64;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Apps/Pulse/Pulse.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = "Apps/Pulse/Pulse-iOS.entitlements";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = NO;
@@ -2220,6 +2226,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = Apps/Pulse/Widget/PulseWidget.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = "Apps/Pulse/Widget/PulseWidget-iOS.entitlements";
 				ENABLE_APP_SANDBOX = YES;
 				INFOPLIST_FILE = Apps/Pulse/Widget/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -2243,6 +2250,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = Apps/Neo/Widget/NeoWidget.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = "Apps/Neo/Widget/NeoWidget-iOS.entitlements";
 				ENABLE_APP_SANDBOX = YES;
 				INFOPLIST_FILE = Apps/Neo/Widget/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -2272,6 +2280,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = Apps/Pulse/Widget/PulseWidget.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = "Apps/Pulse/Widget/PulseWidget-iOS.entitlements";
 				ENABLE_APP_SANDBOX = YES;
 				INFOPLIST_FILE = Apps/Pulse/Widget/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -2320,6 +2329,7 @@
 				"ARCHS[sdk=macosx*]" = arm64;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Apps/Athena/Athena.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = "Apps/Athena/Athena-iOS.entitlements";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = NO;
@@ -2348,6 +2358,7 @@
 				"ARCHS[sdk=macosx*]" = arm64;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Apps/Nexus/Nexus.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = "Apps/Nexus/Nexus-iOS.entitlements";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = NO;
@@ -2443,6 +2454,7 @@
 				"ARCHS[sdk=macosx*]" = arm64;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Apps/Neo/Neo.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = "Apps/Neo/Neo-iOS.entitlements";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = NO;
@@ -2489,6 +2501,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = Apps/Athena/Widget/AthenaWidget.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = "Apps/Athena/Widget/AthenaWidget-iOS.entitlements";
 				ENABLE_APP_SANDBOX = YES;
 				INFOPLIST_FILE = Apps/Athena/Widget/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -2514,6 +2527,7 @@
 				"ARCHS[sdk=macosx*]" = arm64;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Apps/Nexus/Nexus.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = "Apps/Nexus/Nexus-iOS.entitlements";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = NO;
@@ -2542,6 +2556,7 @@
 				"ARCHS[sdk=macosx*]" = arm64;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Apps/Neo/Neo.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = "Apps/Neo/Neo-iOS.entitlements";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = NO;
@@ -2593,6 +2608,7 @@
 				"ARCHS[sdk=macosx*]" = arm64;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Apps/Athena/Athena.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = "Apps/Athena/Athena-iOS.entitlements";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = NO;
