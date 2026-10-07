@@ -103,7 +103,7 @@ elif [[ -n $WP ]]; then bad "widget registered from $WP, not /Applications" "plu
 else bad "widget co.laris.oracle.$KEY.widget not registered" "open \"$A\"; sleep 5; pluginkit -m -v -i co.laris.oracle.$KEY.widget"; fi
 
 # the generator still produces what every app is
-PO=$(zsh $K/scripts/parity.sh 2>&1); [[ $? == 0 ]] && ok "parity       $(print -r -- $PO | rg -c '^✓') apps match the generator" || bad "parity — an app differs from what the generator writes (diff below); regenerate it, or rerun parity:" ${(f)PO} "$REGEN" "zsh $K/scripts/parity.sh"
+PO=$(zsh $K/scripts/parity.sh 2>&1); [[ $? == 0 ]] && ok "parity       $(print -r -- $PO | rg -c '^✓') apps match the generator" || bad "parity — an app differs from what the generator writes; the regenerate line for it is in the output:" ${(f)PO} "zsh $K/scripts/parity.sh"
 
 if (( DEEP )); then
   # Memory then Map, each driven by a launch argument. Pass only on the line the app writes when the work is DONE, read
@@ -132,11 +132,11 @@ if (( DEEP )); then
     Q=${(L)N}
     deep memory batch '^[0-9:.]+ info   (memory batch done|up to date — nothing new in )' 600 -memoryQuery "$Q" > $MARK.out; B=$(<$MARK.out)
     if [[ $B == LOCKED ]]; then bad "Memory       not run: install in progress by $(cat $LOCK_DIR/who 2>/dev/null)" "zsh $0 $N --deep --relaunch"
-    elif [[ $B == EXITED ]]; then bad "Memory       $N exited during the batch" "ls -t ~/Library/Logs/DiagnosticReports/{$N,${N}Widget,${N}Share}-*(N) | head -1; tail -30 \"$LOG\""
+    elif [[ $B == EXITED ]]; then bad "Memory       $N exited during the batch" "ls -t ~/Library/Logs/DiagnosticReports | rg -m1 '^${N}(Widget|Share)?-'; tail -30 \"$LOG\""
     elif [[ $B == *" error  "* ]]; then bad "Memory       ${B#* error  }" "open \"$A\" --args -oracleSection memory    # the engine card says what is missing"
     elif [[ -n $B ]]; then ok "Memory       ${B#* info   }"
     else bad "Memory       no batch result within 10 min" "tail -30 \"$LOG\""; fi
-    S=""; if [[ $B != LOCKED ]]; then   # a batch that never ran has no query to read (N0 would still be 0)
+    S=""; if [[ $B != LOCKED && $B != EXITED ]]; then   # a batch that never ran has no query to read (N0 would still be 0)
       for i in {1..6}; do S=$(tail -n +$((N0 + 1)) "$LOG" | rg "search [a-z]+ .*\"$Q\" · query embedded" | tail -1); [[ -n $S ]] && break; sleep 5; done
     fi
     hits=$(print -r -- "$S" | sed -n 's/.*ranked \([0-9,]*\) in.*/\1/p' | tr -d ,); best=$(print -r -- "$S" | sed -n 's/.*best \([0-9]*\)%.*/\1/p')
@@ -147,7 +147,7 @@ if (( DEEP )); then
     M=$(deep map layout 'map layout: [0-9]+ docs in|map: [0-9]+ points in' 300)
     mn=$(print -r -- "$M" | sed -En 's/.*map( layout)?: ([0-9]+) (docs|points).*/\2/p')   # -E: BSD sed has no \| in basic regex
     if [[ $M == LOCKED ]]; then bad "Map          not run: install in progress by $(cat $LOCK_DIR/who 2>/dev/null)" "zsh $0 $N --deep --relaunch"
-    elif [[ $M == EXITED ]]; then bad "Map          $N exited while drawing the map" "ls -t ~/Library/Logs/DiagnosticReports/{$N,${N}Widget,${N}Share}-*(N) | head -1; tail -30 \"$LOG\""
+    elif [[ $M == EXITED ]]; then bad "Map          $N exited while drawing the map" "ls -t ~/Library/Logs/DiagnosticReports | rg -m1 '^${N}(Widget|Share)?-'; tail -30 \"$LOG\""
     elif [[ -n $M ]] && (( ${mn:-0} > 0 )); then ok "Map          ${M#* info   }"
     elif [[ -n $M ]]; then bad "Map          drew no points: ${M#* info   }" "open \"$A\" --args -oracleSection memory   # embed first (--deep runs the batch)"
     else bad "Map          no layout drawn within 5 min" "rg -n 'map' \"$LOG\" | tail -5"; fi

@@ -105,6 +105,9 @@ zsh $K/skills/oracle-app/check.sh <Name>                 # read-mostly: launches
 zsh $K/skills/oracle-app/check.sh <Name> --deep --shots --relaunch   # + Memory, Map, screenshots: QUITS and relaunches it
 ```
 
+`--deep` / `--shots` take minutes (up to ~16 worst case: model load, a 10-minute batch limit, the map, three shots) —
+past a blocking call's limit; run them in a herdr pane as in `new` step 5.
+
 By default nothing is quit: a running copy is checked as it is (a human may be using it), a stopped one is launched.
 `--deep` / `--shots` drive pages by launch argument, so they need `--relaunch` when the app was already running, and
 they skip while another agent installs. `--no-launch` never launches or quits anything. A plain run covers the rows
