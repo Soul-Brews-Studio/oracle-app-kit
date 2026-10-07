@@ -16,6 +16,7 @@ public struct OracleRootView: View {
     @State private var issueHot = false
     @State private var draft: IssueDraft?
     @State private var heyText = ""
+    @State private var openPane: String?      // a LIVE pane clicked in Work: its terminal shows in a 3rd column until ×
     #if os(iOS)
     @State private var showSettings = false
     #endif
@@ -29,10 +30,21 @@ public struct OracleRootView: View {
             OracleSidebar(store: store, section: $section, menuBar: $menuBar)
                 .navigationSplitViewColumnWidth(min: 240, ideal: 272)
         } detail: {
-            detail
+            HStack(spacing: 0) {
+                detail
+                    #if os(macOS)
+                    .safeAreaInset(edge: .bottom) { HeyComposer(store: store, text: $heyText, focus: openPane) }
+                    #endif
                 #if os(macOS)
-                .safeAreaInset(edge: .bottom) { HeyComposer(store: store, text: $heyText) }
+                // the 3rd column exists only while a pane is open (Nat: 3 columns all the time was "too nested")
+                if let place = openPane, section == .status {
+                    Divider()
+                    TerminalColumn(store: store, place: place) { withAnimation(.easeOut(duration: 0.15)) { openPane = nil } }
+                        .frame(minWidth: 380, idealWidth: 460, maxWidth: 620)
+                        .transition(.move(edge: .trailing).combined(with: .opacity))
+                }
                 #endif
+            }
                 .toolbar {
                     #if os(iOS)
                     ToolbarItem { Button { Task { await store.refresh() } } label: { Image(systemName: "arrow.clockwise") } }
@@ -86,7 +98,7 @@ public struct OracleRootView: View {
 
     @ViewBuilder private var detail: some View {
         switch section ?? .status {
-        case .status: WorkView(store: store)
+        case .status: WorkView(store: store, openPane: $openPane)
         case .inbox: InboxList(store: store)
         case .prs: GHList(kind: .prs, items: store.prs, work: store.work, accent: c.color) { heyText = Self.brief($0, pr: true) }
         case .issues: GHList(kind: .issues, items: store.issues, work: store.work, accent: c.color) { heyText = Self.brief($0, pr: false) }
@@ -231,6 +243,7 @@ struct SidebarIconButton: View {
 
 struct WorkView: View {
     @ObservedObject var store: OracleStore
+    var openPane: Binding<String?> = .constant(nil)
     @State private var allResumable = false
     @State private var showCold = true          // open: a cold list on view is a list that gets cleaned up
     @State private var copiedPlan = false
@@ -251,7 +264,7 @@ struct WorkView: View {
                 if !live.isEmpty {
                     block("LIVE", live.count) {
                         ForEach(live) { w in
-                            LiveCard(item: w, config: c, twins: twins, home: home, copied: $copied) {
+                            LiveCard(item: w, config: c, twins: twins, home: home, copied: $copied, openPane: openPane) {
                                 #if os(macOS)
                                 store.bringToMain(w)
                                 #endif
@@ -346,6 +359,7 @@ struct WorkHero: View {
 struct LiveCard: View {
     let item: WorkItem; let config: OracleConfig; let twins: [String: String]; let home: String
     @Binding var copied: String?
+    var openPane: Binding<String?> = .constant(nil)
     var bring: () -> Void = {}
     var body: some View {
         VStack(alignment: .leading, spacing: 9) {
@@ -375,8 +389,16 @@ struct LiveCard: View {
                     }
                     Spacer(minLength: 6)
                     if let s = p.since { Text(WorkFormat.ago(s)).font(.caption.monospacedDigit()).foregroundStyle(.secondary) }
+                    Image(systemName: openPane.wrappedValue == p.place ? "chevron.right.circle.fill" : "chevron.right")
+                        .font(.caption).foregroundStyle(openPane.wrappedValue == p.place ? config.color : Color.secondary.opacity(0.6))
                 }
                 .font(.callout)
+                .padding(.vertical, 3).padding(.horizontal, 6)
+                .background(RoundedRectangle(cornerRadius: 7).fill(openPane.wrappedValue == p.place ? config.color.opacity(0.14) : Color.clear))
+                .contentShape(Rectangle())
+                .handCursor()
+                .onTapGesture { withAnimation(.easeOut(duration: 0.15)) { openPane.wrappedValue = openPane.wrappedValue == p.place ? nil : p.place } }
+                .help("Show this pane's terminal here (click again to close)")
             }
         }
         .padding(14)
@@ -1030,6 +1052,7 @@ struct OracleMenu: View {
 struct HeyComposer: View {
     @ObservedObject var store: OracleStore
     @Binding var text: String
+    var focus: String? = nil       // the pane open in the 3rd column, if any: messages go there
     @State private var target: String?
     @State private var note: String?
     @State private var sending = false
@@ -1038,7 +1061,7 @@ struct HeyComposer: View {
         let twins = WorkParse.twins(store.activity)
         let panes = store.activity.filter { twins[$0.place] == nil }
             .sorted { (WorkFormat.rank($0.status), $0.place) < (WorkFormat.rank($1.status), $1.place) }
-        let chosen = panes.first { $0.place == target } ?? panes.first { $0.cwd == c.localPath && $0.status == "idle" } ?? panes.first
+        let chosen = panes.first { $0.place == focus } ?? panes.first { $0.place == target } ?? panes.first { $0.cwd == c.localPath && $0.status == "idle" } ?? panes.first
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .bottom, spacing: 10) {
                 TextField("Message \(c.name) — maw herdr hey", text: $text, axis: .vertical)
@@ -1094,3 +1117,67 @@ struct HeyComposer: View {
 }
 #endif
 
+
+#if os(macOS)
+/// The real terminal of one herdr pane, read live (`herdr --session S pane read P`, every second), newest at the bottom.
+/// Read-only: typing goes through the message box under the Work column, which targets this pane while it is open.
+struct TerminalColumn: View {
+    @ObservedObject var store: OracleStore
+    let place: String
+    let close: () -> Void
+    @State private var text = ""
+    @State private var read: Date?
+    @State private var failed = false
+    var body: some View {
+        let act = store.activity.first { $0.place == place }
+        let home = WorkFormat.homeSession(store.activity)
+        VStack(spacing: 0) {
+            HStack(spacing: 8) {
+                Circle().fill(WorkFormat.dot(act?.status ?? "", store.config.color)).frame(width: 8, height: 8)
+                Text(WorkFormat.pane(place, home: home)).font(.callout.monospaced().weight(.semibold))
+                Text(act?.title ?? "").font(.callout).foregroundStyle(.secondary).lineLimit(1).truncationMode(.tail)
+                Spacer(minLength: 6)
+                if let item = store.work.first(where: { $0.panes.contains { $0.place == place } }) {
+                    Button("bring here") { store.bringToMain(item) }.buttonStyle(.borderless).font(.caption.weight(.medium)).handCursor()
+                        .help("Bring this pane's WezTerm window to the main display")
+                }
+                Button(action: close) { Image(systemName: "xmark").font(.callout.weight(.semibold)) }
+                    .buttonStyle(.plain).foregroundStyle(.secondary).handCursor().keyboardShortcut(.escape, modifiers: []).help("Close (esc)")
+            }
+            .padding(.horizontal, 14).padding(.vertical, 11)
+            Divider()
+            ScrollViewReader { proxy in
+                ScrollView {
+                    Text(failed && text.isEmpty ? "can't read \(place) — is herdr running?\n  herdr pane list" : text)
+                        .font(.system(size: 12, design: .monospaced)).foregroundStyle(Color(white: 0.86))
+                        .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading).padding(12)
+                    Color.clear.frame(height: 1).id("end")
+                }
+                .onChange(of: text) { proxy.scrollTo("end", anchor: .bottom) }
+                .onAppear { proxy.scrollTo("end", anchor: .bottom) }
+            }
+            .background(Color(red: 0.04, green: 0.04, blue: 0.06))
+            HStack {
+                Text(read.map { "live · every 1 s · read \($0.formatted(date: .omitted, time: .standard))" } ?? "reading…")
+                    .font(.caption).foregroundStyle(.tertiary)
+                Spacer()
+            }
+            .padding(.horizontal, 14).padding(.vertical, 7)
+        }
+        .task(id: place) {
+            text = ""; failed = false
+            let parts = place.split(separator: ":", maxSplits: 1).map(String.init)
+            let args = parts.count == 2 ? ["--session", parts[0], "pane", "read", parts[1], "--source", "recent-unwrapped", "--lines", "400"]
+                                        : ["pane", "read", place, "--source", "recent-unwrapped", "--lines", "400"]
+            while !Task.isCancelled {
+                if let out = await Shell.run("herdr", args, timeout: 4) {
+                    let clean = out.replacingOccurrences(of: "\\s+$", with: "", options: .regularExpression)
+                    if clean != text { text = clean }
+                    read = Date(); failed = false
+                } else { failed = true }
+                try? await Task.sleep(for: .seconds(1))
+            }
+        }
+    }
+}
+#endif
