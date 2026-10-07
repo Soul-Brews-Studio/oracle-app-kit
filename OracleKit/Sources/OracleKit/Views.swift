@@ -65,6 +65,8 @@ public struct OracleRootView: View {
             // a right DRAWER: the window grows by the drawer's width so Work keeps its size (Nat: "not resize the current")
             // a click anywhere sets openPane: a new place joins the stack (the oldest leaves past 3); nil = close the active one
             .onChange(of: openPane) { old, new in
+                // the drawer lives on Work: a pane opened from another page (a sidebar tree row) brings Work with it
+                if new != nil, section != .status { section = .status }
                 if let new {
                     if !openPanes.contains(new) { openPanes.append(new); if openPanes.count > 3 { openPanes.removeFirst() } }
                 } else if let old, openPanes.contains(old) {

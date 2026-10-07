@@ -13,7 +13,9 @@ public struct MapView: View {
     let accent: Color
     @ObservedObject var index: GHIndex
     @ObservedObject var layout: MapLayout
+    @ObservedObject var clusters: MapClusters
     @StateObject private var scene: MapScene
+    @State private var escMonitor: Any?
     @State private var query = ""
     @State private var who = "all"
     @State private var flat = false
@@ -21,7 +23,7 @@ public struct MapView: View {
     private static var actionDone = false
 
     public init(name: String, accent: Color, index: GHIndex) {
-        self.name = name; self.accent = accent; self.index = index; self.layout = index.layout
+        self.name = name; self.accent = accent; self.index = index; self.layout = index.layout; self.clusters = index.clusters
         _scene = StateObject(wrappedValue: MapScene(accent: accent))
     }
 
@@ -29,13 +31,10 @@ public struct MapView: View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 10) {
                 Text("MAP").font(.caption.weight(.bold)).tracking(2.5).foregroundStyle(accent)
-                HStack(alignment: .firstTextBaseline) {
-                    Text("\(name)'s map").font(.custom("Avenir Next", size: 34).weight(.bold))
-                    Spacer()
-                    Text(status).font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(1)
-                }
-                Text("\(grouped(layout.xyz.count)) memories in one space — close means related. Drag to turn, scroll to zoom, hover for a title, click to open.")
+                Text("\(name)'s map").font(.custom("Avenir Next", size: 34).weight(.bold))
+                Text("\(grouped(layout.xyz.count)) memories in one space — close means related, lines join nearest neighbours.")
                     .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                legend
             }
             .padding(.horizontal, 28).padding(.top, 22).padding(.bottom, 10)
             ZStack(alignment: .bottomLeading) {
@@ -47,42 +46,170 @@ public struct MapView: View {
                     } update: { _ in }
                     .realityViewCameraControls(.orbit)
                     .onContinuousHover(coordinateSpace: .local) { phase in
-                        if case .active(let p) = phase { scene.pointer = p } else { scene.pointer = nil; scene.hoverDoc = nil }
+                        if case .active(let p) = phase { scene.pointer = p } else { scene.pointer = nil; scene.hoverDoc = nil; scene.setHand(false) }
                     }
                     .onTapGesture { scene.click() }
                     .background(Color(red: 0.03, green: 0.03, blue: 0.05))
                     .onAppear { scene.installScrollZoom() }
                     .onDisappear { scene.removeScrollZoom() }
                 }
+                groupLabels
+                if let r = scene.selectedRow, let d = scene.doc(row: r) {
+                    panel(row: r, doc: d).frame(width: 340).padding(14)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                        .transition(.move(edge: .trailing).combined(with: .opacity))
+                }
                 controls.padding(14)
-                if let d = scene.hoverDoc.flatMap({ $0 < index.docs.count ? index.docs[$0] : nil }) { hoverCard(d).padding(14).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing) }
+                searchField.frame(maxWidth: 460).padding(14).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                GeometryReader { g in
+                    if let d = scene.hoverDoc.flatMap({ $0 < index.docs.count ? index.docs[$0] : nil }), let p = scene.hoverAt {
+                        let flipX = p.x > g.size.width - 340, flipY = p.y > g.size.height - 110
+                        hoverCard(d).fixedSize(horizontal: false, vertical: true).frame(width: 320, alignment: .leading)
+                            .offset(x: flipX ? p.x - 336 : p.x + 18, y: flipY ? p.y - 96 : p.y + 16)
+                            .animation(.easeOut(duration: 0.08), value: p)
+                    }
+                }
+                .allowsHitTesting(false)
             }
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color.primary.opacity(0.08)))
-            .padding(.horizontal, 28)
-            searchField.padding(.horizontal, 28).padding(.vertical, 12)
+            .padding(.horizontal, 28).padding(.bottom, 14)
         }
         .onChange(of: layout.xyz.count) { scene.needsRebuild = true }
+        .onChange(of: clusters.labels.count) { scene.setGroups(clusters.labels) }
+        .onChange(of: scene.built) { scene.setGroups(clusters.labels) }
+        .animation(.easeOut(duration: 0.18), value: scene.selectedRow)
+        .onAppear {   // esc: clear the selection, then the lit hits
+            escMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { e in
+                guard e.keyCode == 53 else { return e }
+                if scene.selectedRow != nil { scene.select(nil); return nil }
+                if !scene.lit.isEmpty { scene.light([]); query = ""; return nil }
+                return e
+            }
+        }
+        .onDisappear { if let m = escMonitor { NSEvent.removeMonitor(m); escMonitor = nil } }
         .onChange(of: who) { scene.show(kinds: who) }
         .onChange(of: flat) { scene.flatten(flat) }
         .task {
+            if GHIndex.loaded == nil, !ModelLoad.shared.loading, ModelLoad.shared.failed == nil, !ModelLoad.shared.absent {
+                ModelLoad.shared.reload?(UserDefaults.standard.string(forKey: "hub.engineMode") ?? "gpu")
+            }
             if layout.xyz.isEmpty, layout.staleReason(docs: index.docs, space: index.space) != nil, !layout.running {
                 await layout.fit(docs: index.docs, space: index.space, why: "Map page opened with no layout")
             } else if let why = layout.staleReason(docs: index.docs, space: index.space), !layout.running {
                 await layout.fit(docs: index.docs, space: index.space, why: why)
             }
+            await clusters.refresh(layout: layout, docs: index.docs)
+            scene.setGroups(clusters.labels)
             if !Self.actionDone, let q = UserDefaults.standard.string(forKey: "mapQuery"), !q.isEmpty {   // -mapQuery <text> (tests)
                 Self.actionDone = true
-                for _ in 0..<600 where layout.xyz.isEmpty || scene.built == 0 { try? await Task.sleep(for: .milliseconds(100)) }
+                for _ in 0..<600 where layout.xyz.isEmpty || scene.built == 0 || ModelLoad.shared.loading { try? await Task.sleep(for: .milliseconds(100)) }
                 query = q; await search()
+                if UserDefaults.standard.bool(forKey: "mapSelectFirst"), let r = scene.lit.first { scene.select(r) }   // -mapSelectFirst YES (tests)
             }
         }
     }
 
-    private var status: String {
-        if layout.running { return layout.progress.isEmpty ? "laying out…" : layout.progress }
-        if scene.fps > 0 { return String(format: "%.0f fps · %@ shown · %d lit", scene.fps, grouped(scene.shown), scene.lit.count) }
-        return layout.meta.map { String(format: "fitted in %.1f s", $0.seconds) } ?? ""
+    /// The colour key, with counts — the only place a colour is explained.
+    private var legend: some View {
+        let counts = Dictionary(grouping: index.docs, by: \.kind).mapValues(\.count)
+        return HStack(spacing: 16) {
+            ForEach([("history", "sessions"), ("note", "ψ notes"), ("issue", "issues"), ("pr", "PRs")], id: \.0) { k, label in
+                if let n = counts[k], n > 0 {
+                    HStack(spacing: 6) {
+                        Circle().fill(Color(nsColor: MapScene.color(k, accent: accent))).frame(width: 8, height: 8)
+                        Text("\(grouped(n)) \(label)").font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+            }
+            if !scene.lit.isEmpty {
+                HStack(spacing: 6) { Circle().fill(.white).frame(width: 8, height: 8).shadow(color: .white, radius: 4)
+                    Text("\(scene.lit.count) lit by the search").font(.caption).foregroundStyle(.secondary) }
+            }
+        }
+    }
+
+    /// The names of the biggest groups, floating at their centres; a name lights its whole group.
+    private var groupLabels: some View {
+        // biggest first; a name that would overlap one already placed is left out (hover its group to see it)
+        var placed: [CGPoint] = []
+        let shown = clusters.groups.sorted { $0.count > $1.count }.prefix(16).filter { g in
+            guard let p = scene.labelAt[g.id], !placed.contains(where: { abs($0.x - p.x) < 130 && abs($0.y - p.y) < 26 }) else { return false }
+            placed.append(p); return true
+        }.prefix(12)
+        return ZStack(alignment: .topLeading) {
+            ForEach(Array(shown)) { g in
+                if let p = scene.labelAt[g.id] {
+                    Button { scene.light(scene.members(of: g.id).prefix(600).map { $0 }) } label: {
+                        Text(g.name).font(.caption.weight(.semibold)).foregroundStyle(.white.opacity(0.85))
+                            .padding(.horizontal, 8).padding(.vertical, 3)
+                            .background(.black.opacity(0.55), in: Capsule())
+                            .overlay(Capsule().strokeBorder(accent.opacity(0.35)))
+                    }
+                    .buttonStyle(.plain).handCursor().help("\(grouped(g.count)) memories — click to light the group")
+                    .fixedSize().position(p)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    /// The clicked point: what it is, what is closest to it (its nearest neighbours in meaning), and its group.
+    private func panel(row: Int, doc d: IndexDoc) -> some View {
+        let rel = scene.neighbours(of: row).prefix(15).compactMap { r in scene.doc(row: r).map { (r, $0) } }
+        let g = scene.group(of: row).flatMap { gid in clusters.groups.first { $0.id == gid } }
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top) {
+                Circle().fill(Color(nsColor: MapScene.color(d.kind, accent: accent))).frame(width: 9, height: 9).padding(.top, 5)
+                Text(d.kind == "history" && !d.snippet.isEmpty ? d.snippet : d.title).font(.callout.weight(.semibold)).lineLimit(4)
+                Spacer(minLength: 4)
+                Button { scene.select(nil) } label: { Image(systemName: "xmark") }.buttonStyle(.borderless).handCursor().help("Close (esc)")
+            }
+            Text(meta(d)).font(.caption.monospaced()).foregroundStyle(.secondary)
+            if d.kind == "history" { Text("in “\(d.title)”").font(.caption).foregroundStyle(.secondary).lineLimit(2) }
+            else if !d.snippet.isEmpty { Text(d.snippet).font(.caption).foregroundStyle(.secondary).lineLimit(4) }
+            Button(d.kind == "history" ? "Copy the command that reopens it" : "Open") { MapScene.open(d) }
+                .buttonStyle(.borderedProminent).tint(accent).controlSize(.small).handCursor()
+            if let g {
+                Divider()
+                Text("GROUP").font(.caption2.weight(.bold)).tracking(1.5).foregroundStyle(accent)
+                Text(g.keywords.prefix(5).joined(separator: " · ")).font(.callout.weight(.medium))
+                HStack {
+                    Text("\(grouped(g.count)) memories").font(.caption).foregroundStyle(.secondary)
+                    Spacer()
+                    Button("Light the group") { scene.light(scene.members(of: g.id).prefix(600).map { $0 }) }
+                        .buttonStyle(.bordered).controlSize(.small).handCursor()
+                }
+            }
+            Divider()
+            Text("CLOSEST IN MEANING").font(.caption2.weight(.bold)).tracking(1.5).foregroundStyle(accent)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 2) {
+                    ForEach(rel, id: \.0) { r, n in
+                        Button { scene.select(r) } label: {
+                            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                Circle().fill(Color(nsColor: MapScene.color(n.kind, accent: accent))).frame(width: 7, height: 7)
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(n.kind == "history" && !n.snippet.isEmpty ? n.snippet : n.title).font(.caption).lineLimit(2)
+                                    Text(meta(n)).font(.caption2.monospaced()).foregroundStyle(.tertiary).lineLimit(1)
+                                }
+                                Spacer(minLength: 0)
+                            }
+                            .padding(.vertical, 4).padding(.horizontal, 6).contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain).handCursor().help("Go to it on the map")
+                    }
+                }
+            }
+            .frame(maxHeight: 320)
+        }
+        .padding(14)
+        .background(.black.opacity(0.78), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(accent.opacity(0.45)))
+    }
+
+    private func meta(_ d: IndexDoc) -> String {
+        d.kind == "note" ? "ψ/\(d.state)" : d.kind == "history" ? "session · \(d.state == "user" ? "you asked" : "\(name) answered") · \(String(d.updated.prefix(10)))" : "\(d.kind) \(d.repo)#\(d.number) · \(d.state.lowercased())"
     }
 
     private var empty: some View {
@@ -122,11 +249,10 @@ public struct MapView: View {
     private func hoverCard(_ d: IndexDoc) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(d.title).font(.callout.weight(.semibold)).lineLimit(2)
-            Text(d.kind == "note" ? "ψ/\(d.state)" : d.kind == "history" ? "session · \(d.state == "user" ? "you asked" : "\(name) answered") · \(String(d.updated.prefix(10)))" : "\(d.kind) \(d.repo)#\(d.number) · \(d.state.lowercased())")
-                .font(.caption.monospaced()).foregroundStyle(.secondary)
-            Text(d.kind == "history" ? "click: copy the command that reopens it" : "click: open").font(.caption).foregroundStyle(.tertiary)
+            Text(meta(d)).font(.caption.monospaced()).foregroundStyle(.secondary)
+            Text("click: what is related, and its group").font(.caption).foregroundStyle(.tertiary)
         }
-        .padding(10).frame(maxWidth: 320, alignment: .leading)
+        .padding(10)
         .background(.black.opacity(0.7), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(accent.opacity(0.5)))
         .allowsHitTesting(false)
@@ -139,9 +265,9 @@ public struct MapView: View {
                 .onSubmit { Task { await search() } }
             if index.searching { ProgressView().controlSize(.small) }
         }
-        .padding(.horizontal, 14).padding(.vertical, 11)
-        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.primary.opacity(0.06)))
-        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(focused ? accent : Color.primary.opacity(0.1), lineWidth: focused ? 1.5 : 1))
+        .padding(.horizontal, 14).padding(.vertical, 10)
+        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(.black.opacity(0.6)))
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(focused ? accent : Color.primary.opacity(0.14), lineWidth: focused ? 1.5 : 1))
         .shadow(color: focused ? accent.opacity(0.45) : .clear, radius: 14)
     }
 
@@ -158,13 +284,28 @@ public struct MapView: View {
 @available(macOS 26, *)
 @MainActor
 final class MapScene: ObservableObject {
-    @Published var hoverDoc: Int?          // row in the layout = index into docs when the ids match (they do after reconcile)
+    @Published var hoverDoc: Int?          // the doc under the pointer (index into docs)
+    @Published var hoverAt: CGPoint?       // the pointer, where the card is drawn
+    @Published var selectedRow: Int?       // the clicked point (layout row): the panel shows it, its relatives, its group
+    /// Where each group's name sits on screen (projected from the group's centre every few frames).
+    @Published var labelAt: [Int: CGPoint] = [:]
+    private var hoverRow: Int?
+    private(set) var docs: [IndexDoc] = []
+    private var groupCentre: [Int: SIMD3<Float>] = [:]
+    private var groupOf: [Int] = []
+    private var hand = false
+    /// The pointing hand while the pointer is on a point (clickable), the arrow elsewhere.
+    func setHand(_ on: Bool) {
+        guard on != hand else { return }
+        hand = on
+        if on { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+    }
     @Published var fps = 0.0
     @Published var lit: [Int] = []
     @Published var shown = 0
     var pointer: CGPoint?
     var needsRebuild = false
-    private(set) var built = 0
+    @Published private(set) var built = 0
     private let accent: Color
     private var root = Entity()
     private var chunks: [(kind: String, entity: ModelEntity, rows: [Int])] = []
@@ -199,24 +340,24 @@ final class MapScene: ObservableObject {
         self.content = content; self.layout = layout
         root = Entity()
         root.scale = SIMD3(repeating: Self.scale)
-        xyz = layout.xyz
+        // outliers pulled onto a shell at 0.8 so the camera frames the cloud, not three strays (picking uses the same)
+        xyz = layout.xyz.map { p in let r = simd_length(p); return r > 0.8 ? p * (0.8 / r) : p }
         let byId = Dictionary(docs.enumerated().map { ($1.id, $0) }, uniquingKeysWith: { a, _ in a })
         rowToDoc = layout.ids.map { byId[$0] ?? -1 }
         rowKind = rowToDoc.map { $0 >= 0 ? docs[$0].kind : "" }
+        self.docs = docs
         chunks = []
-        let sphere = MeshResource.generateSphere(radius: 0.0022)
+        let sphere = MeshResource.generateSphere(radius: 0.0032)
         for kind in ["history", "note", "issue", "pr"] {
-            var mat = PhysicallyBasedMaterial()
-            mat.baseColor = .init(tint: .black)
-            mat.emissiveColor = .init(color: Self.color(kind, accent: accent))
-            mat.emissiveIntensity = kind == "history" ? 0.55 : 0.85   // under the bloom threshold: only lit points glow
-            mat.roughness = .init(floatLiteral: 1)
+            // unlit: the colour as it is, no lighting falloff; below the bloom threshold, so only lit hits glow
+            let mat = UnlitMaterial(color: Self.color(kind, accent: accent))
             let rows = xyz.indices.filter { rowKind[$0] == kind }
             for start in stride(from: 0, to: rows.count, by: Self.chunk) {
                 let slice = Array(rows[start..<min(start + Self.chunk, rows.count)])
                 if let e = Self.instanced(slice, xyz: xyz, mesh: sphere, material: mat) { chunks.append((kind, e, slice)); root.addChild(e) }
             }
         }
+        web()
         content.add(root)
         content.cameraTarget = root
         if #available(macOS 27, *) {
@@ -239,6 +380,33 @@ final class MapScene: ObservableObject {
         return e
     }
 
+    /// The neuron web: every point to its 3 nearest neighbours (the layout's kNN graph), one faint line mesh.
+    /// Short links only: a long one is a scratch across the map, not a synapse.
+    private func web() {
+        guard let layout else { return }
+        var segs: [(Int, Int)] = []
+        segs.reserveCapacity(xyz.count * 2)
+        for i in 0..<xyz.count { for n in layout.neighbours(of: i).prefix(3) where n > i && n < xyz.count && simd_distance(xyz[i], xyz[n]) < 0.05 { segs.append((i, n)) } }
+        guard !segs.isEmpty else { return }
+        var desc = LowLevelMesh.Descriptor()
+        desc.vertexCapacity = segs.count * 2; desc.indexCapacity = segs.count * 2
+        desc.vertexAttributes = [.init(semantic: .position, format: .float3, offset: 0)]
+        desc.vertexLayouts = [.init(bufferIndex: 0, bufferStride: MemoryLayout<SIMD3<Float>>.stride)]
+        guard let mesh = try? LowLevelMesh(descriptor: desc) else { return }
+        mesh.withUnsafeMutableBytes(bufferIndex: 0) { raw in
+            let p = raw.bindMemory(to: SIMD3<Float>.self)
+            for (k, (a, b)) in segs.enumerated() { p[2 * k] = xyz[a]; p[2 * k + 1] = xyz[b] }
+        }
+        mesh.withUnsafeMutableIndices { raw in let p = raw.bindMemory(to: UInt32.self); for i in 0..<(segs.count * 2) { p[i] = UInt32(i) } }
+        mesh.parts.replaceAll([.init(indexCount: segs.count * 2, topology: .line, bounds: BoundingBox(min: [-0.85, -0.85, -0.85], max: [0.85, 0.85, 0.85]))])
+        guard let res = try? MeshResource(from: mesh) else { return }
+        var m = UnlitMaterial(color: NSColor(accent).withAlphaComponent(0.22)); m.blending = .transparent(opacity: 0.22)
+        webEntity = ModelEntity(mesh: res, materials: [m])
+        root.addChild(webEntity!)
+        HubLog.shared.add(.info, "map: neuron web of \(segs.count) links")
+    }
+    private var webEntity: ModelEntity?
+
     /// The kind filter: a hidden kind's chunks shrink to nothing — no rebuild.
     func show(kinds: String) {
         var n = 0
@@ -260,8 +428,10 @@ final class MapScene: ObservableObject {
             inst[partIndex: 0] = part
             c.entity.components.set(inst)
         }
+        webEntity?.isEnabled = !on   // the web is 3-D; in 2D it would only scribble
         root.orientation = on ? simd_quatf(angle: 0, axis: [0, 1, 0]) : root.orientation
         relight()
+        if let r = selectedRow { select(r) }
     }
 
     /// Search hits: a separate emissive entity above the bloom threshold, plus lines from the top hit to its neighbours.
@@ -274,22 +444,61 @@ final class MapScene: ObservableObject {
         litEntity?.removeFromParent(); litEntity = nil
         guard !lit.isEmpty else { return }
         var glow = PhysicallyBasedMaterial()
-        glow.emissiveColor = .init(color: .white); glow.emissiveIntensity = 5; glow.baseColor = .init(tint: .white)
+        glow.emissiveColor = .init(color: .white); glow.emissiveIntensity = 6; glow.baseColor = .init(tint: .white)
         let pts = flat ? xyz.map { SIMD3($0.x, $0.y, 0) } : xyz
-        if let e = Self.instanced(lit, xyz: pts, mesh: MeshResource.generateSphere(radius: 0.0045), material: glow) { litEntity = e; root.addChild(e) }
+        if let e = Self.instanced(lit, xyz: pts, mesh: MeshResource.generateSphere(radius: 0.006), material: glow) { litEntity = e; root.addChild(e) }
     }
 
-    /// Lines from a row to its kNN neighbours (the graph the layout built).
+    /// The pointer lights what it touches (the point + its nearest neighbours, with lines to them), like a small
+    /// firing that follows the mouse. A click keeps that firing, brighter, until another click or esc.
+    private var hoverGlow: ModelEntity?
+    private var selGlow: ModelEntity?
+    private var selLines: ModelEntity?
     private func drawLines(from row: Int?) {
         lines?.removeFromParent(); lines = nil
-        guard let row, let layout, row < xyz.count else { return }
+        hoverGlow?.removeFromParent(); hoverGlow = nil
+        guard let row else { return }
+        (hoverGlow, lines) = firing(at: row, glow: 4, lineAlpha: 0.6, radius: 0.0048)
+    }
+    func select(_ row: Int?) {
+        if row != nil, row == selectedRow, selGlow != nil { target = row.map { xyz[$0] }; return }   // a second click on the same point
+        selGlow?.removeFromParent(); selGlow = nil; selLines?.removeFromParent(); selLines = nil
+        selectedRow = row
+        guard let row, row < xyz.count else { return }
+        (selGlow, selLines) = firing(at: row, glow: 8, lineAlpha: 0.9, radius: 0.0062)
+        target = xyz[row]
+        HubLog.shared.add(.info, "map: selected \(rowKind[row]) \(rowToDoc[row] >= 0 ? docs[rowToDoc[row]].title.prefix(60) : "")")
+    }
+    /// The doc of a layout row (nil when the doc left the index since the layout).
+    func doc(row: Int) -> IndexDoc? { row < rowToDoc.count && rowToDoc[row] >= 0 ? docs[rowToDoc[row]] : nil }
+    func row(ofDoc id: String) -> Int? { layout?.row(of: id) }
+    func neighbours(of row: Int) -> [Int] { layout?.neighbours(of: row).filter { $0 < xyz.count } ?? [] }
+    func group(of row: Int) -> Int? { row < groupOf.count ? groupOf[row] : nil }
+    func members(of g: Int) -> [Int] { groupOf.indices.filter { groupOf[$0] == g } }
+
+    /// Groups from MapClusters: each group's centre on the map, for its floating name.
+    func setGroups(_ labels: [Int]) {
+        guard labels.count == xyz.count else { return }
+        groupOf = labels
+        var sum: [Int: SIMD3<Float>] = [:], n: [Int: Int] = [:]
+        for (i, g) in labels.enumerated() { sum[g, default: .zero] += xyz[i]; n[g, default: 0] += 1 }
+        groupCentre = sum.reduce(into: [:]) { r, kv in r[kv.key] = kv.value / Float(n[kv.key] ?? 1) }
+    }
+
+    private func firing(at row: Int, glow: Float, lineAlpha: CGFloat, radius: Float) -> (ModelEntity?, ModelEntity?) {
+        guard let layout, row < xyz.count else { return (nil, nil) }
+        var g = PhysicallyBasedMaterial()
+        g.emissiveColor = .init(color: NSColor(accent)); g.emissiveIntensity = glow; g.baseColor = .init(tint: NSColor(accent))
         let nbrs = layout.neighbours(of: row).filter { $0 < xyz.count }
-        guard !nbrs.isEmpty else { return }
+        let pts = flat ? xyz.map { SIMD3($0.x, $0.y, 0) } : xyz
+        let glowE = Self.instanced([row] + nbrs, xyz: pts, mesh: MeshResource.generateSphere(radius: radius), material: g)
+        if let glowE { root.addChild(glowE) }
+        guard !nbrs.isEmpty else { return (glowE, nil) }
         var desc = LowLevelMesh.Descriptor()
         desc.vertexCapacity = nbrs.count * 2; desc.indexCapacity = nbrs.count * 2
         desc.vertexAttributes = [.init(semantic: .position, format: .float3, offset: 0)]
         desc.vertexLayouts = [.init(bufferIndex: 0, bufferStride: MemoryLayout<SIMD3<Float>>.stride)]
-        guard let mesh = try? LowLevelMesh(descriptor: desc) else { return }
+        guard let mesh = try? LowLevelMesh(descriptor: desc) else { return (glowE, nil) }
         let p0 = flat ? SIMD3(xyz[row].x, xyz[row].y, 0) : xyz[row]
         mesh.withUnsafeMutableBytes(bufferIndex: 0) { raw in
             let p = raw.bindMemory(to: SIMD3<Float>.self)
@@ -297,9 +506,10 @@ final class MapScene: ObservableObject {
         }
         mesh.withUnsafeMutableIndices { raw in let p = raw.bindMemory(to: UInt32.self); for i in 0..<(nbrs.count * 2) { p[i] = UInt32(i) } }
         mesh.parts.replaceAll([.init(indexCount: nbrs.count * 2, topology: .line, bounds: BoundingBox(min: p0 - 1, max: p0 + 1))])
-        guard let res = try? MeshResource(from: mesh) else { return }
-        var m = UnlitMaterial(color: NSColor(accent).withAlphaComponent(0.6)); m.blending = .transparent(opacity: 0.6)
-        let e = ModelEntity(mesh: res, materials: [m]); lines = e; root.addChild(e)
+        guard let res = try? MeshResource(from: mesh) else { return (glowE, nil) }
+        var m = UnlitMaterial(color: NSColor(accent).withAlphaComponent(lineAlpha)); m.blending = .transparent(opacity: .init(floatLiteral: Float(lineAlpha)))
+        let e = ModelEntity(mesh: res, materials: [m]); root.addChild(e)
+        return (glowE, e)
     }
 
     func installScrollZoom() {
@@ -311,7 +521,7 @@ final class MapScene: ObservableObject {
             return nil
         }
     }
-    func removeScrollZoom() { if let s = scroll { NSEvent.removeMonitor(s); scroll = nil } }
+    func removeScrollZoom() { if let s = scroll { NSEvent.removeMonitor(s); scroll = nil }; setHand(false) }
 
     /// Once per frame: fps, the slow turn towards a lit target, and a CPU pick under the pointer at most 10× a second.
     func frame() {
@@ -323,7 +533,12 @@ final class MapScene: ObservableObject {
             root.orientation = simd_slerp(root.orientation, want, 0.08)
             if abs(simd_dot(root.orientation.vector, want.vector)) > 0.9995 { target = nil }
         }
-        if let p = pointer, now.timeIntervalSince(lastPick) > 0.1 { lastPick = now; pick(at: p) }
+        if let p = pointer, now.timeIntervalSince(lastPick) > (xyz.count > 15_000 ? 0.1 : 0.05) { lastPick = now; pick(at: p) }   // a pick projects every point: ~22 ms at 49k
+        if frames % 6 == 0, let content, !groupCentre.isEmpty {
+            var at: [Int: CGPoint] = [:]
+            for (g, c) in groupCentre { if let q = content.project(point: root.convert(position: flat ? SIMD3(c.x, c.y, 0) : c, to: nil), to: .local) { at[g] = q } }
+            labelAt = at
+        }
     }
 
     private func pick(at p: CGPoint) {
@@ -336,17 +551,19 @@ final class MapScene: ObservableObject {
             }
         }
         let hit = best >= 0 && bd < 14 * 14 ? best : nil
-        if hit != hoverDoc.flatMap({ d in rowToDoc.firstIndex(of: d) }) { drawLines(from: hit) }
+        if hit != hoverRow { drawLines(from: hit); hoverRow = hit }
         hoverDoc = hit.map { rowToDoc[$0] }.flatMap { $0 >= 0 ? $0 : nil }
+        hoverAt = hoverDoc == nil ? nil : p
+        setHand(hoverDoc != nil)
     }
 
-    func click() {
-        guard let d = hoverDoc, let layout, let docs = layoutDocs, d < docs.count else { return }
-        _ = layout
-        let doc = docs[d]
+    /// A click selects (the panel opens with its relatives and its group); a click on empty space clears.
+    func click() { select(hoverRow) }
+
+    /// Open a doc the way a search result does: a session copies its resume command, the rest open.
+    static func open(_ doc: IndexDoc) {
         if doc.kind == "history" { WorkFormat.copy(doc.url) } else if let u = URL(string: doc.url) { WorkFormat.open(u) }
-        HubLog.shared.add(.info, "map: click \(doc.kind) \(doc.title.prefix(60))")
+        HubLog.shared.add(.info, "map: open \(doc.kind) \(doc.title.prefix(60))")
     }
-    var layoutDocs: [IndexDoc]? { (GHIndex.active ?? GHIndex.shared).docs }
 }
 #endif
