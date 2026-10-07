@@ -26,7 +26,7 @@ public final class TraceLog: ObservableObject {
     /// Queries of earlier launches, read once from the query log — the tag cloud spans every launch.
     @Published public private(set) var past: [Entry] = []
     private let keep = 500
-    private var loadedPast = false
+    private var pastLoad: Task<Void, Never>?
 
     public static let file: URL = {
         let dir = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)[0]
@@ -42,17 +42,22 @@ public final class TraceLog: ObservableObject {
     private let encoder: JSONEncoder = { let e = JSONEncoder(); e.dateEncodingStrategy = .iso8601; return e }()
 
     /// Reads the query log of earlier launches once (the last 5,000 queries).
+    /// Every caller returns once `past` is read: a second one that arrives during the read waits for the same read
+    /// (a phone's /v1/trace and the Trace page at once), instead of answering without the history.
     public func loadPast() async {
-        guard !loadedPast else { return }
-        loadedPast = true
+        if let pastLoad { await pastLoad.value; return }
         let url = Self.file
-        let old = await Task.detached(priority: .utility) { () -> [Entry] in
-            guard let d = try? Data(contentsOf: url) else { return [] }
-            let dec = JSONDecoder(); dec.dateDecodingStrategy = .iso8601
-            return d.split(separator: 0x0A).suffix(5_000).compactMap { try? dec.decode(Entry.self, from: Data($0)) }
-        }.value
-        let now = Set(entries.map(\.id))
-        past = old.filter { !now.contains($0.id) }
+        let read = Task { @MainActor in
+            let old = await Task.detached(priority: .utility) { () -> [Entry] in
+                guard let d = try? Data(contentsOf: url) else { return [] }
+                let dec = JSONDecoder(); dec.dateDecodingStrategy = .iso8601
+                return d.split(separator: 0x0A).suffix(5_000).compactMap { try? dec.decode(Entry.self, from: Data($0)) }
+            }.value
+            let now = Set(self.entries.map(\.id))
+            self.past = old.filter { !now.contains($0.id) }
+        }
+        pastLoad = read
+        await read.value
     }
 
     public func add(_ e: Entry) {

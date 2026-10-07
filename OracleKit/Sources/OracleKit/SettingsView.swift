@@ -10,6 +10,7 @@ public struct SettingsView: View {
     @ObservedObject private var load = ModelLoad.shared
     @ObservedObject private var mcp = MCPServer.shared
     @ObservedObject private var trace = TraceLog.shared
+    @ObservedObject private var companion = CompanionServer.shared
     @AppStorage("mcp.enabled") private var mcpEnabled = true
     @State private var cache: (count: Int, mb: Double) = (0, 0)
     @State private var copied = false
@@ -34,6 +35,7 @@ public struct SettingsView: View {
                 card("Engine", "cpu", .cyan) { engine }
                 card("Vector search", "sparkle.magnifyingglass", accent) { vectors }
                 card("MCP", "point.3.connected.trianglepath.dotted", .orange) { mcpCard }
+                if companion.configured { card("Companion — iPhone · iPad", "iphone", .mint) { CompanionCard(companion: companion) } }   // the Hub serves no phone app
                 card("Trace", "list.bullet.rectangle", .green, open: openTrace) { traceCard }
                 DebugLogView()
             }
@@ -150,7 +152,7 @@ public struct SettingsView: View {
                         Text(Calendar.current.isDateInToday(e.at) ? e.at.formatted(.dateTime.hour().minute().second())
                                                                    : e.at.formatted(.dateTime.month(.abbreviated).day().hour().minute()))
                             .foregroundStyle(.tertiary).lineLimit(1).fixedSize()
-                        Text(e.source.uppercased()).foregroundStyle(e.source == "mcp" ? Color.orange : accent).frame(width: 40, alignment: .leading)
+                        Text(TraceView.label(e.source)).foregroundStyle(e.source == "mcp" ? Color.orange : accent).frame(width: 40, alignment: .leading)
                         Text("\"\(e.query)\"").lineLimit(1).truncationMode(.tail)
                         Text(e.filter).foregroundStyle(.secondary).lineLimit(1)
                         Spacer(minLength: 0)
@@ -209,6 +211,109 @@ public struct SettingsView: View {
     }
 }
 
+/// Settings → Companion (the phone app's door): the switch, where it listens, the pairing code, the write switch, and who called.
+struct CompanionCard: View {
+    @ObservedObject var companion: CompanionServer
+    @AppStorage("companion.allowMessages") private var allowMessages = false
+    @State private var linkCopied = false
+    @State private var linkHost: String?
+    @State private var confirmRotate = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Toggle(isOn: Binding(get: { companion.enabled }, set: { companion.setEnabled($0) })) {
+                Text("Serve this app to its iPhone/iPad app")
+            }
+            .toggleStyle(.switch).controlSize(.small).padding(.bottom, 2)
+            Text("HTTP + JSON on this Mac's 127.0.0.1 and its NetBird address (100.64.0.0/10) — never on every interface. Off until you switch it on.")
+                .font(.caption).foregroundStyle(.secondary).padding(.bottom, 6)
+            EngineRow(name: "Status", value: companion.statusText, good: companion.running ? true : (companion.enabled ? false : nil))
+            if let p = companion.problem { Text(p).font(.caption).foregroundStyle(.orange).textSelection(.enabled).padding(.top, 4) }
+            if companion.running { pairing }
+            Divider().padding(.vertical, 8)
+            Toggle(isOn: $allowMessages) { Text("Allow messages from the phone (the composer)") }
+                .toggleStyle(.switch).controlSize(.small)
+            Text("On: a paired phone can type into this oracle's agent panes (maw herdr hey), as the message box here does. Off: the phone only reads.")
+                .font(.caption).foregroundStyle(allowMessages ? Color.orange : Color.secondary).padding(.top, 2)
+            if !companion.calls.isEmpty {
+                Text("Calls").font(.caption.weight(.semibold)).foregroundStyle(.secondary).padding(.top, 8)
+                ForEach(companion.calls.suffix(8).reversed()) { c in
+                    HStack(spacing: 8) {
+                        Text(HubLog.clock(c.at)).foregroundStyle(.tertiary)
+                        Text(c.method).foregroundStyle(Color.mint)
+                        Text(c.target).lineLimit(1).truncationMode(.middle)
+                        Spacer(minLength: 0)
+                        Text("\(c.status)").foregroundStyle(c.status < 400 ? Color.secondary : Color.orange)
+                        Text("\(Int(c.ms)) ms").foregroundStyle(.secondary)
+                        Text(c.remote).foregroundStyle(.tertiary)
+                    }
+                    .font(.system(size: 11, design: .monospaced))
+                }
+            }
+        }
+        .confirmationDialog("Rotate the companion token?", isPresented: $confirmRotate, titleVisibility: .visible) {
+            Button("Rotate token", role: .destructive) { companion.rotate() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Every paired phone is refused from now on and must pair again with the new code.")
+        }
+    }
+
+    /// The code and link a phone pairs with. The link carries the token, so it is shown with the token hidden; Copy copies all of it.
+    @ViewBuilder private var pairing: some View {
+        let links = companion.pairLinks
+        if let link = links.first(where: { $0.host == linkHost }) ?? links.first {
+            Divider().padding(.vertical, 8)
+            HStack(alignment: .top, spacing: 18) {
+                CompanionQRView(text: link.url.absoluteString)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(link.simulatorOnly ? "Pair the iOS Simulator" : "Pair a phone or iPad").font(.callout.weight(.semibold))
+                    Text("In the \(companion.name) app on the phone, scan this code — or paste the link. It carries the token: anyone who has it can read this app's data over the mesh.")
+                        .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                    if links.count > 1 {
+                        Picker("Address", selection: Binding(get: { link.host }, set: { linkHost = $0 })) {
+                            ForEach(links) { Text($0.host + ($0.simulatorOnly ? " · simulator only" : "")).tag($0.host) }
+                        }
+                        .pickerStyle(.menu).fixedSize().controlSize(.small)
+                    }
+                    HStack(spacing: 8) {
+                        Text(link.url.absoluteString.replacingOccurrences(of: companion.token, with: "••••••••"))
+                            .font(.caption.monospaced()).lineLimit(2).truncationMode(.middle)
+                        Button(linkCopied ? "Copied ✓" : "Copy") {
+                            NSPasteboard.general.clearContents(); NSPasteboard.general.setString(link.url.absoluteString, forType: .string)
+                            linkCopied = true; Task { try? await Task.sleep(for: .seconds(1.5)); linkCopied = false }
+                        }
+                        .controlSize(.small).handCursor()
+                    }
+                    if link.simulatorOnly {
+                        Text("127.0.0.1 — simulator only. This Mac has no NetBird address (100.64.0.0/10) right now, so a real phone cannot reach it; connect NetBird and its link appears here.")
+                            .font(.caption).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true)
+                    }
+                    Button("Rotate token…") { confirmRotate = true }.controlSize(.small).handCursor()
+                        .help("Make a new token: every paired phone must pair again")
+                }
+            }
+        }
+    }
+}
+
+/// The pairing link as a QR code, 180 pt on white: every module is a whole number of pixels, drawn without smoothing.
+struct CompanionQRView: View {
+    let text: String
+    var body: some View {
+        Group {
+            if let image = CompanionQR.image(text) {
+                Image(decorative: image, scale: 1).interpolation(.none).resizable().frame(width: 180, height: 180)
+            } else {
+                Text("no code").foregroundStyle(.secondary).frame(width: 180, height: 180)
+            }
+        }
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .accessibilityLabel("QR code of the pairing link")
+    }
+}
+
 /// A card title that opens something: its icon and name in a pill that lights up under the pointer, so it reads as a
 /// button (Nat: "icon around this?").
 struct CardTitleButton: View {
@@ -256,9 +361,13 @@ struct TraceView: View {
 
     private var narrow: Bool { width < 700 }
 
+    /// The source column: PAGE, MCP, PHONE (a search from the companion app — "COMPANION" would not fit the card's column).
+    static func label(_ source: String) -> String { source == "companion" ? "PHONE" : source.uppercased() }
+
     /// Who asked, as a row shows it: "you" on a page, else the caller the MCP server measured.
     static func from(_ e: TraceLog.Entry) -> String {
-        e.source != "mcp" ? "you" : (e.caller ?? "caller not recorded")
+        // over MCP or from the phone the caller is measured; the app's own pages (Memory, Map) are you
+        e.source == "mcp" || e.source == "companion" ? (e.caller ?? "caller not recorded") : "you"
     }
     /// The first part of `from` — the oracle (or "you") the Who menu lists.
     static func asker(_ e: TraceLog.Entry) -> String { from(e).components(separatedBy: " · ").first ?? "" }
@@ -345,7 +454,7 @@ struct TraceView: View {
         return VStack(alignment: .leading, spacing: 3) {
             HStack(spacing: 10) {
                 Text(when).foregroundStyle(.tertiary).lineLimit(1).fixedSize()
-                Text(e.source.uppercased()).foregroundStyle(e.source == "mcp" ? Color.orange : accent).lineLimit(1).fixedSize()
+                Text(TraceView.label(e.source)).foregroundStyle(e.source == "mcp" ? Color.orange : accent).lineLimit(1).fixedSize()
                 Text("\"\(e.query)\"").lineLimit(1).truncationMode(.tail)
                 if !narrow { Text(e.filter).foregroundStyle(.secondary).lineLimit(1).fixedSize() }
                 Spacer(minLength: 0)
