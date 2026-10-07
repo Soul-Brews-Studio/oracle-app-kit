@@ -476,5 +476,6 @@
   addButtons(); pill();
   // what the toolbar badge says, readable from the page: <html data-oracle-bridge="on:ON">
   const bridgeState = () => chrome.runtime?.sendMessage({ kind: 'bridge-status' }, (r) => { document.documentElement.dataset.oracleBridge = r ? `${r.on ? 'on' : 'off'}:${r.badge}` : 'none'; });
-  bridgeState(); document.addEventListener('visibilitychange', () => { if (!document.hidden) bridgeState(); });
+  bridgeState(); setInterval(() => { if (!document.hidden) bridgeState(); }, 5000);   // wakes the worker so it reconnects
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) bridgeState(); });
 })();

@@ -34,11 +34,14 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 // The Facebook content script (fb.js) asks for the same hand-off from its 🔮 Issue button.
 chrome.runtime.onMessage.addListener((msg, sender, reply) => {
   if (msg?.kind === 'bridge-status') {   // also lets the page (and tests) read what the toolbar badge says
+    if (!bridge || bridge.readyState > 1) connectBridge();   // the page's ping doubles as a wake-up call
     chrome.action.getBadgeText({}).then(badge => reply({ on: bridge?.readyState === 1, badge }));
     return true;
   }
   if (msg?.kind === 'thread') {   // content script → bridge (a whole thread is too big for a URL)
-    fetch(`http://${BRIDGE}/thread`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(msg.thread) })
+    // the tab the click came from: a reply goes back to THAT tab (ids are per browser, so the user agent rides along)
+    const thread = { ...msg.thread, tab: sender.tab ? { id: sender.tab.id, windowId: sender.tab.windowId } : null, ua: navigator.userAgent };
+    fetch(`http://${BRIDGE}/thread`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(thread) })
       .then(r => r.json()).then(r => reply(r)).catch(e => { showBridge(false); reply({ ok: false, error: `bridge not running: bun ${'~'}/…/oracle-app-kit/browser/bridge/server.ts (${e})` }); });
     return true;
   }
@@ -65,12 +68,19 @@ function showBridge(on) {
 }
 showBridge(false);
 chrome.action.onClicked.addListener(() => { connectBridge(); });
+// Retry fast while the worker is awake (1.5 s, 3 s, 6 s … 10 s); the 30 s alarm and the Facebook tab's 5 s ping wake it
+// again when it has gone to sleep — so a restarted bridge is found in seconds, not at the next alarm.
+let retryMs = 1500, retryTimer = 0;
+function retryBridge() {
+  clearTimeout(retryTimer);
+  retryTimer = setTimeout(() => { connectBridge(); if (!bridge || bridge.readyState !== 1) retryMs = Math.min(retryMs * 2, 10000); }, retryMs);
+}
 function connectBridge() {
   if (bridge && bridge.readyState <= 1) return;
   try { bridge = new WebSocket(`ws://${BRIDGE}/ws`); } catch { showBridge(false); return; }
-  bridge.onopen = () => showBridge(true);
-  bridge.onmessage = (e) => { try { const m = JSON.parse(e.data); if (m.type === 'reply') handleReply(m); } catch {} };
-  bridge.onclose = () => { bridge = null; showBridge(false); };
+  bridge.onopen = () => { retryMs = 1500; showBridge(true); };
+  bridge.onmessage = (e) => { try { const m = JSON.parse(e.data); if (m.type === 'reply') handleReply(m); else if (m.type === 'tabs') listTabs(m); } catch {} };
+  bridge.onclose = () => { bridge = null; showBridge(false); retryBridge(); };
   bridge.onerror = () => showBridge(false);
 }
 connectBridge();
@@ -79,13 +89,19 @@ chrome.alarms.onAlarm.addListener((a) => { if (a.name === 'bridge') connectBridg
 chrome.runtime.onStartup.addListener(connectBridge);
 chrome.runtime.onInstalled.addListener(connectBridge);
 
+async function listTabs(m) {   // `fbreply --tabs`: every Facebook tab in this browser
+  const tabs = await chrome.tabs.query({ url: 'https://www.facebook.com/*' });
+  try { bridge?.send(JSON.stringify({ type: 'result', rid: m.rid, ok: true, tabs: tabs.map(t => ({ id: t.id, windowId: t.windowId, active: t.active, title: t.title || '', url: t.url })) })); } catch {}
+}
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 const postKey = (u) => { try { const x = new URL(u); return x.pathname + (x.searchParams.get('fbid') ? `?fbid=${x.searchParams.get('fbid')}` : ''); } catch { return u; } };
 async function handleReply(m) {
   const answer = (r) => { try { bridge?.send(JSON.stringify({ type: 'result', rid: m.rid, ...r })); } catch {} };
   try {
-    const tabs = (await chrome.tabs.query({ url: 'https://www.facebook.com/*' })).filter(t => postKey(t.url) === postKey(m.url));
-    let tab = tabs[0];
+    // the tab the thread was forwarded from, if it is still open on that post (a duplicate tab of the same post must not win)
+    let tab = null;
+    if (m.tab != null) { try { const t = await chrome.tabs.get(m.tab); if (t?.url && postKey(t.url) === postKey(m.url)) tab = t; } catch {} }
+    if (!tab) tab = (await chrome.tabs.query({ url: 'https://www.facebook.com/*' })).filter(t => postKey(t.url) === postKey(m.url))[0];
     if (tab) { await chrome.tabs.update(tab.id, { active: true }); await chrome.windows.update(tab.windowId, { focused: true }); }
     else tab = await chrome.tabs.create({ url: m.url, active: true });
     let res = null;
