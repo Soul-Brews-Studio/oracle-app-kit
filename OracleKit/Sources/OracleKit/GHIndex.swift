@@ -9,7 +9,9 @@ import Accelerate
 /// Stored as one JSON file — a few thousand 768-d vectors fit in memory and a brute-force cosine is instant.
 /// Only new or changed items are embedded again (a hash of the text that was embedded).
 public struct IndexDoc: Codable, Identifiable, Hashable, Sendable {
-    public var id: String { kind == "note" ? "note:\(url)" : kind == "history" ? "hist:\(hash)" : "\(repo)#\(number)" }
+    public var id: String {
+        kind == "note" ? (number == 0 ? "note:\(url)" : "note:\(url)#\(number)") : kind == "history" ? "hist:\(hash)" : "\(repo)#\(number)"
+    }
     public let repo: String          // owner/name
     public let kind: String          // issue · pr · note (ψ vault: url file://, state its folder) · history (a session:
                                      // state user|assistant, url the resume command, number the piece of a long message)
@@ -388,26 +390,35 @@ public final class GHIndex: ObservableObject {
     /// the same vault), each real vault once (symlinked vaults are shared), and only the note folders: memory, inbox
     /// subfolders (handoffs…), writing, outbox, active, lab — never learn/ (cloned repos) and not the flat ψ/inbox/*.md
     /// files, which are maw and timekeeper message traffic, not notes.
-    nonisolated static func readVaults(_ checkouts: [String]) -> (docs: [IndexDoc], vaults: Int, skipped: Int) {
+    /// `everything` (an oracle's own vault, Nat: "all psi vault / retrospective / inbox / everything"): every folder
+    /// and the flat inbox messages too, long notes in pieces — only cloned repos (a folder with its own .git; symlinked
+    /// clones are not followed) and another oracle's vault nested inside (a folder with its own memory/ and inbox/,
+    /// like ψ/soul-brews-studio/arra-oracle-v3) stay out. The same text in two files is kept once.
+    nonisolated static func readVaults(_ checkouts: [String], everything: Bool = false) -> (docs: [IndexDoc], vaults: Int, skipped: Int) {
         let fm = FileManager.default
-        var seen = Set<String>(), docs: [IndexDoc] = [], skipped = 0
+        var seen = Set<String>(), docs: [IndexDoc] = [], skipped = 0, texts = Set<String>()
         let iso = ISO8601DateFormatter()
         for checkout in checkouts where !checkout.contains("/wt/") {
             let real = URL(fileURLWithPath: checkout).appendingPathComponent("ψ").resolvingSymlinksInPath()
             guard fm.fileExists(atPath: real.path), seen.insert(real.path).inserted else { continue }
             let owner = slug(fromCheckout: checkout) ?? URL(fileURLWithPath: checkout).lastPathComponent
-            for top in ["memory", "inbox", "writing", "outbox", "active", "lab"] {
-                let dir = real.appendingPathComponent(top)
+            for top in everything ? [""] : ["memory", "inbox", "writing", "outbox", "active", "lab"] {
+                let dir = top.isEmpty ? real : real.appendingPathComponent(top)
                 guard let walk = fm.enumerator(at: dir, includingPropertiesForKeys: [.isDirectoryKey, .fileSizeKey, .contentModificationDateKey],
                                                options: [.skipsHiddenFiles]) else { continue }
                 for case let url as URL in walk {
                     let v = try? url.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey, .contentModificationDateKey])
                     if v?.isDirectory == true {
-                        if ["learn", "node_modules", ".git", "build", "dist"].contains(url.lastPathComponent) { walk.skipDescendants() }
+                        let name = url.lastPathComponent
+                        if everything {
+                            let clone = fm.fileExists(atPath: url.appendingPathComponent(".git").path)
+                            let vault = fm.fileExists(atPath: url.appendingPathComponent("memory").path) && fm.fileExists(atPath: url.appendingPathComponent("inbox").path)
+                            if clone || vault || ["node_modules", "build", "dist"].contains(name) { walk.skipDescendants(); skipped += 1 }
+                        } else if ["learn", "node_modules", ".git", "build", "dist"].contains(name) { walk.skipDescendants() }
                         continue
                     }
                     guard url.pathExtension == "md", (v?.fileSize ?? 0) < 1_000_000 else { continue }
-                    if top == "inbox", url.deletingLastPathComponent().path == dir.path { skipped += 1; continue }
+                    if !everything, top == "inbox", url.deletingLastPathComponent().path == dir.path { skipped += 1; continue }
                     guard let raw = try? String(contentsOf: url, encoding: .utf8) else { continue }
                     var body = Substring(raw)
                     if body.hasPrefix("---\n"), let end = body.range(of: "\n---", range: body.index(body.startIndex, offsetBy: 4)..<body.endIndex) {
@@ -416,13 +427,19 @@ public final class GHIndex: ObservableObject {
                     let lines = body.split(separator: "\n").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
                     let heading = lines.first { $0.hasPrefix("#") }.map { $0.drop { $0 == "#" }.trimmingCharacters(in: .whitespaces) }
                     let title = heading.flatMap { $0.isEmpty ? nil : $0 } ?? url.deletingPathExtension().lastPathComponent
-                    let text = docText(title: title, body: String(body))
-                    let hash = SHA256.hash(data: Data(text.utf8)).prefix(8).map { String(format: "%02x", $0) }.joined()
-                    let snippet = lines.filter { !$0.hasPrefix("#") }.prefix(2).joined(separator: " · ")
-                    let folder = url.deletingLastPathComponent().path.replacingOccurrences(of: real.path + "/", with: "")
-                    docs.append(IndexDoc(repo: owner, kind: "note", number: 0, title: title, state: folder, url: url.absoluteString,
-                                         updated: v?.contentModificationDate.map { iso.string(from: $0) } ?? "",
-                                         snippet: String(snippet.prefix(220)), hash: hash, vec: [], text: text))
+                    let folder = url.deletingLastPathComponent().path == real.path ? "" :
+                        url.deletingLastPathComponent().path.replacingOccurrences(of: real.path + "/", with: "")
+                    let updated = v?.contentModificationDate.map { iso.string(from: $0) } ?? ""
+                    // the hub: one piece per note (its start); an oracle's own vault: the whole note, in pieces
+                    let pieces = everything ? SessionHistory.chunks(String(body).trimmingCharacters(in: .whitespacesAndNewlines)) : [String(body)]
+                    for (n, piece) in pieces.enumerated() {
+                        let text = docText(title: title, body: piece)
+                        let hash = SHA256.hash(data: Data(text.utf8)).prefix(8).map { String(format: "%02x", $0) }.joined()
+                        if everything, !texts.insert(hash).inserted { continue }   // the same text in another file
+                        let plines = n == 0 ? lines.filter { !$0.hasPrefix("#") } : piece.split(separator: "\n").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+                        docs.append(IndexDoc(repo: owner, kind: "note", number: n, title: title, state: folder, url: url.absoluteString,
+                                             updated: updated, snippet: String(plines.prefix(2).joined(separator: " · ").prefix(220)), hash: hash, vec: [], text: text))
+                    }
                 }
             }
         }
@@ -489,7 +506,7 @@ public final class GHIndex: ObservableObject {
         // 2 · its own ψ vault and its own issues and PRs: the current set replaces the old one; unchanged keeps its vector
         progress = "reading the ψ vault and GitHub…"
         let tv = Date()
-        let vault = checkout.isEmpty ? [] : await Task.detached(priority: .userInitiated) { GHIndex.readVaults([checkout]).docs }.value
+        let vault = checkout.isEmpty ? [] : await Task.detached(priority: .userInitiated) { GHIndex.readVaults([checkout], everything: true).docs }.value
         let gh = await Self.read(repo)
         gh.errors.forEach { HubLog.shared.add(.error, $0) }
         let oldSide = Dictionary(docs.filter { $0.kind != "history" }.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })

@@ -628,7 +628,7 @@ struct HitCard: View {
                         .padding(.horizontal, 6).padding(.vertical, 2)
                         .background(Capsule().fill(Color.primary.opacity(0.08)))
                     Text(d.kind == "note" || d.kind == "history" ? String(d.updated.prefix(10)) : d.state.lowercased()).font(.caption2).foregroundStyle(d.state == "OPEN" ? Color.green : Color.secondary)
-                    Text(d.kind == "note" ? "\(d.repo) · ψ/\(d.state)" : d.kind == "history" ? (copied ? "resume command copied ✓" : "session · \(String(d.updated.dropFirst(11).prefix(5)))") : "\(d.repo)#\(d.number)").font(.caption.monospaced()).foregroundStyle(.secondary)
+                    Text(d.kind == "note" ? "\(d.repo) · ψ/\(d.state)\(d.number > 0 ? " · part \(d.number + 1)" : "")" : d.kind == "history" ? (copied ? "resume command copied ✓" : "session · \(String(d.updated.dropFirst(11).prefix(5)))") : "\(d.repo)#\(d.number)").font(.caption.monospaced()).foregroundStyle(.secondary)
                     Spacer()
                 }
                 Text(d.title).font(.custom("Avenir Next", size: 15).weight(.medium)).lineLimit(2)
