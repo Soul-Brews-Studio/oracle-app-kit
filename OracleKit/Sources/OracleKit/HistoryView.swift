@@ -101,6 +101,10 @@ struct HistoryView: View {
                 EngineRow(name: "Transcripts", value: "\(grouped(c.filesOurs)) are \(config.name)'s, of \(grouped(c.files)) read · \(grouped(c.bytes / 1_000_000)) MB new")
                 EngineRow(name: "Said", value: "\(grouped(c.prose)) user + assistant · tools \(grouped(c.toolUse + c.toolResult)) (later) · thinking \(grouped(c.thinking)) (never)")
                 EngineRow(name: "To embed", value: c.newChunks == 0 ? "no new session pieces" : "\(grouped(c.newChunks)) new pieces of \(grouped(c.distinct)) distinct")
+                if let p = index.plan, p.need > 0 {
+                    EngineRow(name: "Vector cache", value: "\(grouped(p.hits)) of \(grouped(p.need)) embedded before — reused · \(grouped(p.need - p.hits)) to embed",
+                              good: p.hits == p.need ? true : nil)
+                }
                 if let sd = index.sideScan {
                     EngineRow(name: "ψ · GitHub", value: "\(grouped(sd.notes)) notes · \(grouped(sd.issues)) issues · \(grouped(sd.prs)) PRs · \(grouped(sd.new)) to embed")
                 }
