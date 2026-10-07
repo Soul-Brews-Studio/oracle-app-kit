@@ -1,6 +1,8 @@
 //! HF `tokenizers` behind a C ABI. The Python service encodes with the same library (its
 //! "fast" tokenizer), so ids match by construction; swift-transformers' pure-Swift BPE was
 //! 5-14x slower on real text.
+pub mod umap;
+
 use std::ffi::{c_char, CStr};
 use tokenizers::{Tokenizer, TruncationParams, TruncationStrategy};
 

@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		05DAAADEDF82BFF4F279342B /* MapLayoutEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 976327A7B1A9B72817DDDF05 /* MapLayoutEngine.swift */; };
 		0B250C1843C4CAF984D3C87F /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = BF28BFF93E30F2016054C7FC /* OracleKit */; };
 		0CE7AD6783E511A241CCE8B9 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9747F85F8B3132BD641525AE /* Assets.xcassets */; };
 		0E2BA2D4130B1BF12FFE5AAA /* NexusShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 35FAA94347FA173BC06C86F8 /* NexusShare.appex */; platformFilters = (macos, ); settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -17,18 +18,23 @@
 		248DBC4D211229CA18D7B079 /* BundledANE.swift in Sources */ = {isa = PBXBuildFile; fileRef = 334B42F2652061E9832A4410 /* BundledANE.swift */; };
 		2668904C7E52D602BD0C6ABF /* NexusConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = E596680FCB92D58641782D23 /* NexusConfig.swift */; };
 		2B9BC0A1DF0BE48BE8AFCF81 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97CF4DEE1C0D84FB0133816A /* Assets.xcassets */; };
+		306ABC4093492BD88187F36E /* spike-neo-48950.png in Resources */ = {isa = PBXBuildFile; fileRef = D88FC1580C3824256A7117F8 /* spike-neo-48950.png */; };
 		3B644CA804D8F0783F6696AA /* PulseConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = B137A3369CF3DC8269C32453 /* PulseConfig.swift */; };
 		3B76FA783180274DC3FF3684 /* PulseWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = BE742AC8F1D736B0152CD64B /* PulseWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		3EAC39F660472701B2B3CAAC /* HubApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FC24FF95F7988B14813C430 /* HubApp.swift */; };
 		4771993584B814FF8A661A42 /* NexusApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C7F01FD47329725FDFEFBF7 /* NexusApp.swift */; };
 		4CAB4D5D7656E5C8BDEB427D /* ANEEmbedCore in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = 1A760CF2A55F6C237D98F152 /* ANEEmbedCore */; };
 		4D873E55B912A714615E4FCF /* PulseWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 935A69762DBD19A005AFE22F /* PulseWidget.swift */; };
+		53B755FA4FF9B222A9140E10 /* MapLayoutEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 976327A7B1A9B72817DDDF05 /* MapLayoutEngine.swift */; };
 		53CA0DD7DC807DAC6EF36E9B /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E220E57022CA2B7EB0FD203 /* WidgetKit.framework */; };
 		548EF9C7581D38F5E84BCD66 /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = AA25C26D192E25E4550F953D /* OracleKit */; };
 		54E3709C28D2D3F941322A12 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D02737C18CEE930435DDAD1 /* ShareViewController.swift */; };
 		59B26BEE9BCEFC70F0E9AEAB /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = B0F5F3BACE628CD6D829BFDE /* OracleKit */; };
+		5BB05E053370D69F3D537F60 /* MapSpikeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F81A043C03E0EBA50048E1B1 /* MapSpikeApp.swift */; };
 		5F73AFB86D0CF89FD12B49E0 /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = 9EB334B6C1B129FB8DF7D118 /* OracleKit */; };
+		612E3254682DE613B7315041 /* MapSpikeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5211C7221AC8D5AC6F908583 /* MapSpikeView.swift */; };
 		6ACD97A55E30D1EB01D2493D /* NeoConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C722827C1DFF0CDB6F2F247 /* NeoConfig.swift */; };
+		6C5441D9506C4227FB534A28 /* MapLayoutUMAP in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = 77079D500348CB3CDEBE6BE6 /* MapLayoutUMAP */; };
 		6E1E55DE03EE6C092E7ED1E6 /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = 4B4657CD7678E1CEC26E7C94 /* OracleKit */; };
 		6F8DA303E4A8482015835CB7 /* NexusWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = B55D288BD45D60C57EC1FD16 /* NexusWidget.swift */; };
 		7C447707E6EFA415C2620730 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 90BF0F508DBC77E53A7F9A0F /* Assets.xcassets */; };
@@ -37,6 +43,7 @@
 		8499F93EF566A879CF5EBA84 /* BundledANE.swift in Sources */ = {isa = PBXBuildFile; fileRef = 334B42F2652061E9832A4410 /* BundledANE.swift */; };
 		8505E97A8977FEE81E2CB5D9 /* NeoExtras.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85CC7A862B4A57539A3EC547 /* NeoExtras.swift */; };
 		85A9367B8DDB37C40B9472FA /* NexusConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = E596680FCB92D58641782D23 /* NexusConfig.swift */; };
+		88789D16B8DBC2A2204E7C9E /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 9C0A19BBEABB401B04EC5439 /* README.md */; };
 		89201715E26C3A13D0949318 /* PulseApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9231C651A42F8ED3C6DF7549 /* PulseApp.swift */; };
 		92A18715358F7ABD3A3B9256 /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = 4BC6B464CFBBEF1106689585 /* OracleKit */; };
 		97098FAE2CDF70880DBCAAB7 /* NexusWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 83F5B866C705325F7C2918CF /* NexusWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -45,6 +52,7 @@
 		98C25B7301DD0170F482898B /* NeoWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD99D3EB0C88FD1452416FB0 /* NeoWidget.swift */; };
 		99080C841CF90F9DFACA1DF6 /* NexusExtras.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F0767639C078D6E55BCEA0E /* NexusExtras.swift */; };
 		99B36662B6D563E46A5C408C /* ANEEmbedCore in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = 21D63CA5B3750EA5A9C21B76 /* ANEEmbedCore */; };
+		9CEBE978812ECEDA4FD56FF1 /* MapLayoutEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 976327A7B1A9B72817DDDF05 /* MapLayoutEngine.swift */; };
 		9D882FA86DFB4F8F73ED7CB6 /* PulseExtras.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F13410DB812353A44FCE45E /* PulseExtras.swift */; };
 		A008A67DBBD278DCF0CBD7BC /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E220E57022CA2B7EB0FD203 /* WidgetKit.framework */; };
 		A92220ACB1EEA09648D09C9F /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = D8034BE3BE3303D05E137A02 /* OracleKit */; };
@@ -52,12 +60,16 @@
 		AA516104F3FF540DCB538557 /* ANEEmbedCore in Frameworks */ = {isa = PBXBuildFile; productRef = E21624C123AE7BFF0CA6252F /* ANEEmbedCore */; };
 		BD95A60EDF666B29F5538E29 /* ANEEmbedCore in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = BEE0829B4ADE75163F6AD679 /* ANEEmbedCore */; };
 		C4E0BD8D0B45870B893A2D5D /* NeoConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C722827C1DFF0CDB6F2F247 /* NeoConfig.swift */; };
+		CF034138F765942980273B77 /* MapLayoutUMAP in Frameworks */ = {isa = PBXBuildFile; productRef = F02E3571191A5EED9D261FEC /* MapLayoutUMAP */; };
 		CF7B1BE232CD2BB414E927AF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 907F6BD4CB49E2095191A779 /* Assets.xcassets */; };
 		D60C5A99551B4457FF12EE32 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 468221B2146BCBCC791C3B0B /* SwiftUI.framework */; };
+		D663B860B510852E1D758CEA /* MapLayoutUMAP in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = 5323E2879BF88EFEE7550670 /* MapLayoutUMAP */; };
 		D7511C67943FE37ADACAAAAD /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB009D7260C21CFEE11FBF5D /* ShareViewController.swift */; };
 		D838E66684EAB34DB1B0B356 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 03555D2BE97613AFC8E9C4D2 /* Assets.xcassets */; };
+		DC4D7AA2897574B907380863 /* MapLayoutEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 976327A7B1A9B72817DDDF05 /* MapLayoutEngine.swift */; };
 		DF81AAE88BAF2C34DC049621 /* BundledANE.swift in Sources */ = {isa = PBXBuildFile; fileRef = 334B42F2652061E9832A4410 /* BundledANE.swift */; };
 		E0835DAA39191350E3DB951A /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 468221B2146BCBCC791C3B0B /* SwiftUI.framework */; };
+		E1DAE08F0390A9AE8DCCA5BA /* MapLayoutUMAP in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = D39A71B81546A041AFC23AFF /* MapLayoutUMAP */; };
 		E237B244B33315B46DB5A310 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 468221B2146BCBCC791C3B0B /* SwiftUI.framework */; };
 		E34688015F45948EA7A17D16 /* BundledANE.swift in Sources */ = {isa = PBXBuildFile; fileRef = 334B42F2652061E9832A4410 /* BundledANE.swift */; };
 		E73105C73F8AAB325D00F325 /* PulseConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = B137A3369CF3DC8269C32453 /* PulseConfig.swift */; };
@@ -166,7 +178,10 @@
 		464E48710AE91C739C8B1105 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		468221B2146BCBCC791C3B0B /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		47078A7D50C0767AD1B9544E /* NeoShare.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = NeoShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		48E214A497E9D1CA5974B0D8 /* MapSpike.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MapSpike.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		4C722827C1DFF0CDB6F2F247 /* NeoConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NeoConfig.swift; sourceTree = "<group>"; };
+		5211C7221AC8D5AC6F908583 /* MapSpikeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapSpikeView.swift; sourceTree = "<group>"; };
+		5AEE109FB99598734E3D1A78 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		5E220E57022CA2B7EB0FD203 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		5EDFE877D27D8F8E8ECC5030 /* NeoWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = NeoWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		83F5B866C705325F7C2918CF /* NexusWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = NexusWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -176,7 +191,9 @@
 		9231C651A42F8ED3C6DF7549 /* PulseApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PulseApp.swift; sourceTree = "<group>"; };
 		935A69762DBD19A005AFE22F /* PulseWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PulseWidget.swift; sourceTree = "<group>"; };
 		9747F85F8B3132BD641525AE /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		976327A7B1A9B72817DDDF05 /* MapLayoutEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapLayoutEngine.swift; sourceTree = "<group>"; };
 		97CF4DEE1C0D84FB0133816A /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		9C0A19BBEABB401B04EC5439 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		AB9292953362D8EFB6FE8DE2 /* ANEEmbed */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ANEEmbed; path = ANEEmbed; sourceTree = SOURCE_ROOT; };
 		B137A3369CF3DC8269C32453 /* PulseConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PulseConfig.swift; sourceTree = "<group>"; };
 		B530CFD74615840D1FD21D61 /* Pulse.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Pulse.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -185,9 +202,11 @@
 		BD99D3EB0C88FD1452416FB0 /* NeoWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NeoWidget.swift; sourceTree = "<group>"; };
 		BE742AC8F1D736B0152CD64B /* PulseWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = PulseWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		D4532687283B94E464FAF092 /* Nexus.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Nexus.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D88FC1580C3824256A7117F8 /* spike-neo-48950.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "spike-neo-48950.png"; sourceTree = "<group>"; };
 		DB009D7260C21CFEE11FBF5D /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		E596680FCB92D58641782D23 /* NexusConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusConfig.swift; sourceTree = "<group>"; };
 		E6B04B136F929B594FC6EF73 /* OracleKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = OracleKit; path = OracleKit; sourceTree = SOURCE_ROOT; };
+		F81A043C03E0EBA50048E1B1 /* MapSpikeApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapSpikeApp.swift; sourceTree = "<group>"; };
 		FA7B638D3B556C915C153B1E /* NeoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NeoApp.swift; sourceTree = "<group>"; };
 		FE26685A1F4C957C3B6A7C53 /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		FE480FFFEE4B266EB37C8F5F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -200,6 +219,7 @@
 			files = (
 				548EF9C7581D38F5E84BCD66 /* OracleKit in Frameworks */,
 				4CAB4D5D7656E5C8BDEB427D /* ANEEmbedCore in Frameworks */,
+				6C5441D9506C4227FB534A28 /* MapLayoutUMAP in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -209,6 +229,7 @@
 			files = (
 				59B26BEE9BCEFC70F0E9AEAB /* OracleKit in Frameworks */,
 				BD95A60EDF666B29F5538E29 /* ANEEmbedCore in Frameworks */,
+				D663B860B510852E1D758CEA /* MapLayoutUMAP in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -218,6 +239,7 @@
 			files = (
 				EDC954BB53A1938A2913FFC4 /* OracleKit in Frameworks */,
 				AA516104F3FF540DCB538557 /* ANEEmbedCore in Frameworks */,
+				CF034138F765942980273B77 /* MapLayoutUMAP in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -271,6 +293,7 @@
 			files = (
 				5F73AFB86D0CF89FD12B49E0 /* OracleKit in Frameworks */,
 				99B36662B6D563E46A5C408C /* ANEEmbedCore in Frameworks */,
+				E1DAE08F0390A9AE8DCCA5BA /* MapLayoutUMAP in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -340,15 +363,30 @@
 			isa = PBXGroup;
 			children = (
 				334B42F2652061E9832A4410 /* BundledANE.swift */,
+				976327A7B1A9B72817DDDF05 /* MapLayoutEngine.swift */,
 			);
 			name = Shared;
 			path = Apps/Shared;
+			sourceTree = "<group>";
+		};
+		35EDBF87D2CB78FF0CFF58BA /* MapSpike */ = {
+			isa = PBXGroup;
+			children = (
+				5AEE109FB99598734E3D1A78 /* Info.plist */,
+				F81A043C03E0EBA50048E1B1 /* MapSpikeApp.swift */,
+				5211C7221AC8D5AC6F908583 /* MapSpikeView.swift */,
+				9C0A19BBEABB401B04EC5439 /* README.md */,
+				D88FC1580C3824256A7117F8 /* spike-neo-48950.png */,
+			);
+			name = MapSpike;
+			path = Apps/MapSpike;
 			sourceTree = "<group>";
 		};
 		3F531203EF9C81FB862684E9 = {
 			isa = PBXGroup;
 			children = (
 				A918F7E796C546502FC59506 /* Hub */,
+				35EDBF87D2CB78FF0CFF58BA /* MapSpike */,
 				79EA5A1B63E63D54532633FF /* Neo */,
 				47651820CEB16DF156C79410 /* Nexus */,
 				1A856B3A3480E3528CFF4233 /* Packages */,
@@ -380,6 +418,7 @@
 		4B3911DA704ADFCF590622F2 /* Products */ = {
 			isa = PBXGroup;
 			children = (
+				48E214A497E9D1CA5974B0D8 /* MapSpike.app */,
 				33D307D5CF34490C5E34FD95 /* Neo.app */,
 				47078A7D50C0767AD1B9544E /* NeoShare.appex */,
 				5EDFE877D27D8F8E8ECC5030 /* NeoWidget.appex */,
@@ -520,7 +559,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 25B61C78DECE11D0BE24B0D3 /* Build configuration list for PBXNativeTarget "Oracles" */;
 			buildPhases = (
-				13A1B5C59AD33A216AEDD380 /* Build the tokenizer (Rust) */,
+				07F28E6729FA39CB13B7734F /* Build the tokenizer + UMAP (Rust) */,
 				FCE075EFF97A8FADBDF224A3 /* Sources */,
 				0A91573CCB3A7F4520702A90 /* Resources */,
 				9370EBE1B3AD068CFB2E98E0 /* Frameworks */,
@@ -535,9 +574,28 @@
 			packageProductDependencies = (
 				84774326CBC858F01F5A8C1F /* OracleKit */,
 				E21624C123AE7BFF0CA6252F /* ANEEmbedCore */,
+				F02E3571191A5EED9D261FEC /* MapLayoutUMAP */,
 			);
 			productName = Oracles;
 			productReference = 3D0E66039AC6C174A076DB9F /* Oracles.app */;
+			productType = "com.apple.product-type.application";
+		};
+		9CBD3CAC09ABBCB109575F65 /* MapSpike */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E902C288322FA74802D07325 /* Build configuration list for PBXNativeTarget "MapSpike" */;
+			buildPhases = (
+				7356134D71C52FE23363F7E4 /* Sources */,
+				426287140F9436E07EA61282 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = MapSpike;
+			packageProductDependencies = (
+			);
+			productName = MapSpike;
+			productReference = 48E214A497E9D1CA5974B0D8 /* MapSpike.app */;
 			productType = "com.apple.product-type.application";
 		};
 		9EC664F778F344E25A6035DF /* NeoShare */ = {
@@ -563,7 +621,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 22492E9F4AAF37EBB0575612 /* Build configuration list for PBXNativeTarget "Nexus" */;
 			buildPhases = (
-				C9A394073FF9F8D5F269A650 /* Build the tokenizer (Rust) */,
+				8FAB5AD5A5CA422F415BBC79 /* Build the tokenizer + UMAP (Rust) */,
 				198D1CFD92F8BB0B1BE14374 /* Sources */,
 				49B200A1892D9E588DCE8DA8 /* Resources */,
 				76DDC45B0E5FB3543A5B1ABA /* Frameworks */,
@@ -580,6 +638,7 @@
 			packageProductDependencies = (
 				B0F5F3BACE628CD6D829BFDE /* OracleKit */,
 				BEE0829B4ADE75163F6AD679 /* ANEEmbedCore */,
+				5323E2879BF88EFEE7550670 /* MapLayoutUMAP */,
 			);
 			productName = Nexus;
 			productReference = D4532687283B94E464FAF092 /* Nexus.app */;
@@ -628,7 +687,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 74122D6D08CE988E50D6054B /* Build configuration list for PBXNativeTarget "Pulse" */;
 			buildPhases = (
-				9D05EE252D6D55BA5FD511A1 /* Build the tokenizer (Rust) */,
+				271BE96050CFF8189006A6CC /* Build the tokenizer + UMAP (Rust) */,
 				905E73BA18FA674646DF865F /* Sources */,
 				733D3F43D088BC304A4E2534 /* Resources */,
 				2B07F1976DCD80EC3F78A307 /* Frameworks */,
@@ -645,6 +704,7 @@
 			packageProductDependencies = (
 				AA25C26D192E25E4550F953D /* OracleKit */,
 				1A760CF2A55F6C237D98F152 /* ANEEmbedCore */,
+				77079D500348CB3CDEBE6BE6 /* MapLayoutUMAP */,
 			);
 			productName = Pulse;
 			productReference = B530CFD74615840D1FD21D61 /* Pulse.app */;
@@ -654,7 +714,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 41A40E1DD68DBC6E94C53362 /* Build configuration list for PBXNativeTarget "Neo" */;
 			buildPhases = (
-				57B839A3031387EC14A87ED7 /* Build the tokenizer (Rust) */,
+				3B09AB01243CCE4635BAF525 /* Build the tokenizer + UMAP (Rust) */,
 				F64C101027A592994D8188C3 /* Sources */,
 				CA52D00317CC60335AE4136E /* Resources */,
 				DFCE1F7D865A8DEE74B406FB /* Frameworks */,
@@ -671,6 +731,7 @@
 			packageProductDependencies = (
 				9EB334B6C1B129FB8DF7D118 /* OracleKit */,
 				21D63CA5B3750EA5A9C21B76 /* ANEEmbedCore */,
+				D39A71B81546A041AFC23AFF /* MapLayoutUMAP */,
 			);
 			productName = Neo;
 			productReference = 33D307D5CF34490C5E34FD95 /* Neo.app */;
@@ -698,6 +759,10 @@
 						ProvisioningStyle = Automatic;
 					};
 					6EE9931880511398B434CF6B = {
+						DevelopmentTeam = 6K28WEXX78;
+						ProvisioningStyle = Automatic;
+					};
+					9CBD3CAC09ABBCB109575F65 = {
 						DevelopmentTeam = 6K28WEXX78;
 						ProvisioningStyle = Automatic;
 					};
@@ -745,6 +810,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
+				9CBD3CAC09ABBCB109575F65 /* MapSpike */,
 				F4C43E59E3D089F341776040 /* Neo */,
 				9EC664F778F344E25A6035DF /* NeoShare */,
 				01CF40E90577B244E67480F2 /* NeoWidget */,
@@ -773,6 +839,15 @@
 			buildActionMask = 2147483647;
 			files = (
 				7E7FEEA734353F7C28425E05 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		426287140F9436E07EA61282 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				88789D16B8DBC2A2204E7C9E /* README.md in Resources */,
+				306ABC4093492BD88187F36E /* spike-neo-48950.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -819,6 +894,25 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		07F28E6729FA39CB13B7734F /* Build the tokenizer + UMAP (Rust) */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Build the tokenizer + UMAP (Rust)";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "export PATH=\"/opt/homebrew/opt/rustup/bin:$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH\"\nif ! command -v cargo >/dev/null; then\n  echo \"error: cargo not found: the hub's in-process ANE embedder builds its tokenizer with Rust. Install it, then build again:\"\n  echo \"error:   brew install rustup && rustup-init -y && . ~/.cargo/env\"\n  exit 1\nfi\n# Every build: a no-op when current, and an edit to the Rust code is never skipped.\n# From the crate's folder, so .cargo/config.toml (MACOSX_DEPLOYMENT_TARGET = 14.0) applies.\ncd \"$SRCROOT/ANEEmbed/tokenizer-ffi\" && cargo build --release --locked\n";
+		};
 		0C2CA49383C809AE54CFEADD /* Stamp CalVer */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -837,25 +931,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "sh \"$SRCROOT/scripts/calver-stamp.sh\"";
-		};
-		13A1B5C59AD33A216AEDD380 /* Build the tokenizer (Rust) */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Build the tokenizer (Rust)";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "export PATH=\"$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH\"\nif ! command -v cargo >/dev/null; then\n  echo \"error: cargo not found: the hub's in-process ANE embedder builds its tokenizer with Rust. Install it, then build again:\"\n  echo \"error:   brew install rustup && rustup-init -y && . ~/.cargo/env\"\n  exit 1\nfi\n# Every build: a no-op when current, and an edit to the Rust code is never skipped.\n# From the crate's folder, so .cargo/config.toml (MACOSX_DEPLOYMENT_TARGET = 14.0) applies.\ncd \"$SRCROOT/ANEEmbed/tokenizer-ffi\" && cargo build --release --locked\n";
 		};
 		1983416334F26A798A2ED93F /* Stamp CalVer */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -876,6 +951,44 @@
 			shellPath = /bin/sh;
 			shellScript = "sh \"$SRCROOT/scripts/calver-stamp.sh\"";
 		};
+		271BE96050CFF8189006A6CC /* Build the tokenizer + UMAP (Rust) */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Build the tokenizer + UMAP (Rust)";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "[ \"$PLATFORM_NAME\" = macosx ] || exit 0\nexport PATH=\"/opt/homebrew/opt/rustup/bin:$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH\"\nif ! command -v cargo >/dev/null; then\n  echo \"error: cargo not found: the Memory page's embedder builds its tokenizer with Rust. Install it, then build again:\"\n  echo \"error:   brew install rustup && rustup-init -y && . ~/.cargo/env\"\n  exit 1\nfi\ncd \"$SRCROOT/ANEEmbed/tokenizer-ffi\" && cargo build --release --locked\n";
+		};
+		3B09AB01243CCE4635BAF525 /* Build the tokenizer + UMAP (Rust) */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Build the tokenizer + UMAP (Rust)";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "[ \"$PLATFORM_NAME\" = macosx ] || exit 0\nexport PATH=\"/opt/homebrew/opt/rustup/bin:$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH\"\nif ! command -v cargo >/dev/null; then\n  echo \"error: cargo not found: the Memory page's embedder builds its tokenizer with Rust. Install it, then build again:\"\n  echo \"error:   brew install rustup && rustup-init -y && . ~/.cargo/env\"\n  exit 1\nfi\ncd \"$SRCROOT/ANEEmbed/tokenizer-ffi\" && cargo build --release --locked\n";
+		};
 		41A9AD718F4603DEE6D82949 /* Stamp CalVer */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -894,25 +1007,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "sh \"$SRCROOT/scripts/calver-stamp.sh\"";
-		};
-		57B839A3031387EC14A87ED7 /* Build the tokenizer (Rust) */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Build the tokenizer (Rust)";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "[ \"$PLATFORM_NAME\" = macosx ] || exit 0\nexport PATH=\"$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH\"\nif ! command -v cargo >/dev/null; then\n  echo \"error: cargo not found: the Memory page's embedder builds its tokenizer with Rust. Install it, then build again:\"\n  echo \"error:   brew install rustup && rustup-init -y && . ~/.cargo/env\"\n  exit 1\nfi\ncd \"$SRCROOT/ANEEmbed/tokenizer-ffi\" && cargo build --release --locked\n";
 		};
 		81AA95EB6E06BB803C0045AA /* Bundle the ANE model */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -952,7 +1046,7 @@
 			shellPath = /bin/sh;
 			shellScript = "sh \"$SRCROOT/scripts/calver-stamp.sh\"";
 		};
-		9D05EE252D6D55BA5FD511A1 /* Build the tokenizer (Rust) */ = {
+		8FAB5AD5A5CA422F415BBC79 /* Build the tokenizer + UMAP (Rust) */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -962,33 +1056,14 @@
 			);
 			inputPaths = (
 			);
-			name = "Build the tokenizer (Rust)";
+			name = "Build the tokenizer + UMAP (Rust)";
 			outputFileListPaths = (
 			);
 			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "[ \"$PLATFORM_NAME\" = macosx ] || exit 0\nexport PATH=\"$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH\"\nif ! command -v cargo >/dev/null; then\n  echo \"error: cargo not found: the Memory page's embedder builds its tokenizer with Rust. Install it, then build again:\"\n  echo \"error:   brew install rustup && rustup-init -y && . ~/.cargo/env\"\n  exit 1\nfi\ncd \"$SRCROOT/ANEEmbed/tokenizer-ffi\" && cargo build --release --locked\n";
-		};
-		C9A394073FF9F8D5F269A650 /* Build the tokenizer (Rust) */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Build the tokenizer (Rust)";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "[ \"$PLATFORM_NAME\" = macosx ] || exit 0\nexport PATH=\"$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH\"\nif ! command -v cargo >/dev/null; then\n  echo \"error: cargo not found: the Memory page's embedder builds its tokenizer with Rust. Install it, then build again:\"\n  echo \"error:   brew install rustup && rustup-init -y && . ~/.cargo/env\"\n  exit 1\nfi\ncd \"$SRCROOT/ANEEmbed/tokenizer-ffi\" && cargo build --release --locked\n";
+			shellScript = "[ \"$PLATFORM_NAME\" = macosx ] || exit 0\nexport PATH=\"/opt/homebrew/opt/rustup/bin:$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH\"\nif ! command -v cargo >/dev/null; then\n  echo \"error: cargo not found: the Memory page's embedder builds its tokenizer with Rust. Install it, then build again:\"\n  echo \"error:   brew install rustup && rustup-init -y && . ~/.cargo/env\"\n  exit 1\nfi\ncd \"$SRCROOT/ANEEmbed/tokenizer-ffi\" && cargo build --release --locked\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -998,6 +1073,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				8499F93EF566A879CF5EBA84 /* BundledANE.swift in Sources */,
+				DC4D7AA2897574B907380863 /* MapLayoutEngine.swift in Sources */,
 				4771993584B814FF8A661A42 /* NexusApp.swift in Sources */,
 				85A9367B8DDB37C40B9472FA /* NexusConfig.swift in Sources */,
 				99080C841CF90F9DFACA1DF6 /* NexusExtras.swift in Sources */,
@@ -1031,11 +1107,21 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		7356134D71C52FE23363F7E4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5BB05E053370D69F3D537F60 /* MapSpikeApp.swift in Sources */,
+				612E3254682DE613B7315041 /* MapSpikeView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		905E73BA18FA674646DF865F /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				E34688015F45948EA7A17D16 /* BundledANE.swift in Sources */,
+				05DAAADEDF82BFF4F279342B /* MapLayoutEngine.swift in Sources */,
 				89201715E26C3A13D0949318 /* PulseApp.swift in Sources */,
 				FD7A77DBE3B1668A604D354B /* PulseConfig.swift in Sources */,
 				9D882FA86DFB4F8F73ED7CB6 /* PulseExtras.swift in Sources */,
@@ -1074,6 +1160,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				248DBC4D211229CA18D7B079 /* BundledANE.swift in Sources */,
+				9CEBE978812ECEDA4FD56FF1 /* MapLayoutEngine.swift in Sources */,
 				135BC6904B6A6EF518DD7C74 /* NeoApp.swift in Sources */,
 				6ACD97A55E30D1EB01D2493D /* NeoConfig.swift in Sources */,
 				8505E97A8977FEE81E2CB5D9 /* NeoExtras.swift in Sources */,
@@ -1086,6 +1173,7 @@
 			files = (
 				DF81AAE88BAF2C34DC049621 /* BundledANE.swift in Sources */,
 				3EAC39F660472701B2B3CAAC /* HubApp.swift in Sources */,
+				53B755FA4FF9B222A9140E10 /* MapLayoutEngine.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1211,7 +1299,6 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = auto;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
@@ -1595,7 +1682,6 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = auto;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -1629,6 +1715,26 @@
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
+		};
+		A1DF02F0A26644DE5F9D7802 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				"ARCHS[sdk=macosx*]" = arm64;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = NO;
+				INFOPLIST_FILE = Apps/MapSpike/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				PRODUCT_BUNDLE_IDENTIFIER = co.laris.oracle.mapspike;
+				PRODUCT_NAME = MapSpike;
+				SDKROOT = macosx;
+			};
+			name = Release;
 		};
 		A976E630B98AE5E3042501D3 /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -1706,6 +1812,26 @@
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				TARGETED_DEVICE_FAMILY = "";
+			};
+			name = Debug;
+		};
+		D267F3B892CDBAD376C09A66 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				"ARCHS[sdk=macosx*]" = arm64;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = NO;
+				INFOPLIST_FILE = Apps/MapSpike/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				PRODUCT_BUNDLE_IDENTIFIER = co.laris.oracle.mapspike;
+				PRODUCT_NAME = MapSpike;
+				SDKROOT = macosx;
 			};
 			name = Debug;
 		};
@@ -1859,6 +1985,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
+		E902C288322FA74802D07325 /* Build configuration list for PBXNativeTarget "MapSpike" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D267F3B892CDBAD376C09A66 /* Debug */,
+				A1DF02F0A26644DE5F9D7802 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
@@ -1889,6 +2024,14 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = OracleKit;
 		};
+		5323E2879BF88EFEE7550670 /* MapLayoutUMAP */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = MapLayoutUMAP;
+		};
+		77079D500348CB3CDEBE6BE6 /* MapLayoutUMAP */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = MapLayoutUMAP;
+		};
 		84774326CBC858F01F5A8C1F /* OracleKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = OracleKit;
@@ -1917,6 +2060,10 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = OracleKit;
 		};
+		D39A71B81546A041AFC23AFF /* MapLayoutUMAP */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = MapLayoutUMAP;
+		};
 		D8034BE3BE3303D05E137A02 /* OracleKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = OracleKit;
@@ -1924,6 +2071,10 @@
 		E21624C123AE7BFF0CA6252F /* ANEEmbedCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = ANEEmbedCore;
+		};
+		F02E3571191A5EED9D261FEC /* MapLayoutUMAP */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = MapLayoutUMAP;
 		};
 		FECEC892500CEA279D83D81D /* OracleKit */ = {
 			isa = XCSwiftPackageProductDependency;

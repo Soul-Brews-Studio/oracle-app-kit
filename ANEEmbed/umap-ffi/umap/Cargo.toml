@@ -1,0 +1,23 @@
+[package]
+name = "umap"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "UMAP - Uniform Manifold Approximation and Projection for Dimension Reduction"
+
+[features]
+default = []
+# gpu feature removed in this vendored copy
+
+[dependencies]
+nndescent = { path = "../nndescent" }
+ndarray = { workspace = true, features = ["rayon"] }
+rayon = { workspace = true }
+pollster = { workspace = true }
+wgpu = { workspace = true, optional = true }
+bytemuck = { workspace = true, optional = true }
+
+[lints]
+workspace = true

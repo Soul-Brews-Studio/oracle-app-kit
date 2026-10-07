@@ -7,11 +7,11 @@ targets:
         excludes: ["app.yml", "Info.plist", "Widget/**", "Share/**", "*.entitlements"]
       - path: Apps/Shared
     preBuildScripts:
-      - name: Build the tokenizer (Rust)
+      - name: Build the tokenizer + UMAP (Rust)
         basedOnDependencyAnalysis: false
         script: |
           [ "$PLATFORM_NAME" = macosx ] || exit 0
-          export PATH="$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+          export PATH="/opt/homebrew/opt/rustup/bin:$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
           if ! command -v cargo >/dev/null; then
             echo "error: cargo not found: the Memory page's embedder builds its tokenizer with Rust. Install it, then build again:"
             echo "error:   brew install rustup && rustup-init -y && . ~/.cargo/env"
@@ -26,6 +26,9 @@ targets:
       - package: OracleKit
       - package: ANEEmbed           # the Memory page's in-process embedder (Mac only)
         product: ANEEmbedCore
+        destinationFilters: [macOS]
+      - package: ANEEmbed
+        product: MapLayoutUMAP
         destinationFilters: [macOS]
       - target: NeoWidget
       - target: NeoShare

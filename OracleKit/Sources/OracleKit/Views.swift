@@ -5,12 +5,12 @@ import AppKit
 import UIKit
 #endif
 
-enum Section: Hashable { case status, inbox, prs, issues, memory, trace, settings, extra(String) }
+enum Section: Hashable { case status, inbox, prs, issues, memory, map, trace, settings, extra(String) }
 
 public struct OracleRootView: View {
     @ObservedObject private var store: OracleStore
     @Binding private var menuBar: Bool
-    @State private var section: Section? = ["memory": Section.memory, "trace": .trace, "settings": .settings][UserDefaults.standard.string(forKey: "oracleSection") ?? ""] ?? .status   // -oracleSection memory|trace|settings
+    @State private var section: Section? = ["memory": Section.memory, "map": .map, "trace": .trace, "settings": .settings][UserDefaults.standard.string(forKey: "oracleSection") ?? ""] ?? .status   // -oracleSection memory|map|trace|settings
     @State private var dropTargeted = false
     @State private var inboxHot = false
     @State private var issueHot = false
@@ -65,6 +65,8 @@ public struct OracleRootView: View {
             // a right DRAWER: the window grows by the drawer's width so Work keeps its size (Nat: "not resize the current")
             // a click anywhere sets openPane: a new place joins the stack (the oldest leaves past 3); nil = close the active one
             .onChange(of: openPane) { old, new in
+                // the drawer lives on Work: a pane opened from another page (a sidebar tree row) brings Work with it
+                if new != nil, section != .status { section = .status }
                 if let new {
                     if !openPanes.contains(new) { openPanes.append(new); if openPanes.count > 3 { openPanes.removeFirst() } }
                 } else if let old, openPanes.contains(old) {
@@ -154,6 +156,13 @@ public struct OracleRootView: View {
             #else
             EmptyView()
             #endif
+        case .map:
+            #if os(macOS)
+            if #available(macOS 26, *) { MapView(name: c.name, accent: c.color, index: GHIndex.history(c.repoSlug)) }   // the memory as one 3-D space
+            else { Text("The Map needs macOS 26").foregroundStyle(.secondary) }
+            #else
+            EmptyView()
+            #endif
         case .trace:
             #if os(macOS)
             TraceView(name: c.name, accent: c.color)   // every query asked of that memory, page and MCP
@@ -218,6 +227,8 @@ struct OracleSidebar: View {
                 #if os(macOS)
                 NavRow(symbol: "brain", title: "Memory", badge: nil, on: section == .memory, accent: c.color) { section = .memory }
                     .help("\(c.name)'s own session history, searched by meaning")
+                NavRow(symbol: "point.3.filled.connected.trianglepath.dotted", title: "Map", badge: nil, on: section == .map, accent: c.color, sub: true) { section = .map }
+                    .help("\(c.name)'s memory as one 3-D space — close means related")
                 NavRow(symbol: "list.bullet.rectangle", title: "Trace", badge: nil, on: section == .trace, accent: c.color, sub: true) { section = .trace }
                     .help("Every query asked of \(c.name)'s memory — the page and MCP — and a cloud of what is searched")
                 NavRow(symbol: "gearshape", title: "Settings", badge: nil, on: section == .settings, accent: c.color) { section = .settings }

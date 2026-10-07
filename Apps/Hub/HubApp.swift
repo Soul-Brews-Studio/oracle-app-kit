@@ -11,6 +11,7 @@ struct HubApp: App {
         let mode = UserDefaults.standard.string(forKey: "hub.engineMode") ?? "ane"   // ANE / GPU / Both, the engine card's picker
         Task { await BundledANE.load(mode: mode) }   // the bundled model loads in the background and installs itself
         ModelLoad.shared.reload = { mode in Task { await BundledANE.load(mode: mode) } }
+        MapLayoutEngine.install()   // Map page: UMAP in-process (Apple's Rust crate)
         ModelLoad.shared.retry = { Task { await BundledANE.load(mode: UserDefaults.standard.string(forKey: "hub.engineMode") ?? "ane") } }
         MCPServer.serve(name: "arra-oracles", port: 4790) { GHIndex.shared }   // agents search the fleet's issues, PRs and notes
         if let ane = ANEMonitor() { ANEMeter.shared.reader = { ane.read().map { ($0.utilizationPercent, $0.bandwidthGBs) } } }

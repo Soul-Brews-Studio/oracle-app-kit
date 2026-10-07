@@ -75,9 +75,14 @@ public struct SettingsView: View {
                 EngineRow(name: "Files", value: "\(Self.mb(i.filePath)) MB text + \(Self.mb(i.vectorsFilePath)) MB vectors · built "
                           + (i.built.map { $0.formatted(date: .abbreviated, time: .shortened) } ?? "never"))
                 EngineRow(name: "Vector space", value: i.space ?? "—")
+                MapLayoutRow(index: i)
                 HStack(spacing: 10) {
                     Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: i.filePath)]) }
                     Button("Check engine") { Task { await i.checkEngine() } }
+                    Button(i.layout.running ? "Laying out…" : "Rebuild map layout") {
+                        Task { await i.layout.fit(docs: i.docs, space: i.space, why: "Rebuild map layout button") }
+                    }
+                    .disabled(i.layout.running || i.docs.count < 10 || MapLayout.engine == nil)
                 }
                 .controlSize(.small).buttonStyle(.bordered).handCursor().padding(.vertical, 6)
             }
@@ -365,6 +370,26 @@ struct TraceView: View {
     }
 }
 
+
+/// The 3-D layout of an index (Settings → Vector search): when it was fitted, how long it took, how many were
+/// placed since, and why it is stale.
+struct MapLayoutRow: View {
+    @ObservedObject var index: GHIndex
+    @ObservedObject var layout: MapLayout
+    init(index: GHIndex) { self.index = index; self.layout = index.layout }
+    var body: some View {
+        let value: String = {
+            if layout.running { return layout.progress.isEmpty ? "laying out…" : layout.progress }
+            if let p = layout.problem { return p }
+            guard let m = layout.meta else { return MapLayout.engine == nil ? "no layout engine in this app" : "not laid out yet — open the Map page, or Rebuild map layout" }
+            var s = String(format: "%@ docs in 3-D · fitted %@ in %.1f s · k %d · %@", grouped(m.n), m.built.formatted(date: .abbreviated, time: .shortened), m.seconds, m.k, m.engine)
+            if m.placed > 0 { s += " · \(grouped(m.placed)) placed since" }
+            if let why = layout.staleReason(docs: index.docs, space: index.space) { s += " · stale: \(why)" }
+            return s
+        }()
+        EngineRow(name: "Map layout", value: value, good: layout.problem != nil ? false : nil)
+    }
+}
 
 extension MCPServer {
     /// What this app serves (set once at launch), so Settings can switch it off and on again.

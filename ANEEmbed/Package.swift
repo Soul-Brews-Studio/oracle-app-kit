@@ -9,10 +9,15 @@ let ffiLib = Context.packageDirectory + "/tokenizer-ffi/target/release"
 let package = Package(
     name: "ANEEmbed",
     platforms: [.macOS(.v14)],
-    products: [.library(name: "ANEEmbedCore", targets: ["ANEEmbedCore"])],
+    products: [.library(name: "ANEEmbedCore", targets: ["ANEEmbedCore"]),
+               .library(name: "MapLayoutUMAP", targets: ["MapLayoutUMAP"])],
     targets: [
         .systemLibrary(name: "CTokenizerFFI", path: "tokenizer-ffi/include"),
         .target(name: "ANEEmbedCore", dependencies: ["CTokenizerFFI"],
+                linkerSettings: [.unsafeFlags(["-L", ffiLib])]),
+        // UMAP (Apple's Rust port, vendored in umap-ffi, exported by the same static library) — the Map page's layout
+        .systemLibrary(name: "CUmapFFI", path: "tokenizer-ffi/include-umap"),
+        .target(name: "MapLayoutUMAP", dependencies: ["CUmapFFI"],
                 linkerSettings: [.unsafeFlags(["-L", ffiLib])]),
     ]
 )

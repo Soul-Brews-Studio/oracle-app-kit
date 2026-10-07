@@ -10,6 +10,7 @@ struct PulseApp: App {
     init() {
         #if os(macOS)
         BundledANE.installLazily()   // Memory page: EmbeddingGemma 2 in-process, loaded when the page first opens
+        MapLayoutEngine.install()   // Map page: UMAP in-process (Apple's Rust crate)
         MCPServer.serve(name: "pulse-memory", port: 4792) { GHIndex.history(OracleConfig.pulse.repoSlug) }   // agents search Pulse's memory
         #endif
     }

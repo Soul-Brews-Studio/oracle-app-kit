@@ -1,0 +1,25 @@
+# The `umap` and `nndescent` crates, Apple's, vendored verbatim from apple/embedding-atlas (MIT, see
+# LICENSE-embedding-atlas), GPU paths removed. The C ABI over them is in ../tokenizer-ffi/src/umap.rs, so the apps
+# link one Rust static library.
+[workspace]
+resolver = "2"
+members = ["nndescent", "umap"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/apple/embedding-atlas"
+authors = ["Apple Inc."]
+
+[workspace.dependencies]
+ndarray = "0.17"
+rayon = "1.11"
+pollster = "0.4"
+wgpu = "24"
+bytemuck = { version = "1", features = ["derive"] }
+getrandom = "0.4"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+

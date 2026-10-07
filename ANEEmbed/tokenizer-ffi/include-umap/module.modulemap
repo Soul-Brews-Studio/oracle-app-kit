@@ -1,0 +1,5 @@
+module CUmapFFI {
+    header "umap_ffi.h"
+    link "tokenizer_ffi"
+    export *
+}
