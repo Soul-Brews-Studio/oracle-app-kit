@@ -52,6 +52,15 @@ if [ -d "$A" ]; then
   V=$(/usr/libexec/PlistBuddy -c 'Print :ARRACalVer' "$P" 2>/dev/null)
   [[ $ID == co.laris.oracle.$KEY && $DN == $N ]] && ok "installed    $A ($ID, \"$DN\")" || bad "installed    $A is $ID \"$DN\", expected co.laris.oracle.$KEY \"$N\"" "zsh $K/scripts/build.sh $N --install"
   [[ $V == *$(TZ=Asia/Bangkok date +%y.%-m.%-d)* ]] && ok "CalVer       $V" || bad "CalVer       ${V:-none} — not built today (Bangkok)" "zsh $K/scripts/build.sh $N --install"
+  # the widget and share carry the app's version and build (one stamp per build): Xcode warns otherwise, App Store refuses
+  pv() { /usr/libexec/PlistBuddy -c "Print :$1" "$2" 2>/dev/null }
+  SV=$(pv CFBundleShortVersionString "$P"); BV=$(pv CFBundleVersion "$P"); ext=(); off=()
+  for x in $A/Contents/PlugIns/*.appex(N); do
+    ext+=(${x:t:r}); xs=$(pv CFBundleShortVersionString $x/Contents/Info.plist); xb=$(pv CFBundleVersion $x/Contents/Info.plist)
+    [[ $xs == $SV && $xb == $BV ]] || off+=("${x:t:r} $xs ($xb)")
+  done
+  if (( $#off )); then bad "versions     the app is $SV ($BV), but ${(j:, :)off}" "zsh $K/scripts/build.sh $N --install"
+  else ok "versions     $SV ($BV) in the app${ext:+ and ${(j: and :)ext}}"; fi
 else
   bad "not installed: $A" "zsh $K/scripts/build.sh $N --install"
 fi
