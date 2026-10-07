@@ -1,0 +1,25 @@
+[package]
+name = "nndescent"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Rust port of PyNNDescent - fast approximate nearest neighbor search"
+
+[features]
+default = []
+# gpu feature removed in this vendored copy
+
+[dependencies]
+ndarray = { workspace = true, features = ["rayon"] }
+rayon = { workspace = true }
+ordered-float = "5.2"
+getrandom = { workspace = true }
+wide = "1.2.0"
+pollster = { workspace = true }
+wgpu = { workspace = true, optional = true }
+bytemuck = { workspace = true, optional = true }
+
+[lints]
+workspace = true

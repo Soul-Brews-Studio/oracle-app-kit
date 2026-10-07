@@ -74,6 +74,10 @@ struct HistoryView: View {
             if index.scanned == nil, !index.running {   // scan first: how much there is, before anything is embedded
                 await index.indexMemory(repo: config.repoSlug, checkout: config.localPath, embed: false, why: "page opened — scan first")
             }
+            if !Self.actionDone, UserDefaults.standard.string(forKey: "memoryAction") == "layout" {   // -memoryAction layout (tests): fit the map
+                Self.actionDone = true
+                await index.layout.fit(docs: index.docs, space: index.space, why: "-memoryAction layout (test)")
+            }
             if !Self.actionDone, UserDefaults.standard.string(forKey: "memoryAction") == "batch" {   // -memoryAction batch (tests)
                 Self.actionDone = true
                 for _ in 0..<1200 where ModelLoad.shared.loading { do { try await Task.sleep(for: .milliseconds(500)) } catch { return } }

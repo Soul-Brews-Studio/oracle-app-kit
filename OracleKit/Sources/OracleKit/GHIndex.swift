@@ -272,6 +272,7 @@ public final class GHIndex: ObservableObject {
     }
     /// Writes off the main actor, one save after another (a later save waits for the earlier one).
     private func save() {
+        layout.reconcile(docs: docs)   // positions follow the docs: gone ones dropped, new ones placed among their neighbours
         let snapshot = docs, built = built, space = space, path = path, vectorsPath = vectorsPath, previous = saving, model = Self.model
         let ledger = ledger.isEmpty ? nil : ledger
         saving = Task.detached(priority: .utility) {
