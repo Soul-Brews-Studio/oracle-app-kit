@@ -270,64 +270,8 @@
     document.body.append(p);
   }
 
-  // A 🔮 on every photo/video, always visible, middle of its right edge (Nat: "make middle right on the image, show
-  // always, no need to hover"). One button per visible media; they follow scroll, resize and Facebook's re-renders.
-  const BTN_BG = 'rgba(70,30,85,.82)';   // the header chip's purple, opaque enough to read over a photo
-  function bigMedia() {
-    return [...document.querySelectorAll('img, video')].filter(e => {
-      const r = e.getBoundingClientRect();
-      return r.width >= 200 && r.height >= 160 && r.bottom > 60 && r.top < innerHeight && r.right > 0 && r.left < innerWidth;
-    });
-  }
-  function postOfMedia(m) {
-    for (let n = m, i = 0; n && n !== document.body && i < 40; i++, n = n.parentElement) {
-      const likes = n.querySelectorAll(LIKE);
-      if (likes.length === 1) return postOf(likes[0]);
-      if (likes.length > 1) return null;
-    }
-    return null;
-  }
-  function mediaButton(m) {
-    const b = document.createElement('div');
-    b.className = 'oracle-media-btn'; b.setAttribute('role', 'button'); b.textContent = `🔮 ${DEFAULT}`;
-    b.title = `New issue in ${DEFAULT} Oracle from this post (⇧-click: another oracle)`;
-    Object.assign(b.style, { position: 'fixed', zIndex: 2147483646, cursor: 'pointer', userSelect: 'none',
-      padding: '10px 18px', borderRadius: '16px', background: BTN_BG, color: '#e1bee7',   // the header chip's look
-      font: '600 14px system-ui, sans-serif', backdropFilter: 'blur(6px)', boxShadow: '0 4px 14px rgba(0,0,0,.45)' });
-    b.onmouseenter = () => { b.style.background = 'rgba(171,71,188,.85)'; b.style.color = '#fff'; };
-    b.onmouseleave = () => { b.style.background = BTN_BG; b.style.color = '#e1bee7'; };
-    b.onclick = async (e) => {
-      e.stopPropagation(); e.preventDefault();
-      const post = postOfMedia(m), get = () => post ? details(post) : pageDetails();
-      if (e.shiftKey) return menu(b, null, get);
-      send(DEFAULT, await get());
-    };
-    document.body.append(b);
-    return b;
-  }
-  let placing = 0;
-  function placeMediaButtons() {
-    placing = 0;
-    const live = new Set();
-    for (const m of bigMedia()) {
-      // only where there is something to send: inside a post, or on a single-post page
-      if (!postOfMedia(m) && !SINGLE.test(location.href)) continue;
-      const b = m.__oracleBtn?.isConnected ? m.__oracleBtn : (m.__oracleBtn = mediaButton(m));
-      live.add(b);
-      const r = m.getBoundingClientRect();
-      const top = Math.max(r.top, 60), bottom = Math.min(r.bottom, innerHeight);   // the visible part of tall media
-      b.style.display = 'block';
-      b.style.left = `${Math.max(8, Math.min(innerWidth - b.offsetWidth - 8, r.right - b.offsetWidth - 14))}px`;
-      b.style.top = `${Math.round((top + bottom) / 2 - b.offsetHeight / 2)}px`;
-    }
-    document.querySelectorAll('.oracle-media-btn').forEach(b => { if (!live.has(b)) b.remove(); });
-  }
-  const schedulePlace = () => { if (!placing) placing = requestAnimationFrame(placeMediaButtons); };
-  addEventListener('scroll', schedulePlace, { capture: true, passive: true });
-  addEventListener('resize', schedulePlace);
-
   let t;
-  new MutationObserver(() => { clearTimeout(t); t = setTimeout(() => { addButtons(); pill(); schedulePlace(); }, 400); })
+  new MutationObserver(() => { clearTimeout(t); t = setTimeout(() => { addButtons(); pill(); }, 400); })
     .observe(document.body, { childList: true, subtree: true });
-  addButtons(); pill(); schedulePlace();
+  addButtons(); pill();
 })();
