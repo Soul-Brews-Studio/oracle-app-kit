@@ -1,0 +1,19 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>ARRA Oracles — bridge</title>
+<style>
+  body { margin: 0; width: 360px; background: #0a0a0f; color: #e4e6eb; font: 13px system-ui, sans-serif; }
+  header { padding: 12px 14px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #2a2a35; }
+  header b { font-size: 14px; } header .v { margin-left: auto; opacity: .55; font-size: 11px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: #c62828; } .dot.on { background: #2e7d32; box-shadow: 0 0 8px #2e7d32; }
+  main { padding: 10px 14px; } .row { display: flex; gap: 8px; align-items: baseline; padding: 6px 0; border-bottom: 1px solid #1c1c26; }
+  .row .n { font-weight: 600; min-width: 84px; } .row .s { opacity: .6; font-size: 12px; margin-left: auto; text-align: right; }
+  .ok { color: #66bb6a; } .no { color: #ef5350; } .me { color: #e1bee7; font-size: 11px; }
+  .muted { opacity: .6; } code { display: block; margin: 6px 0; padding: 8px; border-radius: 8px; background: #16161f; color: #e1bee7; font: 11px ui-monospace, monospace; user-select: all; word-break: break-all; }
+  button { margin: 10px 14px 14px; padding: 8px 14px; border: 0; border-radius: 10px; background: rgba(171,71,188,.85); color: #fff; font: 600 13px system-ui; cursor: pointer; }
+  button:hover { background: #ab47bc; }
+</style>
+<header><span class="dot" id="dot"></span><b id="title">bridge…</b><span class="v" id="ver"></span></header>
+<main id="body" class="muted">asking the worker…</main>
+<button id="retry">Reconnect</button>
+<script src="popup.js"></script>

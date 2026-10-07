@@ -30,6 +30,11 @@ const seen: Record<string, { version: string; since: number; lastSeen: number; c
 for (const k in seen) seen[k].connected = false;   // a fresh bridge has nobody yet
 const saveSeen = () => writeFileSync(SEEN, JSON.stringify(seen, null, 1));
 const BOOT = Date.now();
+const stamp = () => new Date().toTimeString().slice(0, 8);   // log lines carry the time, so a flapping browser is visible
+const statusPayload = () => ({ type: 'status', up: Math.round((Date.now() - BOOT) / 1000), port: PORT, extension: EXT_ID,
+  threads: readdirSync(DIR).filter(f => f.endsWith('.json')).length,
+  browsers: Object.entries(seen).map(([browser, v]) => ({ browser, ...v })) });
+const broadcast = () => { const m = JSON.stringify(statusPayload()); for (const e of exts) try { e.send(m); } catch {} };   // every extension always knows who is connected
 const newest = (list: any[]) => list.sort((a, b) => b.data.at - a.data.at)[0];
 function ask(ext: any, msg: any, ms = 20_000) {   // one request over a socket, answered by {type:'result', rid}
   const rid = crypto.randomUUID();
@@ -61,7 +66,7 @@ Bun.serve({
     }
     if (u.pathname === '/status') {   // fbreply --status
       if (!fromCli(req)) return json({ error: 'token' }, 403);
-      return json({ up: Math.round((Date.now() - BOOT) / 1000), port: PORT, extension: EXT_ID, browsers: Object.entries(seen).map(([browser, v]) => ({ browser, ...v })) });
+      return json(statusPayload());
     }
     if (u.pathname === '/tabs') {   // every Facebook tab, in every connected browser
       if (!fromCli(req)) return json({ error: 'token' }, 403);
@@ -97,20 +102,20 @@ Bun.serve({
   },
   websocket: {
     open(ws) {
-      exts.add(ws); console.log(`extension connected (${exts.size})`);
+      exts.add(ws); console.log(`${stamp()} extension connected ${browserName(ws)} (${exts.size})`);
       const b = browserName(ws), now = Date.now();
-      seen[b] = { version: seen[b]?.version || '', since: now, lastSeen: now, connected: true }; saveSeen();
+      seen[b] = { version: seen[b]?.version || '', since: now, lastSeen: now, connected: true }; saveSeen(); broadcast();
     },
     close(ws) {
-      exts.delete(ws); console.log(`extension gone (${exts.size})`);
+      exts.delete(ws); console.log(`${stamp()} extension gone ${browserName(ws)} (${exts.size})`);
       const b = browserName(ws);
-      if (seen[b] && ![...exts].some(e => browserName(e) === b)) { seen[b].connected = false; seen[b].lastSeen = Date.now(); saveSeen(); }
+      if (seen[b] && ![...exts].some(e => browserName(e) === b)) { seen[b].connected = false; seen[b].lastSeen = Date.now(); saveSeen(); broadcast(); }
     },
     message(_ws, m) {
       try {
         const r = JSON.parse(String(m));
         if (r.type === 'result') { waiting.get(r.rid)?.(r); waiting.delete(r.rid); }
-        else if (r.type === 'hello') { const b = browserName(_ws); if (seen[b]) { seen[b].version = String(r.version || ''); saveSeen(); } }
+        else if (r.type === 'hello') { const b = browserName(_ws); if (seen[b]) { seen[b].version = String(r.version || ''); saveSeen(); broadcast(); } }
       } catch {}
     },
   },
