@@ -68,13 +68,28 @@ W=$(pluginkit -m -i co.laris.oracle.$KEY.widget 2>/dev/null)
 P=$(zsh $K/scripts/parity.sh 2>&1); [[ $? == 0 ]] && ok "parity       $(print -r -- $P | rg -c '^✓') apps match the generator" || bad "parity" ${(f)P}
 
 if (( DEEP )); then
-  for act in batch layout; do
+  # Memory then Map, each driven by a launch argument; pass only on the line the app writes when the work is DONE,
+  # read from the lines written after this launch (the log is appended across runs).
+  deep() {   # deep <section> <action> <done-regex> <timeout-s> [extra args…]
+    local sec=$1 act=$2 re=$3 limit=$4; shift 4
     pkill -x "$N"; for i in {1..50}; do pgrep -x "$N" >/dev/null || break; sleep 0.2; done
-    : > $MARK; open "$A" --args -oracleSection $([[ $act == batch ]] && echo memory || echo map) -memoryAction $act
-    for i in {1..120}; do sleep 5; rg -q "memoryAction $act" "$LOG" 2>/dev/null && [ "$LOG" -nt $MARK ] && break; done
-  done
-  rg -n 'map layout|indexed|memoryAction' "$LOG" 2>/dev/null | tail -4 | sed 's/^/    /'
-  rg -q 'map layout' "$LOG" && ok "Map          layout logged" || bad "Map          no layout in the log" "tail -40 \"$LOG\""
+    local n0=$(wc -l < "$LOG" 2>/dev/null || echo 0)
+    open "$A" --args -oracleSection $sec -memoryAction $act "$@"
+    local t=0 hit=""
+    while (( t < limit )); do
+      sleep 5; t=$((t + 5))
+      hit=$(tail -n +$((n0 + 1)) "$LOG" 2>/dev/null | rg -m1 "$re")
+      [[ -n $hit ]] && break
+    done
+    print -r -- "$hit"
+  }
+  Q=${(L)N}
+  B=$(deep memory batch 'memory batch done' 600 -memoryQuery "$Q")
+  [[ -n $B ]] && ok "Memory       ${B#* info   }" || bad "Memory       no 'memory batch done' within 10 min" "tail -30 \"$LOG\""
+  S=""; for i in {1..6}; do S=$(tail -n 400 "$LOG" | rg "search \"$Q\"" | tail -1); [[ -n $S ]] && break; sleep 5; done
+  [[ -n $S ]] && ok "Memory query ${S#* search }" || bad "Memory query \"$Q\" not searched" "rg -n 'search' \"$LOG\" | tail -5"
+  M=$(deep map layout 'map layout: [0-9]+ docs in' 300)
+  [[ -n $M ]] && ok "Map          ${M#* info   }" || bad "Map          no layout within 5 min" "rg -n 'map layout' \"$LOG\" | tail -5"
 fi
 
 if (( SHOTS )); then
