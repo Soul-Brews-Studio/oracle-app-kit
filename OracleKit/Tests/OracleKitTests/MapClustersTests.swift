@@ -84,6 +84,8 @@ final class MapClustersTests: XCTestCase {
         XCTAssertEqual(ClusterTitler.clean("one two three four five six seven eight"), "one two three four five six")
         XCTAssertNil(ClusterTitler.clean("  \"\"  "))
         XCTAssertLessThanOrEqual(ClusterTitler.clean(String(repeating: "abcdefghij ", count: 6))!.count, 48)
+        XCTAssertTrue(ClusterTitler.same("Cheapest Flights DMK Sep", "cheapest DMK flights sep"))
+        XCTAssertFalse(ClusterTitler.same("Session Retrospective", "Session Index Retrospective"))
     }
 
     /// The real memories, titled for the PR (run by hand): MAP_REAL_INDEX=history/laris-co__pulse swift test --filter Real

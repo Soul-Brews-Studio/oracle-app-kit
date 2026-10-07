@@ -459,10 +459,11 @@ final class MapScene: ObservableObject {
         web()
         content.add(root)
         // the camera frames its target's bounds as a sphere around their box, so the whole root (the web's box, a few
-        // outliers at the 0.8 shell) left half the points in a dot in the middle; it frames the 90 % instead
-        let r90 = xyz.map { simd_length($0) }.sorted().dropFirst(xyz.count * 9 / 10).first ?? 0.5
+        // outliers at the 0.8 shell) left half the points in a dot in the middle. A sphere at the 80th-percentile radius
+        // frames out to ~1.7× that: about 98 % of the points, filling the view
+        let r80 = xyz.map { simd_length($0) }.sorted().dropFirst(xyz.count * 8 / 10).first ?? 0.4
         var clear = UnlitMaterial(color: .clear); clear.blending = .transparent(opacity: .init(floatLiteral: 0))
-        let frameEntity = ModelEntity(mesh: .generateSphere(radius: max(0.05, r90)), materials: [clear])
+        let frameEntity = ModelEntity(mesh: .generateSphere(radius: max(0.05, r80)), materials: [clear])
         root.addChild(frameEntity)
         content.cameraTarget = frameEntity
         if #available(macOS 27, *) {

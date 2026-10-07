@@ -59,7 +59,7 @@ enum ClusterTitler {
                 let r = try await session.respond(to: prompt, options: GenerationOptions(sampling: .greedy, maximumResponseTokens: 24))
                 guard let t = clean(r.content) else { return (nil, "keywords · empty answer", true) }
                 if thai, !isThai(t) { return (nil, "keywords · answer not in Thai", true) }
-                if taken.contains(where: { $0.caseInsensitiveCompare(t) == .orderedSame }) { return (nil, "keywords · same title as its region", true) }
+                if taken.contains(where: { Self.same($0, t) }) { return (nil, "keywords · same title as its region or a sibling", true) }
                 return (t, listed ? "apple-fm" : "apple-fm th", true)
             } catch let e as LanguageModelSession.GenerationError {
                 if case .rateLimited = e, attempt < 2 { try? await Task.sleep(for: .seconds(2 + 2 * attempt)); continue }
@@ -76,6 +76,12 @@ enum ClusterTitler {
         return (nil, "keywords · rate limited", false)
     }
     #endif
+
+    /// The same title, whatever the case or the word order ("Cheapest Flights DMK" = "Cheapest DMK flights").
+    static func same(_ a: String, _ b: String) -> Bool {
+        let words = { (s: String) in Set(s.lowercased().split(whereSeparator: { !$0.isLetter && !$0.isNumber }).map(String.init)) }
+        return words(a) == words(b)
+    }
 
     /// Half or more of the keywords carry Thai letters.
     static func mostlyThai(_ words: [String]) -> Bool {
