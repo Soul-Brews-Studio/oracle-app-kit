@@ -39,12 +39,20 @@ public struct OracleRootView: View {
                 // the 3rd column exists only while a pane is open (Nat: 3 columns all the time was "too nested")
                 if let place = openPane, section == .status {
                     Divider()
-                    TerminalColumn(store: store, place: place) { withAnimation(.easeOut(duration: 0.15)) { openPane = nil } }
-                        .frame(minWidth: 380, idealWidth: 460, maxWidth: 620)
+                    TerminalColumn(store: store, place: place) { openPane = nil }
+                        .frame(width: Drawer.width)
                         .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
                 #endif
             }
+            #if os(macOS)
+            // a right DRAWER: the window grows by the drawer's width so Work keeps its size (Nat: "not resize the current")
+            .onChange(of: openPane) { old, new in
+                if old == nil, new != nil { Drawer.grow(by: Drawer.width) }
+                if old != nil, new == nil { Drawer.grow(by: -Drawer.width) }
+            }
+            .onChange(of: section) { _, s in if s != .status { openPane = nil } }
+            #endif
                 .toolbar {
                     #if os(iOS)
                     ToolbarItem { Button { Task { await store.refresh() } } label: { Image(systemName: "arrow.clockwise") } }
@@ -1178,6 +1186,24 @@ struct TerminalColumn: View {
                 try? await Task.sleep(for: .seconds(1))
             }
         }
+    }
+}
+#endif
+
+#if os(macOS)
+/// Grows or shrinks the app window to the right (or left, at the screen edge) so a drawer adds room instead of
+/// taking it from the Work column.
+@MainActor enum Drawer {
+    static let width: CGFloat = 460
+    static func grow(by dx: CGFloat) {
+        guard let w = NSApp.keyWindow ?? NSApp.windows.first(where: { $0.isVisible && $0.canBecomeMain }) else { return }
+        var f = w.frame
+        f.size.width += dx
+        if let vis = w.screen?.visibleFrame {
+            if f.width > vis.width { f.size.width = vis.width }
+            if f.maxX > vis.maxX { f.origin.x = max(vis.minX, vis.maxX - f.width) }   // no room on the right: open toward the left
+        }
+        w.setFrame(f, display: true, animate: true)
     }
 }
 #endif
