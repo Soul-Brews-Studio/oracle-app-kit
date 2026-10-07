@@ -6,6 +6,7 @@
   if (window.__oracleIssueButtons) return;      // injected twice (manifest + reload-time inject): run once
   window.__oracleIssueButtons = true;
   const ORACLES = ['Neo', 'Pulse', 'Nexus'];
+  const DEFAULT = 'Nexus';   // Nat: "icon action send link to the issue of nexus" — one click; ⇧-click picks another
   const MARK = 'data-oracle-issue';
   const POSTLINK = /\/posts\/|\/permalink|story_fbid|\/videos\/|\/reel\/\d|\/photo\/?\?fbid=|\/photo\.php/;
 
@@ -102,12 +103,20 @@
       if (!post) continue;
       bar.setAttribute(MARK, '1');
       const btn = document.createElement('div');
-      btn.setAttribute('role', 'button'); btn.tabIndex = 0; btn.title = 'New issue in an oracle app';
-      btn.textContent = '🔮 Issue';
+      btn.setAttribute('role', 'button'); btn.tabIndex = 0;
+      btn.title = `New issue in ${DEFAULT} Oracle (⇧-click: another oracle)`;
+      btn.setAttribute('data-oracle-btn', '1');
+      btn.textContent = `🔮 ${DEFAULT}`;
       Object.assign(btn.style, { display: 'flex', alignItems: 'center', justifyContent: 'center', flex: '1 1 0',
         cursor: 'pointer', borderRadius: '6px', color: '#b0b3b8', font: '600 15px system-ui, sans-serif', padding: '6px 0' });
       btn.onmouseenter = () => (btn.style.background = 'rgba(255,255,255,.06)'); btn.onmouseleave = () => (btn.style.background = '');
-      btn.onclick = (e) => { e.stopPropagation(); e.preventDefault(); menu(btn, post); };
+      btn.onclick = async (e) => {
+        e.stopPropagation(); e.preventDefault();
+        if (e.shiftKey) return menu(btn, post);
+        const d = await details(post);
+        if (window.chrome?.runtime?.sendMessage) chrome.runtime.sendMessage({ kind: 'issue', oracle: DEFAULT, ...d });
+        else console.log('[oracle] would send', DEFAULT, d);
+      };
       bar.lastElementChild.after(btn);   // at the end: after Share, or after Comment when there is no Share
     }
   }
