@@ -16,6 +16,10 @@ public struct OracleRootView: View {
     @State private var issueHot = false
     @State private var draft: IssueDraft?
     @State private var heyText = ""
+    @State private var openPane: String?      // a LIVE pane clicked in Work: its terminal shows in a 3rd column until ×
+    @AppStorage("oracle.drawerWidth") private var drawerWidth: Double = 560   // dragged wider or narrower, remembered
+    // how much the drawer has grown the window — macOS saves the window frame on quit, so growth must be undone on launch
+    @AppStorage("oracle.drawerGrown") private var drawerGrown: Double = 0
     #if os(iOS)
     @State private var showSettings = false
     #endif
@@ -29,10 +33,34 @@ public struct OracleRootView: View {
             OracleSidebar(store: store, section: $section, menuBar: $menuBar)
                 .navigationSplitViewColumnWidth(min: 240, ideal: 272)
         } detail: {
-            detail
+            HStack(spacing: 0) {
+                detail
+                    .frame(minWidth: 420, maxWidth: .infinity, maxHeight: .infinity)   // Work always fills its column
+                    #if os(macOS)
+                    .safeAreaInset(edge: .bottom) { HeyComposer(store: store, text: $heyText, focus: openPane) }
+                    #endif
                 #if os(macOS)
-                .safeAreaInset(edge: .bottom) { HeyComposer(store: store, text: $heyText) }
+                // the 3rd column exists only while a pane is open (Nat: 3 columns all the time was "too nested")
+                if let place = openPane, section == .status {
+                    DrawerHandle(width: $drawerWidth)
+                    TerminalColumn(store: store, place: place) { openPane = nil }
+                        .frame(width: drawerWidth)
+                        .transition(.move(edge: .trailing).combined(with: .opacity))
+                }
                 #endif
+            }
+            #if os(macOS)
+            // a right DRAWER: the window grows by the drawer's width so Work keeps its size (Nat: "not resize the current")
+            .onChange(of: openPane) { old, new in
+                if old == nil, new != nil { let dx = drawerWidth + DrawerHandle.width; Drawer.grow(by: dx); drawerGrown += dx }
+                if old != nil, new == nil { Drawer.grow(by: -drawerGrown); drawerGrown = 0 }   // give back exactly what it took
+            }
+            .onChange(of: section) { _, s in if s != .status { openPane = nil } }
+            .onAppear {   // quit with the drawer open: the saved frame still holds the drawer's width — take it back
+                guard drawerGrown > 0 else { return }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { Drawer.grow(by: -drawerGrown, animate: false); drawerGrown = 0 }
+            }
+            #endif
                 .toolbar {
                     #if os(iOS)
                     ToolbarItem { Button { Task { await store.refresh() } } label: { Image(systemName: "arrow.clockwise") } }
@@ -86,7 +114,7 @@ public struct OracleRootView: View {
 
     @ViewBuilder private var detail: some View {
         switch section ?? .status {
-        case .status: WorkView(store: store)
+        case .status: WorkView(store: store, openPane: $openPane)
         case .inbox: InboxList(store: store)
         case .prs: GHList(kind: .prs, items: store.prs, work: store.work, accent: c.color) { heyText = Self.brief($0, pr: true) }
         case .issues: GHList(kind: .issues, items: store.issues, work: store.work, accent: c.color) { heyText = Self.brief($0, pr: false) }
@@ -231,6 +259,7 @@ struct SidebarIconButton: View {
 
 struct WorkView: View {
     @ObservedObject var store: OracleStore
+    var openPane: Binding<String?> = .constant(nil)
     @State private var allResumable = false
     @State private var showCold = true          // open: a cold list on view is a list that gets cleaned up
     @State private var copiedPlan = false
@@ -251,7 +280,7 @@ struct WorkView: View {
                 if !live.isEmpty {
                     block("LIVE", live.count) {
                         ForEach(live) { w in
-                            LiveCard(item: w, config: c, twins: twins, home: home, copied: $copied) {
+                            LiveCard(item: w, config: c, twins: twins, home: home, copied: $copied, openPane: openPane) {
                                 #if os(macOS)
                                 store.bringToMain(w)
                                 #endif
@@ -346,6 +375,7 @@ struct WorkHero: View {
 struct LiveCard: View {
     let item: WorkItem; let config: OracleConfig; let twins: [String: String]; let home: String
     @Binding var copied: String?
+    var openPane: Binding<String?> = .constant(nil)
     var bring: () -> Void = {}
     var body: some View {
         VStack(alignment: .leading, spacing: 9) {
@@ -375,8 +405,16 @@ struct LiveCard: View {
                     }
                     Spacer(minLength: 6)
                     if let s = p.since { Text(WorkFormat.ago(s)).font(.caption.monospacedDigit()).foregroundStyle(.secondary) }
+                    Image(systemName: openPane.wrappedValue == p.place ? "chevron.right.circle.fill" : "chevron.right")
+                        .font(.caption).foregroundStyle(openPane.wrappedValue == p.place ? config.color : Color.secondary.opacity(0.6))
                 }
                 .font(.callout)
+                .padding(.vertical, 3).padding(.horizontal, 6)
+                .background(RoundedRectangle(cornerRadius: 7).fill(openPane.wrappedValue == p.place ? config.color.opacity(0.14) : Color.clear))
+                .contentShape(Rectangle())
+                .handCursor()
+                .onTapGesture { withAnimation(.easeOut(duration: 0.15)) { openPane.wrappedValue = openPane.wrappedValue == p.place ? nil : p.place } }
+                .help("Show this pane's terminal here (click again to close)")
             }
         }
         .padding(14)
@@ -1030,6 +1068,7 @@ struct OracleMenu: View {
 struct HeyComposer: View {
     @ObservedObject var store: OracleStore
     @Binding var text: String
+    var focus: String? = nil       // the pane open in the 3rd column, if any: messages go there
     @State private var target: String?
     @State private var note: String?
     @State private var sending = false
@@ -1038,7 +1077,7 @@ struct HeyComposer: View {
         let twins = WorkParse.twins(store.activity)
         let panes = store.activity.filter { twins[$0.place] == nil }
             .sorted { (WorkFormat.rank($0.status), $0.place) < (WorkFormat.rank($1.status), $1.place) }
-        let chosen = panes.first { $0.place == target } ?? panes.first { $0.cwd == c.localPath && $0.status == "idle" } ?? panes.first
+        let chosen = panes.first { $0.place == focus } ?? panes.first { $0.place == target } ?? panes.first { $0.cwd == c.localPath && $0.status == "idle" } ?? panes.first
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .bottom, spacing: 10) {
                 TextField("Message \(c.name) — maw herdr hey", text: $text, axis: .vertical)
@@ -1094,3 +1133,163 @@ struct HeyComposer: View {
 }
 #endif
 
+
+#if os(macOS)
+/// The real terminal of one herdr pane, read live (`herdr --session S pane read P`, every second), newest at the bottom.
+/// Read-only: typing goes through the message box under the Work column, which targets this pane while it is open.
+struct TerminalColumn: View {
+    /// The widest row in terminal cells (a CJK or emoji glyph takes two), so the font can be sized to fit it.
+    static func columns(_ text: String) -> Int {
+        text.split(separator: "\n", omittingEmptySubsequences: false).map { row in
+            row.unicodeScalars.reduce(0) { n, u in n + ((0x1100...0x115F).contains(u.value) || (0x2E80...0xA4CF).contains(u.value) || (0xAC00...0xD7A3).contains(u.value)
+                || (0xF900...0xFAFF).contains(u.value) || (0xFE30...0xFE4F).contains(u.value) || (0xFF00...0xFF60).contains(u.value) || (0x1F300...0x1FAFF).contains(u.value) ? 2
+                : (u.properties.generalCategory == .nonspacingMark ? 0 : 1)) }
+        }.max() ?? 0
+    }
+    @ObservedObject var store: OracleStore
+    let place: String
+    let close: () -> Void
+    @State private var text = ""
+    @State private var read: Date?
+    @State private var failed = false
+    @State private var escMonitor: Any?
+    @AppStorage("oracle.drawerFit") private var fit = true   // ☑ fit the drawer · ☐ bigger font, scroll (Nat's choice)
+    var body: some View {
+        let act = store.activity.first { $0.place == place }
+        let home = WorkFormat.homeSession(store.activity)
+        VStack(spacing: 0) {
+            HStack(spacing: 8) {
+                Circle().fill(WorkFormat.dot(act?.status ?? "", store.config.color)).frame(width: 8, height: 8)
+                Text(WorkFormat.pane(place, home: home)).font(.callout.monospaced().weight(.semibold))
+                Text(act?.title ?? "").font(.callout).foregroundStyle(.secondary).lineLimit(1).truncationMode(.tail)
+                Spacer(minLength: 6)
+                if let item = store.work.first(where: { $0.panes.contains { $0.place == place } }) {
+                    Button("bring here") { store.bringToMain(item) }.buttonStyle(.borderless).font(.caption.weight(.medium)).handCursor()
+                        .help("Bring this pane's WezTerm window to the main display")
+                }
+                Button(action: close) { Image(systemName: "xmark").font(.callout.weight(.semibold)) }
+                    .buttonStyle(.plain).foregroundStyle(.secondary).handCursor().keyboardShortcut(.escape, modifiers: []).help("Close (esc)")
+            }
+            .padding(.horizontal, 14).padding(.vertical, 11)
+            Divider()
+            let shown = failed && text.isEmpty ? "can't read \(place) — is herdr running?\n  herdr pane list" : text
+            Group { if fit {
+            GeometryReader { geo in
+                // a terminal screen, not a scroll view (Nat: "make the right fit, no scroll"): the font shrinks until the
+                // widest row fits the drawer (a monospaced cell is ~0.6 of the font size), and only the newest rows that
+                // fit the height are shown — widen or heighten the drawer to see more
+                let all = shown.split(separator: "\n", omittingEmptySubsequences: false)
+                let recent = all.suffix(160).joined(separator: "\n")
+                let size = min(13, max(7, (geo.size.width - 26) / (CGFloat(max(TerminalColumn.columns(recent), 40)) * 0.602)))
+                let rows = max(4, Int((geo.size.height - 24) / (size * 1.22)))
+                Text(all.suffix(rows).joined(separator: "\n"))
+                    .font(.system(size: size, design: .monospaced)).foregroundStyle(Color(white: 0.86))
+                    .fixedSize(horizontal: true, vertical: false)   // never re-wrap: tables and boxes keep their shape
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading).padding(12)
+                    .clipped()
+            }
+            } else {
+                // bigger font, scroll both ways; opens at the newest row and the leftmost column
+                ScrollViewReader { proxy in
+                    ScrollView([.vertical, .horizontal]) {
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text(shown).font(.system(size: 13, design: .monospaced)).foregroundStyle(Color(white: 0.86))
+                                .fixedSize(horizontal: true, vertical: false).textSelection(.enabled).padding(12)
+                            Color.clear.frame(width: 1, height: 1).id("end")
+                        }
+                    }
+                    .onChange(of: text) { proxy.scrollTo("end", anchor: .bottomLeading) }
+                    .onAppear { proxy.scrollTo("end", anchor: .bottomLeading) }
+                }
+            } }
+            .background(Color(red: 0.04, green: 0.04, blue: 0.06))
+            HStack {
+                Text(read.map { "live · every 1 s · read \($0.formatted(date: .omitted, time: .standard))" } ?? "reading…")
+                    .font(.caption).foregroundStyle(.tertiary)
+                Spacer()
+                Toggle("Fit", isOn: $fit).toggleStyle(.checkbox).font(.caption).handCursor()
+                    .help("Ticked: shrink the text to fit the drawer, no scrolling. Unticked: bigger font, scroll.")
+            }
+            .padding(.horizontal, 14).padding(.vertical, 7)
+        }
+        .onAppear {
+            escMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { e in
+                if e.keyCode == 53 { close(); return nil }   // 53 = esc
+                return e
+            }
+        }
+        .onDisappear { if let m = escMonitor { NSEvent.removeMonitor(m); escMonitor = nil } }
+        .task(id: place) {
+            text = ""; failed = false
+            let parts = place.split(separator: ":", maxSplits: 1).map(String.init)
+            let args = parts.count == 2 ? ["--session", parts[0], "pane", "read", parts[1], "--source", "recent", "--lines", "400"]   // the rows as the terminal draws them
+                                        : ["pane", "read", place, "--source", "recent", "--lines", "400"]   // the rows as the terminal draws them
+            while !Task.isCancelled {
+                if let out = await Shell.run("herdr", args, timeout: 4) {
+                    let clean = out.replacingOccurrences(of: "\\s+$", with: "", options: .regularExpression)
+                    if clean != text { text = clean }
+                    read = Date(); failed = false
+                } else { failed = true }
+                try? await Task.sleep(for: .seconds(1))
+            }
+        }
+    }
+}
+#endif
+
+#if os(macOS)
+/// Grows or shrinks the app window to the right (or left, at the screen edge) so a drawer adds room instead of
+/// taking it from the Work column.
+@MainActor enum Drawer {
+    /// `leftward`: the window's right edge stays put and it grows to the left — what a drag on the drawer's left edge wants
+    static func grow(by dx: CGFloat, leftward: Bool = false, animate: Bool = true) {
+        guard let w = NSApp.keyWindow ?? NSApp.windows.first(where: { $0.isVisible && $0.canBecomeMain }) else { return }
+        var f = w.frame
+        f.size.width += dx
+        if leftward { f.origin.x -= dx }
+        if let vis = w.screen?.visibleFrame {
+            if f.width > vis.width { f.size.width = vis.width }
+            if f.maxX > vis.maxX { f.origin.x = max(vis.minX, vis.maxX - f.width) }   // no room on the right: open toward the left
+            if f.minX < vis.minX { f.origin.x = vis.minX }
+        }
+        w.setFrame(f, display: true, animate: animate)
+    }
+}
+
+/// The drawer's left edge: drag it to trade width with the Work column (Nat: "middle more narrow, the right edge stays,
+/// so the drawer gets wider"). The window does not move; Work keeps at least 420 px.
+struct DrawerHandle: View {
+    static let width: CGFloat = 7
+    @Binding var width: Double
+    /// how wide the drawer may get: the window's content minus the sidebar (~260) and Work's 420 minimum
+    private var maxWidth: CGFloat {
+        let win = (NSApp.keyWindow ?? NSApp.windows.first { $0.isVisible && $0.canBecomeMain })?.contentView?.bounds.width ?? 1400
+        return max(360, win - 260 - 420 - Self.width)
+    }
+    @State private var start: Double?
+    @State private var inside = false
+    var body: some View {
+        ZStack {
+            Color.primary.opacity(inside || start != nil ? 0.12 : 0.04)
+            Capsule().fill(Color.primary.opacity(0.35)).frame(width: 2, height: 34)
+        }
+        .frame(width: Self.width)
+        .contentShape(Rectangle())
+        .onHover { h in
+            guard h != inside else { return }
+            inside = h
+            if h { NSCursor.resizeLeftRight.push() } else { NSCursor.pop() }
+        }
+        .onDisappear { if inside { inside = false; NSCursor.pop() } }
+        .gesture(DragGesture(minimumDistance: 1, coordinateSpace: .global)
+            .onChanged { g in
+                let base = start ?? width; if start == nil { start = width }
+                let next = min(Double(maxWidth), max(360, base - g.translation.width))
+                if abs(next - width) >= 1 { width = next }
+            }
+            .onEnded { _ in start = nil })
+        .help("Drag to make the terminal wider or narrower")
+    }
+}
+#endif
