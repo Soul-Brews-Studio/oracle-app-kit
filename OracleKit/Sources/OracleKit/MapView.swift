@@ -15,6 +15,13 @@ public struct MapView: View {
     @ObservedObject var layout: MapLayout
     @ObservedObject var clusters: MapClusters
     @ObservedObject private var trace = TraceLog.shared
+    @ObservedObject private var heard = QueryListener.shared
+    /// The hub's map of every oracle (#37): points coloured by oracle, every app's queries fire it.
+    let fleet: FleetMap?
+    @State private var byKind = false
+    @State private var dominant: [Int: String] = [:]   // a region's oracle, when it holds ≥ 80 % of it
+    @State private var kindCounts: [String: Int] = [:]  // the legend's counts, counted once per change of the docs —
+    @State private var oracleCounts: [(String, Int)] = []   // not on every redraw (labels move ten times a second)
     @StateObject private var scene: MapScene
     @State private var escMonitor: Any?
     @State private var query = ""
@@ -25,12 +32,16 @@ public struct MapView: View {
     @FocusState private var focused: Bool
     private static var actionDone = false
 
-    public init(name: String, accent: Color, index: GHIndex) {
-        self.name = name; self.accent = accent; self.index = index; self.layout = index.layout; self.clusters = index.clusters
-        _scene = StateObject(wrappedValue: MapScene(accent: accent))
+    public init(name: String, accent: Color, index: GHIndex, fleet: FleetMap? = nil) {
+        self.name = name; self.accent = accent; self.index = index; self.layout = index.layout; self.clusters = index.clusters; self.fleet = fleet
+        _scene = StateObject(wrappedValue: MapScene(accent: accent, fleet: fleet))
     }
 
     public var body: some View {
+        handlers(page).task { await prepare() }
+    }
+
+    private var page: some View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 10) {
                 Text("MAP").font(.caption.weight(.bold)).tracking(2.5).foregroundStyle(accent)
@@ -47,6 +58,8 @@ public struct MapView: View {
                         scene.build(into: &content, layout: layout, docs: index.docs)
                         _ = content.subscribe(to: SceneEvents.Update.self) { _ in scene.frame() }
                     } update: { _ in }
+                    // a new layout (a re-fit, docs placed) is a new scene: rows and positions changed together
+                    .id("\(layout.meta?.built.timeIntervalSince1970 ?? 0)·\(layout.xyz.count)")
                     .realityViewCameraControls(.orbit)
                     .onContinuousHover(coordinateSpace: .local) { phase in
                         if case .active(let p) = phase { scene.pointer = p } else { scene.pointer = nil; scene.hoverDoc = nil; scene.setHand(false) }
@@ -83,53 +96,91 @@ public struct MapView: View {
             .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color.primary.opacity(0.08)))
             .padding(.horizontal, 28).padding(.bottom, 14)
         }
-        .onChange(of: layout.xyz.count) { scene.needsRebuild = true }
-        .onChange(of: clusters.labels.count) { scene.setGroups(clusters.labels, leaves: clusters.leafLabels) }
+    }
+
+    /// What the page reacts to: the layout and the groups changing, every traced or heard query, the switches.
+    private func handlers<V: View>(_ v: V) -> some View {
+        v.onChange(of: layout.xyz.count) { scene.needsRebuild = true }
+        .onChange(of: clusters.labels.count) { scene.setGroups(clusters.labels, leaves: clusters.leafLabels); placeOracles() }
         // #36: every query asked of this memory — a page, the map, another oracle over MCP — fires its hits
-        .onChange(of: trace.entries.count) { _, _ in
-            guard let e = trace.entries.last, e.index == index.name else { return }
-            let rows = e.top.compactMap { layout.row(of: $0.id) }
-            scene.fire(rows: rows, color: MapScene.callerColor(e.caller, source: e.source, accent: accent), label: Self.who(e))
-        }
+        .onChange(of: trace.entries.count) { _, _ in fireTraced() }
+        // #37: a query another oracle app answered
+        .onChange(of: heard.last?.id) { _, _ in fireHeard() }
+        .onChange(of: byKind) { scene.recolor(byKind: byKind) }
+        .onChange(of: index.docs.count, initial: true) { count() }
         .onChange(of: scene.built) { scene.setGroups(clusters.labels, leaves: clusters.leafLabels) }
         .animation(.easeOut(duration: 0.18), value: scene.selectedRow)
         .animation(.easeOut(duration: 0.18), value: showGroups)
-        .onAppear {   // esc: clear the selection, then the lit hits
-            escMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { e in
-                guard e.keyCode == 53 else { return e }
-                if scene.selectedRow != nil { scene.select(nil); return nil }
-                if !scene.lit.isEmpty { scene.light([]); query = ""; return nil }
-                return e
-            }
-        }
+        .onAppear { installEsc() }
         .onDisappear { if let m = escMonitor { NSEvent.removeMonitor(m); escMonitor = nil } }
         .onChange(of: who) { scene.show(kinds: who) }
         .onChange(of: flat) { scene.flatten(flat) }
-        .task {
-            if GHIndex.loaded == nil, !ModelLoad.shared.loading, ModelLoad.shared.failed == nil, !ModelLoad.shared.absent {
-                ModelLoad.shared.reload?(UserDefaults.standard.string(forKey: "hub.engineMode") ?? "gpu")
-            }
-            if layout.xyz.isEmpty, layout.staleReason(docs: index.docs, space: index.space) != nil, !layout.running {
-                await layout.fit(docs: index.docs, space: index.space, why: "Map page opened with no layout")
-            } else if let why = layout.staleReason(docs: index.docs, space: index.space), !layout.running {
-                await layout.fit(docs: index.docs, space: index.space, why: why)
-            }
-            await clusters.refresh(layout: layout, docs: index.docs)
-            scene.setGroups(clusters.labels, leaves: clusters.leafLabels)
-            if UserDefaults.standard.bool(forKey: "mapGroups") { showGroups = true }   // -mapGroups YES (tests)
-            if !Self.actionDone, let q = UserDefaults.standard.string(forKey: "mapQuery"), !q.isEmpty {   // -mapQuery <text> (tests)
-                Self.actionDone = true
-                for _ in 0..<600 where layout.xyz.isEmpty || scene.built == 0 || ModelLoad.shared.loading { try? await Task.sleep(for: .milliseconds(100)) }
-                query = q; await search()
-                if UserDefaults.standard.bool(forKey: "mapSelectFirst"), let r = scene.lit.first { scene.select(r) }   // -mapSelectFirst YES (tests)
-            }
+    }
+
+    /// esc: clear the selection, then the lit hits.
+    private func installEsc() {
+        escMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { e in
+            guard e.keyCode == 53 else { return e }
+            if scene.selectedRow != nil { scene.select(nil); return nil }
+            if !scene.lit.isEmpty { scene.light([]); query = ""; return nil }
+            return e
+        }
+    }
+
+    /// The last query traced in this app, when it was asked of this map's memory (or, on the fleet map, of any index
+    /// in it): its hits fire in the caller's colour.
+    private func fireTraced() {
+        guard let e = trace.entries.last else { return }
+        guard e.index == index.name || fleet?.members.contains(where: { $0.id == e.index }) == true else { return }
+        let rows = e.top.compactMap { layout.row(of: $0.id) }
+        scene.fire(rows: rows, color: MapScene.callerColor(e.caller, source: e.source, accent: accent), label: Self.who(e))
+    }
+
+    /// Fleet map: a query another oracle app answered fires in that oracle's colour (Pulse's memory lights Pulse
+    /// red); the caption says who asked.
+    private func fireHeard() {
+        guard fleet != nil, let e = heard.last else { return }
+        let rows: [Int] = e.ids.compactMap { layout.row(of: $0) }
+        let owner = FleetMap.oracle(ofIndex: e.index)
+        let asker: String? = e.source == "mcp" ? e.caller?.components(separatedBy: " · ").first : nil
+        let who = asker ?? (e.source == "mcp" ? "an agent" : "you")
+        scene.fire(rows: rows, color: FleetMap.color(owner), label: "\(who) asked \(owner) “\(e.query.prefix(40))”")
+    }
+
+    /// On open: the model, the layout (fitted when missing or stale), the groups, and the test hooks.
+    private func prepare() async {
+        if GHIndex.loaded == nil, !ModelLoad.shared.loading, ModelLoad.shared.failed == nil, !ModelLoad.shared.absent {
+            ModelLoad.shared.reload?(UserDefaults.standard.string(forKey: "hub.engineMode") ?? "gpu")
+        }
+        if layout.xyz.isEmpty, layout.staleReason(docs: index.docs, space: index.space) != nil, !layout.running {
+            await layout.fit(docs: index.docs, space: index.space, why: "Map page opened with no layout")
+        } else if let why = layout.staleReason(docs: index.docs, space: index.space), !layout.running {
+            await layout.fit(docs: index.docs, space: index.space, why: why)
+        }
+        await clusters.refresh(layout: layout, docs: index.docs)
+        scene.setGroups(clusters.labels, leaves: clusters.leafLabels)
+        placeOracles()
+        if UserDefaults.standard.bool(forKey: "mapGroups") { showGroups = true }   // -mapGroups YES (tests)
+        if !Self.actionDone, let q = UserDefaults.standard.string(forKey: "mapQuery"), !q.isEmpty {   // -mapQuery <text> (tests)
+            Self.actionDone = true
+            for _ in 0..<600 where layout.xyz.isEmpty || scene.built == 0 || ModelLoad.shared.loading { try? await Task.sleep(for: .milliseconds(100)) }
+            query = q; await search()
+            if UserDefaults.standard.bool(forKey: "mapSelectFirst"), let r = scene.lit.first { scene.select(r) }   // -mapSelectFirst YES (tests)
         }
     }
 
     /// The colour key, with counts — the only place a colour is explained.
     private var legend: some View {
-        let counts = Dictionary(grouping: index.docs, by: \.kind).mapValues(\.count)
+        let counts = kindCounts
         return HStack(spacing: 16) {
+            if fleet != nil, !byKind {
+                ForEach(oracleCounts, id: \.0) { o, n in
+                    HStack(spacing: 6) {
+                        Circle().fill(Color(nsColor: FleetMap.color(o))).frame(width: 8, height: 8)
+                        Text("\(o) \(grouped(n))").font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+            } else {
             ForEach([("history", "sessions"), ("note", "ψ notes"), ("issue", "issues"), ("pr", "PRs")], id: \.0) { k, label in
                 if let n = counts[k], n > 0 {
                     HStack(spacing: 6) {
@@ -137,6 +188,11 @@ public struct MapView: View {
                         Text("\(grouped(n)) \(label)").font(.caption).foregroundStyle(.secondary)
                     }
                 }
+            }
+            }
+            if fleet != nil {
+                Picker("", selection: $byKind) { Text("By oracle").tag(false); Text("By kind").tag(true) }
+                    .pickerStyle(.segmented).labelsHidden().fixedSize().controlSize(.small)
             }
             ForEach(scene.recentFirings.prefix(3), id: \.id) { f in
                 HStack(spacing: 6) { Circle().fill(Color(nsColor: f.color)).frame(width: 8, height: 8).shadow(color: Color(nsColor: f.color), radius: 4)
@@ -165,7 +221,8 @@ public struct MapView: View {
             ForEach(Array(shown)) { g in
                 if let p = at[g.id] {
                     Button { scene.focus(group: g.id, leaf: leafLevel) } label: {
-                        Text(g.name).font(leafLevel ? .caption2.weight(.semibold) : .caption.weight(.semibold))
+                        Text(!leafLevel ? dominant[g.id].map { "\($0) · \(g.name)" } ?? g.name : g.name)
+                            .font(leafLevel ? .caption2.weight(.semibold) : .caption.weight(.semibold))
                             .foregroundStyle(.white.opacity(leafLevel ? 0.75 : 0.85))
                             .padding(.horizontal, leafLevel ? 6 : 8).padding(.vertical, leafLevel ? 2 : 3)
                             .background(.black.opacity(leafLevel ? 0.45 : 0.55), in: Capsule())
@@ -241,8 +298,14 @@ public struct MapView: View {
             Text(meta(d)).font(.caption.monospaced()).foregroundStyle(.secondary)
             if d.kind == "history" { Text("in “\(d.title)”").font(.caption).foregroundStyle(.secondary).lineLimit(2) }
             else if !d.snippet.isEmpty { Text(d.snippet).font(.caption).foregroundStyle(.secondary).lineLimit(4) }
-            Button(d.kind == "history" ? "Copy the command that reopens it" : "Open") { MapScene.open(d) }
-                .buttonStyle(.borderedProminent).tint(accent).controlSize(.small).handCursor()
+            HStack {
+                Button(d.kind == "history" ? "Copy the command that reopens it" : "Open") { MapScene.open(d) }
+                    .buttonStyle(.borderedProminent).tint(accent).controlSize(.small).handCursor()
+                if let o = fleet?.oracleOf[d.id], let app = FleetMap.app(of: o) {
+                    Button("Open \(o)") { NSWorkspace.shared.openApplication(at: app, configuration: .init()) }
+                        .buttonStyle(.bordered).controlSize(.small).handCursor().help("Open the \(o) app")
+                }
+            }
             if let g {
                 Divider()
                 Text("GROUP").font(.caption2.weight(.bold)).tracking(1.5).foregroundStyle(accent)
@@ -289,7 +352,21 @@ public struct MapView: View {
     }
 
     private func meta(_ d: IndexDoc) -> String {
-        d.kind == "note" ? "ψ/\(d.state)" : d.kind == "history" ? "session · \(d.state == "user" ? "you asked" : "\(name) answered") · \(String(d.updated.prefix(10)))" : "\(d.kind) \(d.repo)#\(d.number) · \(d.state.lowercased())"
+        let o = fleet?.oracleOf[d.id]
+        let base = d.kind == "note" ? "ψ/\(d.state)" : d.kind == "history" ? "session · \(d.state == "user" ? "you asked" : "\(o ?? name) answered") · \(String(d.updated.prefix(10)))" : "\(d.kind) \(d.repo)#\(d.number) · \(d.state.lowercased())"
+        return o.map { "\($0) · \(base)" } ?? base
+    }
+
+    /// The legend's counts: docs per kind, and per oracle on the fleet map (biggest first).
+    private func count() {
+        var k: [String: Int] = [:], o: [String: Int] = [:]
+        for d in index.docs { k[d.kind, default: 0] += 1; if let fleet { o[fleet.oracleOf[d.id] ?? "Fleet", default: 0] += 1 } }
+        kindCounts = k
+        oracleCounts = o.map { ($0.key, $0.value) }.sorted { $0.1 > $1.1 }
+    }
+    private func placeOracles() {
+        guard let fleet else { return }
+        dominant = fleet.dominant(labels: clusters.labels, ids: Array(layout.ids.prefix(clusters.labels.count)))
     }
 
     private var empty: some View {
@@ -414,6 +491,7 @@ final class MapScene: ObservableObject {
     private var frames = 0
     private var pendingZoom: Float?
     private var builtAt = Date()
+    private var fpsSeconds = 0
     private var last = Date()
     private var lastPick = Date.distantPast
     private var scroll: Any?
@@ -422,7 +500,9 @@ final class MapScene: ObservableObject {
     static let chunk = 4_096
     static let scale: Float = 3.2
 
-    init(accent: Color) { self.accent = accent }
+    private let fleet: FleetMap?
+    private var byKind = false
+    init(accent: Color, fleet: FleetMap? = nil) { self.accent = accent; self.fleet = fleet }
 
     static func color(_ kind: String, accent: Color) -> NSColor {
         switch kind {
@@ -435,6 +515,9 @@ final class MapScene: ObservableObject {
 
     func build(into content: inout RealityViewCameraContent, layout: MapLayout, docs: [IndexDoc]) {
         self.content = content; self.layout = layout
+        // a rebuild (new layout): what pointed at rows of the old one goes
+        selectedRow = nil; hoverRow = nil; hoverDoc = nil; lit = []; firings = []; fireEntities = []; target = nil
+        litEntity = nil; lines = nil; hoverGlow = nil; selGlow = nil; selLines = nil; pulseEntity = nil; webEntity = nil
         root = Entity()
         root.scale = SIMD3(repeating: Self.scale)
         let zoom = UserDefaults.standard.double(forKey: "mapZoom")   // -mapZoom 2.4 (tests: the leaves' names), once the camera has framed
@@ -445,17 +528,7 @@ final class MapScene: ObservableObject {
         rowToDoc = layout.ids.map { byId[$0] ?? -1 }
         rowKind = rowToDoc.map { $0 >= 0 ? docs[$0].kind : "" }
         self.docs = docs
-        chunks = []
-        let sphere = MeshResource.generateSphere(radius: 0.0032)
-        for kind in ["history", "note", "issue", "pr"] {
-            // unlit: the colour as it is, no lighting falloff; below the bloom threshold, so only lit hits glow
-            let mat = UnlitMaterial(color: Self.color(kind, accent: accent))
-            let rows = xyz.indices.filter { rowKind[$0] == kind }
-            for start in stride(from: 0, to: rows.count, by: Self.chunk) {
-                let slice = Array(rows[start..<min(start + Self.chunk, rows.count)])
-                if let e = Self.instanced(slice, xyz: xyz, mesh: sphere, material: mat) { chunks.append((kind, e, slice)); root.addChild(e) }
-            }
-        }
+        buildChunks()
         web()
         content.add(root)
         // the camera frames its target's bounds as a sphere around their box, so the whole root (the web's box, a few
@@ -473,6 +546,36 @@ final class MapScene: ObservableObject {
         }
         built += 1; shown = xyz.count; needsRebuild = false; builtAt = Date()
         HubLog.shared.add(.info, "map: \(xyz.count) points in \(chunks.count) chunks")
+    }
+
+    /// The points, in chunks of one kind and one colour: by kind on an oracle's map; by oracle on the fleet's (#37),
+    /// or by kind there too when asked.
+    private func buildChunks() {
+        chunks.forEach { $0.entity.removeFromParent() }; chunks = []
+        let sphere = MeshResource.generateSphere(radius: 0.0032)
+        let oracle: [String] = fleet != nil && !byKind ? rowToDoc.map { $0 >= 0 ? fleet?.oracleOf[docs[$0].id] ?? "Fleet" : "" } : []
+        for kind in ["history", "note", "issue", "pr"] {
+            var byColor: [String: [Int]] = [:]
+            for r in xyz.indices where rowKind[r] == kind { byColor[oracle.isEmpty ? kind : oracle[r], default: []].append(r) }
+            for (key, rows) in byColor.sorted(by: { $0.key < $1.key }) {
+                // unlit: the colour as it is, no lighting falloff; below the bloom threshold, so only lit hits glow
+                let mat = UnlitMaterial(color: oracle.isEmpty ? Self.color(kind, accent: accent) : FleetMap.color(key))
+                for start in stride(from: 0, to: rows.count, by: Self.chunk) {
+                    let slice = Array(rows[start..<min(start + Self.chunk, rows.count)])
+                    if let e = Self.instanced(slice, xyz: xyz, mesh: sphere, material: mat) { chunks.append((kind, e, slice)); root.addChild(e) }
+                }
+            }
+        }
+    }
+
+    /// The fleet map's colour switch: the same points, chunked again by kind or by oracle.
+    func recolor(byKind on: Bool) {
+        guard on != byKind, !xyz.isEmpty else { return }
+        byKind = on
+        buildChunks()
+        show(kinds: shownKinds)
+        if flat { flatten(true) }
+        HubLog.shared.add(.info, "map: coloured by \(on ? "kind" : "oracle")")
     }
 
     static func instanced(_ rows: [Int], xyz: [SIMD3<Float>], mesh: MeshResource, material: RealityKit.Material) -> ModelEntity? {
@@ -506,15 +609,22 @@ final class MapScene: ObservableObject {
         mesh.withUnsafeMutableIndices { raw in let p = raw.bindMemory(to: UInt32.self); for i in 0..<(segs.count * 2) { p[i] = UInt32(i) } }
         mesh.parts.replaceAll([.init(indexCount: segs.count * 2, topology: .line, bounds: BoundingBox(min: [-0.85, -0.85, -0.85], max: [0.85, 0.85, 0.85]))])
         guard let res = try? MeshResource(from: mesh) else { return }
-        var m = UnlitMaterial(color: NSColor(accent).withAlphaComponent(0.22)); m.blending = .transparent(opacity: 0.22)
+        // the fleet map's web is neutral and fainter, so the oracles' colours read through it
+        let a: Float = fleet == nil ? 0.22 : 0.12
+        var m = UnlitMaterial(color: (fleet == nil ? NSColor(accent) : .white).withAlphaComponent(CGFloat(a))); m.blending = .transparent(opacity: .init(floatLiteral: a))
         webEntity = ModelEntity(mesh: res, materials: [m])
         root.addChild(webEntity!)
         HubLog.shared.add(.info, "map: neuron web of \(segs.count) links")
     }
     private var webEntity: ModelEntity?
+    private var shownKinds = "all"
+    private func shown(_ kind: String) -> Bool {
+        shownKinds == "all" || kind == shownKinds || (shownKinds == "gh" && (kind == "issue" || kind == "pr"))
+    }
 
     /// The kind filter: a hidden kind's chunks shrink to nothing — no rebuild.
     func show(kinds: String) {
+        shownKinds = kinds
         var n = 0
         for c in chunks {
             let on = kinds == "all" || c.kind == kinds || (kinds == "gh" && (c.kind == "issue" || c.kind == "pr"))
@@ -709,7 +819,11 @@ final class MapScene: ObservableObject {
         frames += 1
         let now = Date()
         if let z = pendingZoom, now.timeIntervalSince(builtAt) > 0.6 { root.scale = SIMD3(repeating: Self.scale * z); pendingZoom = nil }
-        if now.timeIntervalSince(last) >= 1 { fps = Double(frames) / now.timeIntervalSince(last); frames = 0; last = now }
+        if now.timeIntervalSince(last) >= 1 {
+            fps = Double(frames) / now.timeIntervalSince(last); frames = 0; last = now
+            fpsSeconds += 1
+            if fpsSeconds == 5 || fpsSeconds % 60 == 0 { HubLog.shared.add(.info, String(format: "map: %@ points at %.0f fps", grouped(xyz.count), fps)) }
+        }
         if let t = target {   // turn the map so the lit centroid faces the camera (a slow ease), then stop
             let want = simd_quatf(from: simd_normalize(t == .zero ? SIMD3(0, 0, 1) : t), to: SIMD3(0, 0, 1))
             root.orientation = simd_slerp(root.orientation, want, 0.08)
@@ -729,13 +843,23 @@ final class MapScene: ObservableObject {
         }
     }
 
+    /// The point under the pointer: the one closest in angle to the pointer's ray (no projection per point — 72k
+    /// points in well under a millisecond), then checked in pixels. A hidden kind is not picked.
     private func pick(at p: CGPoint) {
         guard let content, !xyz.isEmpty else { return }
         var best = -1; var bd = CGFloat.infinity
-        for i in 0..<xyz.count where rowKind[i].isEmpty == false {
-            let v = flat ? SIMD3(xyz[i].x, xyz[i].y, 0) : xyz[i]
-            if let q = content.project(point: root.convert(position: v, to: nil), to: .local) {
-                let dd = (q.x - p.x) * (q.x - p.x) + (q.y - p.y) * (q.y - p.y); if dd < bd { bd = dd; best = i }
+        if let ray = content.ray(through: p, in: .local, to: .scene) {
+            let o = root.convert(position: ray.origin, from: nil), d = simd_normalize(root.convert(direction: ray.direction, from: nil))
+            var ba = Float.infinity
+            for i in 0..<xyz.count where !rowKind[i].isEmpty && shown(rowKind[i]) {
+                let w = (flat ? SIMD3(xyz[i].x, xyz[i].y, 0) : xyz[i]) - o
+                let t = simd_dot(w, d)
+                guard t > 0 else { continue }
+                let a = (simd_length_squared(w) - t * t) / (t * t)   // tan² of the angle off the ray ~ distance on screen
+                if a < ba { ba = a; best = i }
+            }
+            if best >= 0, let q = content.project(point: root.convert(position: flat ? SIMD3(xyz[best].x, xyz[best].y, 0) : xyz[best], to: nil), to: .local) {
+                bd = (q.x - p.x) * (q.x - p.x) + (q.y - p.y) * (q.y - p.y)
             }
         }
         let hit = best >= 0 && bd < 14 * 14 ? best : nil
