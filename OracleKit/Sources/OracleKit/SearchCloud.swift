@@ -23,8 +23,9 @@ struct SearchCloud: View {
         "my", "me", "from", "by", "at", "as", "into", "there", "any", "all", "has", "have", "had", "not", "no", "yes", "เรา", "ที่", "และ", "ของ",
         "ใน", "ได้", "ไหม", "มี", "ให้", "จะ", "เป็น", "การ", "ว่า", "กับ", "นี้", "อะไร", "ยังไง"]
 
-    static func words(_ q: String) -> [String] {
-        let t = NLTokenizer(unit: .word)
+    /// `using`: a tokenizer to reuse (making one per text is most of the cost of tokenizing 49k docs).
+    static func words(_ q: String, using tokenizer: NLTokenizer? = nil) -> [String] {
+        let t = tokenizer ?? NLTokenizer(unit: .word)
         t.string = q
         return t.tokens(for: q.startIndex..<q.endIndex).map { q[$0].lowercased() }
             .filter { $0.count >= 2 && !stop.contains($0) && !$0.allSatisfy(\.isNumber) }
