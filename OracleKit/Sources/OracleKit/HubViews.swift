@@ -580,6 +580,7 @@ struct SpaceLine: View {
                 }.buttonStyle(.plain).handCursor().help(f.wrappedValue ? "Show its \(children.count) worktrees" : "Hide its worktrees")
             }
             HubGlyph(status: space.status)
+                .contentShape(Rectangle()).onTapGesture { onOpen?() }
             VStack(alignment: .leading, spacing: 1) {
                 HStack(spacing: 6) {
                     Text(space.label).font(.custom("Avenir Next", size: 15).weight(.medium)).lineLimit(1).truncationMode(.middle)
@@ -593,7 +594,9 @@ struct SpaceLine: View {
                     Text(sub).font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(1)
                 }
             }
+            .contentShape(Rectangle()).onTapGesture { onOpen?() }
             Spacer(minLength: 8)
+                .contentShape(Rectangle()).onTapGesture { onOpen?() }   // the empty middle of the row opens too
             Text("\(space.panes) \(space.panes == 1 ? "pane" : "panes") · \(space.agents) \(space.agents == 1 ? "agent" : "agents")")
                 .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
             if app != nil, let r = space.repo {
@@ -625,8 +628,6 @@ struct SpaceLine: View {
         .padding(.leading, space.linked ? 14 : 0)
         .background(RoundedRectangle(cornerRadius: 9, style: .continuous)
             .fill(selected ? HubStyle.accent.opacity(0.16) : hover ? Color.primary.opacity(0.05) : Color.clear))
-        .contentShape(Rectangle())
-        .onTapGesture { onOpen?() }
         .onHover { h in hover = h; if onOpen != nil { if h { NSCursor.pointingHand.push() } else { NSCursor.pop() } } }
         .help(onOpen == nil ? "" : "Click to see its panes live (esc closes)")
     }

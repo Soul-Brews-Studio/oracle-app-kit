@@ -208,6 +208,9 @@ public final class HubStore: ObservableObject {
         Task.detached {
             _ = await Shell.run("herdr", ["--session", s.session, "workspace", "focus", s.spaceId])
             await WezTerm.show(session: s.session, label: s.label)
+            // like an oracle app's "bring here": the terminal is up on its space, and this app comes back on top
+            try? await Task.sleep(for: .milliseconds(350))
+            await MainActor.run { NSApp.activate(ignoringOtherApps: true); NSApp.mainWindow?.orderFrontRegardless() }
         }
     }
 
