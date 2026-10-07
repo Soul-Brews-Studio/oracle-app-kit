@@ -382,7 +382,8 @@ struct SessionSpaces: View {
     @State private var reopenError: String?
     var body: some View {
         let s = store.sessions.first { $0.name == session }
-        let spaces = store.spaces.filter { $0.session == session }.sorted { store.listNumber($0) < store.listNumber($1) }
+        let byNumber = store.spaces.filter { $0.session == session }.sorted { store.listNumber($0) < store.listNumber($1) }
+        let spaces = Self.treeOrder(byNumber)
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(alignment: .firstTextBaseline, spacing: 10) {
@@ -394,7 +395,7 @@ struct SessionSpaces: View {
                             resume = nil; confirmStop = true
                             Task { resume = await store.resumeCheck(session) }
                         }
-                            .controlSize(.small).disabled(stopping).handCursor()
+                            .controlSize(.small).tint(.red).disabled(stopping).handCursor()
                             .help("herdr session stop \(session) — ends every pane in it")
                         Button("Open in WezTerm") { store.openSession(session) }.controlSize(.small)
                     }
@@ -453,6 +454,18 @@ struct SessionSpaces: View {
     }
 
     /// This session's closed spaces, newest first; inside one group the main space before its worktrees.
+    /// Main spaces in herdr order, each followed by its worktree spaces; a worktree whose main space has no
+    /// space open stays where herdr put it.
+    static func treeOrder(_ list: [HubSpace]) -> [HubSpace] {
+        let parents = Set(list.filter { !$0.linked && $0.repo != nil }.map { $0.repo! })
+        var out: [HubSpace] = []
+        for sp in list where sp.linked == false || sp.repo == nil || !parents.contains(sp.repo!) {
+            out.append(sp)
+            if !sp.linked, let r = sp.repo { out += list.filter { $0.linked && $0.repo == r } }
+        }
+        return out
+    }
+
     private func loadClosed() {
         closed = ClosedSpaces.load().filter { $0.session == session }
             .sorted { ($0.closedAt, $0.linked == true ? 0 : 1) > ($1.closedAt, $1.linked == true ? 0 : 1) }
@@ -537,7 +550,7 @@ struct SpaceLine: View {
             if app != nil, let r = space.repo {
                 Button("Open app") { store.openApp(HubParse.displayName(r).lowercased()) }.controlSize(.small).handCursor()
             }
-            Button("Show in herdr") { store.showInHerdr(space) }.controlSize(.small).handCursor()
+            Button("Show in herdr") { store.showInHerdr(space) }.controlSize(.small).tint(.secondary).handCursor()
             Button("Close") {
                 agents = nil; closeError = nil; confirmClose = true
                 Task {
@@ -546,7 +559,7 @@ struct SpaceLine: View {
                     agents = all
                 }
             }
-                .controlSize(.small).handCursor().help("Close this space only; the rest of \(space.session) keeps running")
+                .controlSize(.small).tint(.red).handCursor().help("Close this space only; the rest of \(space.session) keeps running")
         }
         .overlay(alignment: .bottomLeading) {
             if let e = closeError { Text(e).font(.caption).foregroundStyle(.orange).textSelection(.enabled).offset(y: 14) }
