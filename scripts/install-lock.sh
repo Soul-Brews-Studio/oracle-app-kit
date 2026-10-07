@@ -7,7 +7,8 @@
 # The CALLER sets the traps right after lock_take — in zsh an EXIT trap set inside a function fires when the function
 # returns, and a signal trap that does not exit lets the script carry on:
 #   trap lock_drop EXIT; trap 'lock_drop; exit 130' INT TERM HUP
-LOCK_DIR=${ORACLE_APP_LOCK:-${TMPDIR:-/tmp}/oracle-app-install.lock}
+# the per-user temp folder from the system, not $TMPDIR (unset under some launchers): every agent of one user agrees
+LOCK_DIR=${ORACLE_APP_LOCK:-$(getconf DARWIN_USER_TEMP_DIR 2>/dev/null || print -r -- ${TMPDIR:-/tmp}/)oracle-app-install.lock}
 _LOCK_KIT=${${(%):-%x}:A:h:h}   # the kit this file belongs to (for the branch shown to a waiter), wherever the caller cd's
 lock_held() {
   local pid=$(cat $LOCK_DIR/pid 2>/dev/null)
@@ -42,7 +43,7 @@ lock_take() {
       rmdir $LOCK_DIR.takeover 2>/dev/null   # a takeover mutex left by a taker that died mid-takeover
     fi
     tries=$((tries + 1))
-    (( tries > 20 )) && { print -r -- "✗ cannot take over the stale install lock $LOCK_DIR (another taker keeps the takeover mutex):  ls -ld '$LOCK_DIR' '${LOCK_DIR:h}'"; return 1; }
+    (( tries > 20 )) && { print -r -- "✗ cannot take over the stale install lock $LOCK_DIR — another taker holds $LOCK_DIR.takeover (cleared by itself after 30 s); see who:  ls -ld '$LOCK_DIR' '$LOCK_DIR.takeover'; cat '$LOCK_DIR/who'"; return 1; }
     sleep 0.2
   done
   print -r -- $$ > $LOCK_DIR/pid; print -r -- $who > $LOCK_DIR/who; print -r -- $br > $LOCK_DIR/branch; date '+%H:%M:%S' > $LOCK_DIR/since

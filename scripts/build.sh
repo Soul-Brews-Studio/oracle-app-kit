@@ -7,11 +7,25 @@
 set -u
 R=${0:A:h}/..; R=${R:A}; cd $R || exit 2
 source $R/scripts/install-lock.sh
+source $R/scripts/team.sh
 INSTALL=0; schemes=()
 for a in "$@"; do [[ $a == --install ]] && INSTALL=1 || schemes+=($a); done
 if (( ! $#schemes )); then
-  (( INSTALL )) && { print -r -- "✗ name the apps to install — --install with no names would replace the hub and every app:  zsh $0 <Name> --install"; exit 2; }
+  if (( INSTALL )); then
+    have=(${(f)"$(for a in Apps/*/app.yml(N); do print ${a:h:t}; done | rg -v -x 'Hub|MapSpike|Shared')"})
+    print -r -- "✗ name the apps to install — --install with no names would replace the hub and every app. Apps here: ${have[*]} Oracles (the hub)"
+    print -r -- "    zsh $0 ${have[1]:-Neo} --install"; exit 2
+  fi
   schemes=(Oracles Neo Pulse Nexus)
+fi
+# the signing team: $ORACLE_APP_TEAM, else project.yml's if a certificate here has it, else this Mac's only certificate's
+if [ -z "${ORACLE_APP_TEAM:-}" ]; then
+  pteam=$(project_team); teams=(${(f)"$(cert_teams)"})
+  if (( ! ${teams[(Ie)$pteam]} )); then
+    if (( $#teams == 1 )); then export ORACLE_APP_TEAM=$teams[1]; print -r -- "! signing with this Mac's only team $ORACLE_APP_TEAM (project.yml has $pteam)"
+    elif (( $#teams == 0 )); then print -r -- "✗ no signing certificate on this Mac — Xcode → Settings → Accounts → sign in, then:  zsh $0 ${(j: :)${(q)@}}"; exit 2
+    else print -r -- "✗ several signing teams here (${teams[*]}), none is project.yml's $pteam — pick one:"; for t in $teams; do print -r -- "    ORACLE_APP_TEAM=$t zsh $0 ${(j: :)${(q)@}}"; done; exit 2; fi
+  fi
 fi
 mkdir -p build/logs
 zsh scripts/regen.sh >/dev/null || { echo "✗ regen failed:  zsh $R/scripts/regen.sh"; exit 3; }

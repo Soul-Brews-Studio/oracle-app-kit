@@ -6,7 +6,7 @@ description: "Build an oracle's own Mac app from oracle-app-kit — an agent app
 # /oracle-app — an oracle builds its own app
 
 ```
-/oracle-app new      <Name> [--key=k] [--color=#hex] [--symbol=sf] [--tagline="…"] [--imagegen]
+/oracle-app new      <Name> [--repo=org/repo] [--key=k] [--color=#hex] [--symbol=sf] [--tagline="…"] [--imagegen]
 /oracle-app update   <Name>          regenerate generated files; keeps Extras, icon, key, port, team, widget kind
 /oracle-app panel    <Name> <title>  add an ExtraSection skeleton to <Name>Extras.swift
 /oracle-app build    [<Name>…]       Release build + install + relaunch-if-running (herdr pane, install lock)
@@ -46,9 +46,10 @@ The Team ID is the certificate's `OU`, **not** the id in parentheses that `find-
 security find-identity -v -p codesigning                       # names, e.g. "Apple Development: Name (USERID)"
 security find-certificate -c "Apple Development: <Name> (<USERID>)" -p | openssl x509 -noout -subject   # … OU=<TEAMID> …
 ```
-If that OU equals `DEVELOPMENT_TEAM` in `$K/project.yml`, nothing to do. Otherwise — or with several identities, after
-asking once which one — `export ORACLE_APP_TEAM=<TEAMID>`: the generator writes it into the App Group and
-`scripts/build.sh` signs with it. `--update` keeps an app's own team unless `--team=` is given.
+The generator and `scripts/build.sh` read these themselves (`scripts/team.sh`): project.yml's team when a certificate
+here has it, else this Mac's only team; with several teams and none of them project.yml's they refuse and print one
+command per team — ask the human which, then `export ORACLE_APP_TEAM=<TEAMID>`. `--update` keeps an app's own team
+unless `--team=` is given. The generator's ready line says where the team came from.
 
 ## 2. `new`
 
@@ -74,7 +75,7 @@ asking once which one — `export ORACLE_APP_TEAM=<TEAMID>`: the generator write
 4. **Build + install the new app only** — the portal finds it by bundle id, it needs no rebuild. Minutes, so in a
    herdr pane, never a blocking call:
    ```bash
-   herdr pane run <PANE> 'zsh '$K'/scripts/build.sh <Name> --install; RC=$?; \
+   herdr pane run <PANE> 'ORACLE_APP_TEAM='${ORACLE_APP_TEAM:-}' zsh '$K'/scripts/build.sh <Name> --install; RC=$?; \
      herdr agent prompt <ME> "PANE <PANE> oracle-app build rc=$RC
    $(herdr pane read <PANE> --source recent-unwrapped --lines 14 | tail -10)"'
    ```
@@ -111,15 +112,16 @@ down to parity; Memory, Map, screenshots and iOS need `--deep`, `--shots`, `--io
 | no crash | `~/Library/Logs/DiagnosticReports/{<Name>,<Name>Widget,<Name>Share}-*` | none since launch |
 | MCP | `curl -s 127.0.0.1:<port>/health` | `"name":"<name>-memory"`, `"status":"ok"` |
 | MCP search | POST `/mcp` `tools/call memory_search` | a result, not an error |
-| Trace | `~/Library/Logs/ARRA Oracles/<Name>-queries.jsonl` | that query recorded, with its caller |
+| Trace | `~/Library/Logs/ARRA Oracles/<Name>-queries.jsonl` | that exact query recorded as `source: mcp`, with its caller |
 | widget | `pluginkit -m -v -i co.laris.oracle.<key>.widget` | registered from `/Applications/<Name>.app` |
 | parity | `scripts/parity.sh` | ✓ for every app |
-| Memory (`--deep`) | `-oracleSection memory -memoryAction batch -memoryQuery <name>` | `memory batch done` / `up to date`, then the search line |
-| Map (`--deep`) | `-oracleSection map -memoryAction layout` | `map layout: N docs in` or `map: N points in` |
+| Memory (`--deep`) | `-oracleSection memory -memoryAction batch -memoryQuery <name>` | `memory batch done` / `up to date`, then the search line with ≥1 hit (`ranked N`, `best P%`, both > 0) |
+| Map (`--deep`) | `-oracleSection map -memoryAction layout` | `map layout: N docs in` or `map: N points in`, N > 0 |
 | screenshots (`--shots`) | `scripts/shot.sh <Name> <file> -- -oracleSection <page>` | window shots, by window id |
 | iOS (`--ios`) | `xcodebuild -scheme <Name> -destination 'generic/platform=iOS' build CODE_SIGNING_ALLOWED=NO` | builds |
 
-Not covered by a row (look at the screenshots): the Work page's content and the sidebar's identity.
+Not covered by a row (look at the screenshots): the Work page's content, the sidebar's identity, and in the portal
+that the APPS card opens the app and shows its sessions (a click — the human's to try).
 
 Drive the app only by launch arguments — `-oracleSection memory`, `map`, `trace` or `settings` (anything else opens
 Work), `-memoryAction batch` / `layout`, `-memoryQuery "<words>"` — and read its log,
@@ -152,7 +154,8 @@ window a human is using.
   `OracleConfig.mac("…")` line (the oracle's own checkout):
   `rg -n -i '\btoken\b\s*[:=]|secret|api[_-]?key|bearer\s|ghp_|\bsk-[a-z0-9]|/Users/|/home/|/opt/Code' <new files> | rg -v 'OracleConfig\.mac\('`
   must print nothing. Also: no other people's names, chats or data in screenshots.
-- Two agents: the install lock (`$TMPDIR/oracle-app-install.lock`, or `$ORACLE_APP_LOCK`; one per macOS user) serialises
+- Two agents: the install lock (`$(getconf DARWIN_USER_TEMP_DIR)oracle-app-install.lock`, or `$ORACLE_APP_LOCK`; one per
+  macOS user) serialises
   `/Applications`; `check.sh` and `shot.sh` will not relaunch during another agent's install. Still tell the other
   agent (`herdr agent prompt`) before a long install.
 - Mac only. No App Store / TestFlight here.
