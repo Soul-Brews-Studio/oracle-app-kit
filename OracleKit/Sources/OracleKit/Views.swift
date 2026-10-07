@@ -928,6 +928,13 @@ public final class OracleAppDelegate: NSObject, NSApplicationDelegate {
             NotificationCenter.default.post(name: .oracleServiceMessage, object: nil)
         default:
             var d = Self.issueDraft(urls: link.map { [$0] } ?? [], text: text, oracle: OracleConfig.current.name)
+            // a whole Facebook thread is too big for a URL: the extension left it at ~/.oracle-fb/threads/<id>.md
+            // (browser/bridge/server.ts) and sent only the id. Ids are [a-z0-9] — never a path.
+            let tid = item("thread")
+            if !tid.isEmpty, tid.allSatisfy({ $0.isLetter || $0.isNumber }),
+               let md = try? String(contentsOfFile: NSHomeDirectory() + "/.oracle-fb/threads/\(tid).md", encoding: .utf8) {
+                d = IssueDraft(title: d.title, text: d.text + "\n\n---\n\n" + md)
+            }
             if !title.isEmpty { d = IssueDraft(title: String(title.prefix(100)), text: d.text) }
             ServiceInbox.pendingIssue = d
             NotificationCenter.default.post(name: .oracleServiceIssue, object: nil)
