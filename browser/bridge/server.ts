@@ -54,7 +54,9 @@ Bun.serve({
       const t = await req.json() as any, id = safeId(String(t.id || ''));
       if (!id) return json({ error: 'bad id' }, 400);
       const cmd = `bun ${import.meta.dir}/fbreply.ts`;
-      const footer = `\n\n---\nReply path — types into that comment's box in Chrome; a human presses Enter:\n    ${cmd} ${id} c1 "your reply"\n    ${cmd} --list\n`;
+      const br = (String(t.ua || '').match(/Chrome\/\d+/) || [''])[0];
+      const aim = t.tab?.id ? ` --to ${br} --tab ${t.tab.id}` : '';   // the exact tab the click came from (its own id)
+      const footer = `\n\n---\nReply path — types into that comment's box in ${br || 'the browser'}${t.tab?.id ? ` tab ${t.tab.id}` : ''}; a human presses Enter:\n    ${cmd}${aim} ${id} c1 "your reply"\n    ${cmd} --tabs   (is tab ${t.tab?.id ?? '?'} still open?)\n`;
       writeFileSync(join(DIR, `${id}.md`), String(t.md || '') + footer);
       writeFileSync(join(DIR, `${id}.json`), JSON.stringify({ id, url: t.url, title: t.title, at: new Date().toISOString(), tab: t.tab || null, ua: t.ua || '', comments: t.comments || [] }, null, 1));
       console.log(`thread ${id}  ${(t.comments || []).length} comments  ${t.url}`);

@@ -33,6 +33,10 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 
 // The Facebook content script (fb.js) asks for the same hand-off from its 🔮 Issue button.
 chrome.runtime.onMessage.addListener((msg, sender, reply) => {
+  if (msg?.kind === 'getTabId') {   // the page asks for its own tab id (the Gemini proxy's pattern: content.js → sender.tab.id)
+    reply({ tabId: sender.tab?.id ?? null, windowId: sender.tab?.windowId ?? null, browser: (navigator.userAgent.match(/Chrome\/\d+/) || ['browser'])[0], bridge: bridge?.readyState === 1 });
+    return;
+  }
   if (msg?.kind === 'popup-status' || msg?.kind === 'popup-reconnect') {   // the toolbar popup
     if (!bridge || bridge.readyState > 1) connectBridge();
     setTimeout(() => reply({ connected: bridge?.readyState === 1, info: bridgeInfo, version: chrome.runtime.getManifest().version_name, ua: navigator.userAgent, id: chrome.runtime.id, bridge: BRIDGE }),
