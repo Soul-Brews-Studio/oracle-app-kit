@@ -54,6 +54,11 @@ for v in "$SLUG" "$LP" "$TAG" "$SYM"; do [[ $v == *${~cc}* ]] && die "no '\"', '
 [[ $LP == /* ]] || die "mac checkout path must be absolute, got '$LP' — the oracle's main checkout:  ghq list -p --exact $SLUG"
 [[ -n ${ORACLE_APP_SCRATCH:-} || -d $LP ]] || die "no checkout at $LP on this Mac — clone it:  ghq get -p $SLUG"
 [ -n "$SYM" ] || die "sf-symbol is empty — pass one, e.g. star.fill"
+# Apps/Hub, Apps/Shared, Apps/MapSpike… are not this generator's (no <Name>Config.swift): never write into them
+if [ -e $D ] && [ ! -f $D/${N}Config.swift ]; then
+  alt=(); for a in "${ARGS[@]}"; do [[ $a == $N ]] && alt+=(${N}Oracle) || [[ $a == --update ]] || alt+=("$a"); done
+  die "Apps/$N exists but is not an app this generator made (no ${N}Config.swift) — use another Name:  zsh $0 ${(q)alt[@]}"
+fi
 [ -e $D ] && (( ! UPDATE )) && die "Apps/$N exists — regenerate it (keeps Extras, icon, key, port, team):  zsh $0 ${(q)ARGS[@]} --update"
 [ ! -e $D ] && (( UPDATE )) && { new=("${(@)ARGS:#--update}"); die "Apps/$N does not exist — create it:  zsh $0 ${(q)new[@]}"; }
 # --update: what the app already is wins over the defaults (an explicit option still wins over both)
