@@ -54,8 +54,10 @@ for v in "$SLUG" "$LP" "$TAG" "$SYM"; do [[ $v == *${~cc}* ]] && die "no '\"', '
 [[ $LP == /* ]] || die "mac checkout path must be absolute, got '$LP' — the oracle's main checkout:  ghq list -p --exact $SLUG"
 [[ -n ${ORACLE_APP_SCRATCH:-} || -d $LP ]] || die "no checkout at $LP on this Mac — clone it:  ghq get -p $SLUG"
 [ -n "$SYM" ] || die "sf-symbol is empty — pass one, e.g. star.fill"
-# Apps/Hub, Apps/Shared, Apps/MapSpike… are not this generator's (no <Name>Config.swift): never write into them
-if [ -e $D ] && [ ! -f $D/${N}Config.swift ]; then
+# Apps/Hub, Apps/Shared, Apps/MapSpike… are not this generator's (no <Name>Config.swift): never write into them.
+# A first run that died at the icon step left only Widget/, Share/ and Assets.xcassets/ — that one is ours to finish.
+made=(Widget Share Assets.xcassets .DS_Store); top=($D/*(ND:t)); rest=(${top:|made})
+if [ -e $D ] && [ ! -f $D/${N}Config.swift ] && { [ ! -d $D ] || (( $#rest )); }; then
   alt=(); for a in "${ARGS[@]}"; do [[ $a == $N ]] && alt+=(${N}Oracle) || [[ $a == --update ]] || alt+=("$a"); done
   die "Apps/$N exists but is not an app this generator made (no ${N}Config.swift) — use another Name:  zsh $0 ${(q)alt[@]}"
 fi
