@@ -5,12 +5,12 @@ import AppKit
 import UIKit
 #endif
 
-enum Section: Hashable { case status, inbox, prs, issues, memory, settings, extra(String) }
+enum Section: Hashable { case status, inbox, prs, issues, memory, trace, settings, extra(String) }
 
 public struct OracleRootView: View {
     @ObservedObject private var store: OracleStore
     @Binding private var menuBar: Bool
-    @State private var section: Section? = ["memory": Section.memory, "settings": .settings][UserDefaults.standard.string(forKey: "oracleSection") ?? ""] ?? .status   // -oracleSection memory|settings
+    @State private var section: Section? = ["memory": Section.memory, "trace": .trace, "settings": .settings][UserDefaults.standard.string(forKey: "oracleSection") ?? ""] ?? .status   // -oracleSection memory|trace|settings
     @State private var dropTargeted = false
     @State private var inboxHot = false
     @State private var issueHot = false
@@ -154,9 +154,15 @@ public struct OracleRootView: View {
             #else
             EmptyView()
             #endif
+        case .trace:
+            #if os(macOS)
+            TraceView(name: c.name, accent: c.color)   // every query asked of that memory, page and MCP
+            #else
+            EmptyView()
+            #endif
         case .settings:
             #if os(macOS)
-            SettingsView(title: c.name, accent: c.color, indexes: [GHIndex.history(c.repoSlug)])
+            SettingsView(title: c.name, accent: c.color, indexes: [GHIndex.history(c.repoSlug)]) { section = .trace }
             #else
             EmptyView()
             #endif
@@ -212,6 +218,8 @@ struct OracleSidebar: View {
                 #if os(macOS)
                 NavRow(symbol: "brain", title: "Memory", badge: nil, on: section == .memory, accent: c.color) { section = .memory }
                     .help("\(c.name)'s own session history, searched by meaning")
+                NavRow(symbol: "list.bullet.rectangle", title: "Trace", badge: nil, on: section == .trace, accent: c.color, sub: true) { section = .trace }
+                    .help("Every query asked of \(c.name)'s memory — the page and MCP — and a cloud of what is searched")
                 NavRow(symbol: "gearshape", title: "Settings", badge: nil, on: section == .settings, accent: c.color) { section = .settings }
                     .help("Engine, vector search, MCP, and the trace of every query")
                 #endif
@@ -272,13 +280,15 @@ struct NavRow: View {
     let badge: String?
     let on: Bool
     let accent: Color
+    var sub = false   // a page under the row above (Trace under Memory): indented, smaller, hung on a └
     let action: () -> Void
     @State private var hover = false
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 12) {
-                Image(systemName: symbol).font(.system(size: 14, weight: .medium)).frame(width: 18)
-                Text(title).font(.custom("Avenir Next", size: 15).weight(on ? .semibold : .medium)).lineLimit(1)
+            HStack(spacing: sub ? 8 : 12) {
+                if sub { Text("└").font(.system(size: 13, design: .monospaced)).foregroundStyle(.tertiary).frame(width: 18) }
+                Image(systemName: symbol).font(.system(size: sub ? 12 : 14, weight: .medium)).frame(width: sub ? 16 : 18)
+                Text(title).font(.custom("Avenir Next", size: sub ? 14 : 15).weight(on ? .semibold : .medium)).lineLimit(1)
                 Spacer(minLength: 4)
                 if let badge {
                     Text(badge).font(.system(size: 12, weight: .medium).monospacedDigit())
@@ -286,7 +296,7 @@ struct NavRow: View {
                 }
             }
             .foregroundStyle(on ? accent : Color.primary.opacity(0.8))
-            .padding(.horizontal, 14).padding(.vertical, 10)
+            .padding(.horizontal, 14).padding(.vertical, sub ? 7 : 10)
             .background(RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(on ? accent.opacity(0.16) : (hover ? Color.primary.opacity(0.06) : Color.clear)))
             .contentShape(Rectangle())
