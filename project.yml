@@ -14,6 +14,8 @@ settings:
 packages:
   OracleKit:
     path: OracleKit
+  ANEEmbed:            # the in-process ANE embedder the hub links (copied from the Chippy service)
+    path: ANEEmbed
 include:
   - path: apps.yml
     relativePaths: false

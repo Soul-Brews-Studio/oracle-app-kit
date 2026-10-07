@@ -1,0 +1,15 @@
+[package]
+name = "tokenizer_ffi"
+version = "0.1.0"
+edition = "2021"
+description = "HF tokenizers (the library Python's fast tokenizer uses) behind a C ABI for the Swift ANE embedder"
+
+[lib]
+crate-type = ["staticlib"]
+
+[dependencies]
+tokenizers = { version = "=0.23.2", default-features = false, features = ["onig", "esaxx_fast"] }
+
+[profile.release]
+lto = true
+codegen-units = 1
