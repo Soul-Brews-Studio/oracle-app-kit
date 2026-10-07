@@ -1,13 +1,15 @@
 import Foundation
 #if os(macOS)
 import AppKit
+#else
+import Combine
 #endif
 #if canImport(WidgetKit)
 import WidgetKit
 #endif
 
 /// Live state of one oracle, refreshed on a timer. macOS reads herdr, gh and ψ/ directly;
-/// iPad reads GitHub over REST with a token from the Keychain.
+/// iPhone and iPad ask their paired Mac app (the companion API), or read GitHub over REST with a token from the Keychain.
 @MainActor
 public final class OracleStore: ObservableObject {
     @Published public private(set) var panes: [AgentPane] = []
@@ -20,6 +22,9 @@ public final class OracleStore: ObservableObject {
     @Published public private(set) var inbox: [InboxItem] = []
     @Published public private(set) var lastRefresh: Date?
     @Published public private(set) var problems: [String] = []
+    /// What the paired Mac last answered, as it sent it (iPhone/iPad; the Mac app IS the server and leaves both nil).
+    @Published public private(set) var companionWork: CompanionAPI.Work?
+    @Published public private(set) var companionInbox: CompanionAPI.Inbox?
     @Published public var lastDrop: String?
 
     public let config: OracleConfig
@@ -28,7 +33,13 @@ public final class OracleStore: ObservableObject {
     public init(config: OracleConfig) { self.config = config }
 
     public func start() {
+        #if os(macOS)
         Task { await refresh() }
+        #else
+        // `-companionPair <link>` on the launch line pairs first; once that is settled, a pairing change refreshes at once
+        CompanionClient.shared.device = PhoneStyle.device   // the Mac's trace says "iPad · companion"
+        Task { await pairFromLaunchArgument(); watchCompanion(); await refresh() }
+        #endif
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 20, repeats: true) { [weak self] _ in
             Task { @MainActor in await self?.refresh() }
@@ -61,11 +72,35 @@ public final class OracleStore: ObservableObject {
         self.inbox = inbox
         recomputeUnread()
         #else
-        if let gh = await loadGitHubREST() { self.prs = gh.0; self.issues = gh.1 }
-        else { issuesSeen.append("Add a GitHub token in Settings to see PRs and issues") }
+        // Ask the Mac once it has answered hello with this pairing, else GitHub. If that stops being true while the answers
+        // are on the way (Unpair, another Pair…, a refused hello), they are not the phone's to show any more: return without
+        // touching the pages, the problems or the widget — the refresh that the change started owns them.
+        let client = CompanionClient.shared
+        let mac = client.verifiedPairing
+        var answered = true                                  // false: the Mac answered none of work, GitHub, inbox
+        if let mac {
+            guard let got = await loadCompanion(mac) else { return }
+            issuesSeen += got.seen; answered = got.answered
+        } else {
+            forgetCompanion()
+            let gh = await loadGitHubREST()
+            guard client.verifiedPairing == nil else { return }  // the phone paired while GitHub was answering
+            if let gh { self.prs = gh.0; self.issues = gh.1 }
+            else { issuesSeen.append("Add a GitHub token in Settings to see PRs and issues") }
+            // a -companionPair that did not take says why, with its fix. A pairing tried in the sheet says so there — its
+            // problem is not repeated here on every tick after the sheet is gone
+            if let p = launchPairProblem { issuesSeen.append(p) }
+        }
         #endif
         problems = issuesSeen
+        #if os(macOS)
         lastRefresh = Date()
+        #else
+        if answered { lastRefresh = Date() }                 // the widget's "updated" is the last time the Mac answered
+        // nothing has answered since launch (the Mac asleep, away, or its token rotated): the widget keeps the last snapshot
+        // the Mac's answers made, rather than empty counts stamped "now"
+        guard answered || lastRefresh != nil else { return }
+        #endif
         publishSnapshot()
     }
 
@@ -146,7 +181,7 @@ public final class OracleStore: ObservableObject {
         let snap = OracleSnapshot(name: config.name, colorHex: config.colorHex, symbol: config.symbol,
                                   working: acts.filter { $0.status == "working" }.count,
                                   panes: acts.count, prs: prs.count, issues: issues.count, inbox: inbox.count,
-                                  topPR: prs.first.map { "#\($0.number) \($0.title)" }, updated: Date(),
+                                  topPR: prs.first.map { "#\($0.number) \($0.title)" }, updated: lastRefresh ?? Date(),   // the last refresh that got answers
                                   needsYou: acts.filter { $0.status == "blocked" || $0.status == "done" }.count,
                                   activity: Array(acts.prefix(4)),
                                   prTitles: prs.prefix(3).map { "#\($0.number) \($0.title)" },
@@ -154,10 +189,11 @@ public final class OracleStore: ObservableObject {
                                   latestHandoff: handoff,
                                   inboxUnread: unread.count,
                                   unreadTitles: inbox.filter { unread.contains($0.path) }.prefix(3).map { OracleStore.prettify($0.name) })
-        SnapshotStore.write(snap, config: config)
-        #if canImport(WidgetKit)
-        WidgetCenter.shared.reloadAllTimelines()
-        #endif
+        SnapshotStore.write(snap, config: config) {   // off the main thread; reload once it's on disk
+            #if canImport(WidgetKit)
+            WidgetCenter.shared.reloadAllTimelines()
+            #endif
+        }
     }
 
     /// "2026-10-05_13-47_fido-key-blocked-on-hardware.md" → "fido key blocked on hardware"
@@ -188,6 +224,14 @@ public final class OracleStore: ObservableObject {
     private func saveReadState() { if let d = try? JSONEncoder().encode(readState) { try? d.write(to: readURL, options: .atomic) } }
     private func recomputeUnread() {
         if readState.read.isEmpty && !FileManager.default.fileExists(atPath: readURL.path) { loadReadState() }
+        #if !os(macOS)
+        // Paired: the Mac's own flags (its baseline, its reads), less what this phone has opened since — the same set the
+        // Inbox page, the sidebar badge and the widget count
+        if let mac = companionInbox {
+            unread = Set(mac.items.filter { $0.unread && !hasRead(path: $0.path, modified: $0.modified) }.map(\.path))
+            return
+        }
+        #endif
         let forced = readState.forcedUnread ?? []
         unread = Set(inbox.filter { item in
             forced.contains(item.path)
@@ -195,6 +239,8 @@ public final class OracleStore: ObservableObject {
         }.map(\.path))
     }
     public func isUnread(_ item: InboxItem) -> Bool { unread.contains(item.path) }
+    /// Opened here since it last changed.
+    public func hasRead(path: String, modified: Date) -> Bool { readState.read[path].map { $0 >= modified } ?? false }
     public func markRead(_ item: InboxItem) {
         readState.read[item.path] = item.modified; readState.forcedUnread?.remove(item.path)
         saveReadState(); recomputeUnread(); publishSnapshot()
@@ -424,6 +470,102 @@ public final class OracleStore: ObservableObject {
     }
     #else
     @discardableResult public func receive(_ urls: [URL]) -> Int { 0 }
+
+    // MARK: the paired Mac (issue #46)
+    private var companionWatch: AnyCancellable?
+    private var launchPairTried = false
+    private var launchPairProblem: String?
+    private var companionMac: CompanionAPI.Pairing?     // the Mac that prs, issues, activity and inbox came from; nil = GitHub or none yet
+
+    /// Paired with `mac` (it has answered hello): it answers work, GitHub and inbox at once. What it fails to answer keeps
+    /// its last good value (a tunnel must not blank the pages) and comes back as a problem with the Mac's own fix.
+    /// nil when the phone let go of this Mac while it was answering — its answers are not the phone's to show any more.
+    private func loadCompanion(_ mac: CompanionAPI.Pairing) async -> (seen: [String], answered: Bool)? {
+        let client = CompanionClient.shared
+        async let w = ask("work") { await client.work() }
+        async let g = ask("github") { await client.github() }
+        async let i = ask("inbox") { await client.inbox() }
+        let (work, workProblem) = await w
+        let (gh, ghProblem) = await g
+        let (inbox, inboxProblem) = await i
+        guard client.pairing == mac else { return nil }
+        if let other = companionMac, other != mac { forgetCompanion() }   // another Mac's pages must not fill gaps in this one's
+        var seen = work?.problems ?? []                            // what the Mac itself could not read
+        for p in [workProblem, ghProblem, inboxProblem, client.problem] { if let p, !seen.contains(p) { seen.append(p) } }
+        if let work {
+            companionWork = work
+            activity = work.activity.map { OracleSnapshot.Activity(title: $0.title, status: $0.status, place: $0.place, since: $0.since, cwd: $0.cwd) }
+        }
+        if let gh { prs = gh.prs.map(OracleStore.ghItem); issues = gh.issues.map(OracleStore.ghItem) }
+        // the Mac's worktrees as the pages already know them, so an issue card on the phone says whether it has one
+        if let work { self.work = work.items.map { OracleStore.workItem($0, prs: prs) } }
+        if let inbox {
+            companionInbox = inbox
+            self.inbox = inbox.items.map { InboxItem(path: $0.path, name: $0.name, folder: $0.folder, modified: $0.modified) }
+            recomputeUnread()                                      // the Mac's flags, less what this phone opened
+        }
+        companionMac = mac
+        return (seen, work != nil || gh != nil || inbox != nil)
+    }
+
+    /// One call to the Mac and, if it failed, the problem it left. `client.problem` is a single slot that the next
+    /// success clears, so it is read the moment the call returns — never after the other two calls have had their say.
+    /// `@MainActor` on the closure keeps the call and the read in one stretch: a plain `() async -> T?` is a nonisolated
+    /// thunk, and the hop back to the main actor is a new job that another call's success can run before.
+    private func ask<T: Sendable>(_ what: String, _ call: @MainActor () async -> T?) async -> (T?, String?) {
+        let answer = await call()
+        guard answer == nil else { return (answer, nil) }
+        return (nil, CompanionClient.shared.problem ?? "the Mac did not answer \(what) — Settings → Companion → Check")
+    }
+
+    /// Unpaired (Unpair was just tapped) or paired with another Mac: nothing the old Mac said stays on screen or in the widget.
+    private func forgetCompanion() {
+        guard companionMac != nil else { return }
+        companionMac = nil
+        companionWork = nil; companionInbox = nil
+        activity = []; prs = []; issues = []; inbox = []; work = []
+        recomputeUnread()
+    }
+
+    /// The Mac's worktree as the pages already know it: its issue and branch tie it to a card, its panes give its state.
+    /// The resume command stays the Mac's (companionWork has it); the phone does not rebuild it.
+    nonisolated private static func workItem(_ w: CompanionAPI.WorkItem, prs: [GHItem]) -> WorkItem {
+        let maw = ["resumable": "resumable", "cold": "cold"][w.state] ?? "open"
+        return WorkItem(path: w.path, isMain: w.isMain, slug: w.slug ?? w.folder, folder: w.folder, branch: w.branch, born: w.born, issue: w.issue,
+                        pr: w.prNumber.flatMap { n in prs.first { $0.number == n } }, mawState: maw,
+                        panes: w.panes.map { OracleSnapshot.Activity(title: $0.title, status: $0.status, place: $0.place, since: $0.since, cwd: $0.cwd) },
+                        resumeId: nil)
+    }
+
+    /// The Mac's PR or issue as the pages already know it: a PR links to a worktree by its branch or by the issues it closes.
+    nonisolated private static func ghItem(_ e: CompanionAPI.GHEntry) -> GHItem {
+        var g = GHItem(number: e.number, title: e.title, author: e.author, updatedAt: e.updatedAt, url: e.url, isDraft: e.isDraft, branch: e.branch)
+        g.closes = e.closes ?? []
+        return g
+    }
+
+    /// `-companionPair <link>` on the launch line pairs before the first refresh (the simulator checks start this way).
+    private func pairFromLaunchArgument() async {
+        guard !launchPairTried, let raw = UserDefaults.standard.string(forKey: "companionPair") else { return }
+        launchPairTried = true
+        guard let found = CompanionPairLink.find(in: raw) else {
+            launchPairProblem = "-companionPair is not a pairing link — copy it on the Mac: \(config.name) → Settings → Companion → Copy link"
+            return
+        }
+        if let why = CompanionPairLink.mismatch(found, oracle: config) { launchPairProblem = why; return }   // the sheet's check too
+        if !(await CompanionClient.shared.pair(found.pairing)) { launchPairProblem = CompanionClient.shared.problem }
+    }
+
+    /// A new pairing, an Unpair, a refused pairing put back, a hello that arrived: refresh at once, so the pages do not wait
+    /// for the next 20 s tick to fill or empty. Every hello counts, equal or not — the Mac that answers a re-pair (a rotated
+    /// token) sends the hello it sent before — and an Unpair with the Mac unreachable changes the pairing, never the hello.
+    private func watchCompanion() {
+        guard companionWatch == nil else { return }
+        let client = CompanionClient.shared
+        companionWatch = client.$pairing.removeDuplicates().dropFirst().map { _ in () }
+            .merge(with: client.$hello.dropFirst().map { _ in () })
+            .sink { [weak self] _ in Task { @MainActor in await self?.refresh() } }
+    }
 
     private func loadGitHubREST() async -> ([GHItem], [GHItem])? {
         guard let token = TokenStore.read(), !token.isEmpty else { return nil }

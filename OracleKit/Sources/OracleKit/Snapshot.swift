@@ -79,18 +79,21 @@ public enum SnapshotStore {
             .appendingPathComponent("Library/Containers/\(widgetId)/Data/Library/Application Support/OracleKit/\(fileName)")
     }
 
-    public static func write(_ s: OracleSnapshot, config: OracleConfig) {
+    /// Written off the main thread; `then` runs on the main thread once the files are on disk, so a widget
+    /// reload reads the new snapshot. A write into another app's container can block for a minute: a dev
+    /// build that macOS kept out of the widget's container held the main thread ~72 s on every refresh,
+    /// and the companion server with it (#46).
+    public static func write(_ s: OracleSnapshot, config: OracleConfig, then done: (@MainActor @Sendable () -> Void)? = nil) {
         let e = JSONEncoder(); e.dateEncodingStrategy = .iso8601
         guard let data = try? e.encode(s) else { return }
-        var targets: [URL] = []
-        if let g = groupURL(config.widgetGroup) { targets.append(g) }
-        #if os(macOS)
-        targets.append(widgetContainerURL(config.widgetBundleId))
-        #endif
-        for u in targets {
-            try? FileManager.default.createDirectory(at: u.deletingLastPathComponent(), withIntermediateDirectories: true)
-            do { try data.write(to: u, options: .atomic) }
-            catch { widgetLog.error("app write failed \(u.path, privacy: .public): \(error.localizedDescription, privacy: .public)") }
+        let group = config.widgetGroup, widget = config.widgetBundleId
+        SnapshotWriter.shared.submit(data, then: done) {
+            var targets: [URL] = []
+            if let g = groupURL(group) { targets.append(g) }
+            #if os(macOS)
+            targets.append(widgetContainerURL(widget))
+            #endif
+            return targets
         }
     }
 
@@ -120,4 +123,65 @@ public enum SnapshotStore {
         widgetLog.notice("widget \(stage, privacy: .public) found=\(found != nil, privacy: .public) tried=\(String(describing: tried), privacy: .public)")
         return found
     }
+}
+
+/// The app's snapshot writes: one at a time, on their own queue. A snapshot that arrives while one is
+/// being written replaces any still waiting, so a slow write never builds a backlog. A target that fails
+/// is skipped for a while (1 min, doubling to 30 min, reset by a success): a dev build that macOS keeps
+/// out of the widget's container fails the same way on every refresh.
+final class SnapshotWriter: @unchecked Sendable {
+    static let shared = SnapshotWriter()
+    private let queue = DispatchQueue(label: "co.laris.oracle.kit.snapshot", qos: .utility)
+    private let lock = NSLock()
+    private var waiting: (data: Data, targets: () -> [URL], done: (@MainActor @Sendable () -> Void)?)?
+    private var busy = false
+    /// Failures in a row and when to try again, per target. Only the queue touches it.
+    private(set) var failing: [URL: (count: Int, retry: Date)] = [:]
+
+    func submit(_ data: Data, then done: (@MainActor @Sendable () -> Void)?, targets: @escaping () -> [URL]) {
+        lock.lock()
+        waiting = (data, targets, done)
+        let start = !busy
+        busy = true
+        lock.unlock()
+        if start { queue.async { self.drain() } }
+    }
+
+    private func drain() {
+        while true {
+            lock.lock()
+            guard let job = waiting else { busy = false; lock.unlock(); return }
+            waiting = nil
+            lock.unlock()
+            for u in job.targets() where (failing[u]?.retry ?? .distantPast) <= Date() {
+                let started = Date()
+                guard let why = Self.write(job.data, to: u) else { failing[u] = nil; continue }
+                let n = (failing[u]?.count ?? 0) + 1, wait = Self.backoff(n)
+                failing[u] = (n, Date().addingTimeInterval(wait))
+                widgetLog.error("app write failed \(u.path, privacy: .public): \(why, privacy: .public) after \(String(format: "%.1f", Date().timeIntervalSince(started)), privacy: .public) s; next try in \(Int(wait)) s\(Self.hint, privacy: .public)")
+            }
+            if let done = job.done { Task { @MainActor in done() } }
+        }
+    }
+
+    static func backoff(_ failures: Int) -> TimeInterval { min(1800, 60 * pow(2, Double(max(0, failures - 1)))) }
+
+    /// Nil when written; otherwise the error's domain and code. Not error.localizedDescription: it looks
+    /// up the folder's display name, and inside a protected container that lookup blocked for over a minute.
+    static func write(_ data: Data, to u: URL) -> String? {
+        try? FileManager.default.createDirectory(at: u.deletingLastPathComponent(), withIntermediateDirectories: true)
+        do { try data.write(to: u, options: .atomic); return nil }
+        catch {
+            let ns = error as NSError
+            let under = ns.userInfo[NSUnderlyingErrorKey] as? NSError
+            return "\(ns.domain) \(ns.code)" + (under.map { " (\($0.domain) \($0.code))" } ?? "")
+        }
+    }
+
+    #if os(macOS)
+    /// The usual cause: this build is not signed by the team that signs the widget.
+    static let hint = ". Same team as the widget? codesign -dv --verbose=2 \"\(Bundle.main.bundlePath)\" 2>&1 | grep -E 'TeamIdentifier|Authority'"
+    #else
+    static let hint = ""
+    #endif
 }

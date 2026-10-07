@@ -748,7 +748,6 @@ struct HubMenu: View {
         Button("Quit ARRA Oracles") { NSApp.terminate(nil) }
     }
 }
-#endif
 
 // MARK: - Search issues & PRs by meaning — embedded on the ANE (EmbeddingGemma 2 via Chippy :11435)
 
@@ -1249,3 +1248,4 @@ struct EnginePicker: View {
 private extension String {
     var nilIfEmpty: String? { isEmpty ? nil : self }
 }
+#endif
