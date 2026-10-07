@@ -412,6 +412,8 @@ final class MapScene: ObservableObject {
     private var layout: MapLayout?
     private var content: RealityViewCameraContent?
     private var frames = 0
+    private var pendingZoom: Float?
+    private var builtAt = Date()
     private var last = Date()
     private var lastPick = Date.distantPast
     private var scroll: Any?
@@ -434,8 +436,9 @@ final class MapScene: ObservableObject {
     func build(into content: inout RealityViewCameraContent, layout: MapLayout, docs: [IndexDoc]) {
         self.content = content; self.layout = layout
         root = Entity()
-        let zoom = UserDefaults.standard.double(forKey: "mapZoom")   // -mapZoom 2.5 (tests: the leaves' names)
-        root.scale = SIMD3(repeating: Self.scale * Float(zoom > 0 ? zoom : 1))
+        root.scale = SIMD3(repeating: Self.scale)
+        let zoom = UserDefaults.standard.double(forKey: "mapZoom")   // -mapZoom 2.4 (tests: the leaves' names), once the camera has framed
+        pendingZoom = zoom > 0 ? Float(zoom) : nil
         // outliers pulled onto a shell at 0.8 so the camera frames the cloud, not three strays (picking uses the same)
         xyz = layout.xyz.map { p in let r = simd_length(p); return r > 0.8 ? p * (0.8 / r) : p }
         let byId = Dictionary(docs.enumerated().map { ($1.id, $0) }, uniquingKeysWith: { a, _ in a })
@@ -455,13 +458,19 @@ final class MapScene: ObservableObject {
         }
         web()
         content.add(root)
-        content.cameraTarget = root
+        // the camera frames its target's bounds as a sphere around their box, so the whole root (the web's box, a few
+        // outliers at the 0.8 shell) left half the points in a dot in the middle; it frames the 90 % instead
+        let r90 = xyz.map { simd_length($0) }.sorted().dropFirst(xyz.count * 9 / 10).first ?? 0.5
+        var clear = UnlitMaterial(color: .clear); clear.blending = .transparent(opacity: .init(floatLiteral: 0))
+        let frameEntity = ModelEntity(mesh: .generateSphere(radius: max(0.05, r90)), materials: [clear])
+        root.addChild(frameEntity)
+        content.cameraTarget = frameEntity
         if #available(macOS 27, *) {
             root.components.set(BloomComponent(scope: .unbounded))
             var o = BloomOptionsComponent(); o.strength = 1.2; o.threshold = 1.0; o.blurRadius = 10
             root.components.set(o)
         }
-        built += 1; shown = xyz.count; needsRebuild = false
+        built += 1; shown = xyz.count; needsRebuild = false; builtAt = Date()
         HubLog.shared.add(.info, "map: \(xyz.count) points in \(chunks.count) chunks")
     }
 
@@ -698,6 +707,7 @@ final class MapScene: ObservableObject {
     func frame() {
         frames += 1
         let now = Date()
+        if let z = pendingZoom, now.timeIntervalSince(builtAt) > 0.6 { root.scale = SIMD3(repeating: Self.scale * z); pendingZoom = nil }
         if now.timeIntervalSince(last) >= 1 { fps = Double(frames) / now.timeIntervalSince(last); frames = 0; last = now }
         if let t = target {   // turn the map so the lit centroid faces the camera (a slow ease), then stop
             let want = simd_quatf(from: simd_normalize(t == .zero ? SIMD3(0, 0, 1) : t), to: SIMD3(0, 0, 1))
