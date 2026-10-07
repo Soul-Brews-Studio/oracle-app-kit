@@ -1148,7 +1148,7 @@ public struct OracleScene: Scene {
     public var body: some Scene {
         #if os(macOS)
         // One window per oracle app: a Dock drop or a restored state must never open a second one.
-        Window(store.config.name, id: "main") { OracleRootView(store: store, menuBar: $menuBar) }
+        Window("\(store.config.name) Oracle", id: "main") { OracleRootView(store: store, menuBar: $menuBar) }
             .defaultSize(width: 980, height: 640)
         // The oracle's own status tray, off until switched on. The binding writes on change only — the
         // status item writes the same value back on every update, and an @AppStorage write re-renders forever.
@@ -1157,7 +1157,7 @@ public struct OracleScene: Scene {
             OracleMenu(store: store, menuBar: $menuBar)
         }
         #else
-        WindowGroup(store.config.name) { OracleRootView(store: store, menuBar: $menuBar) }
+        WindowGroup("\(store.config.name) Oracle") { OracleRootView(store: store, menuBar: $menuBar) }
         #endif
     }
 }
