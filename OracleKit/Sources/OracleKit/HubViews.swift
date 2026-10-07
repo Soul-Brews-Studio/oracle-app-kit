@@ -38,6 +38,16 @@ struct HubRootView: View {
         ?? ["search": HubPick.search, "trace": .trace, "map": .map, "settings": .settings][UserDefaults.standard.string(forKey: "hubPage") ?? ""] ?? .all   // -hubPage search|trace|map|settings
     @ObservedObject private var index = GHIndex.shared
     @State private var focusTick = 0
+    // Pages visited, like a browser's (Nat: Discord's mouse 4 / 5): back and forward, and the move in flight so
+    // going back is not itself recorded as a visit
+    @State private var back: [HubPick] = []
+    @State private var forward: [HubPick] = []
+    @State private var travelling = false
+    @State private var mouse: Any?
+
+    private func goBack() { guard let p = back.popLast() else { return }; forward.append(pick); travelling = true; pick = p }
+    private func goForward() { guard let p = forward.popLast() else { return }; back.append(pick); travelling = true; pick = p }
+
     var body: some View {
         NavigationSplitView {
             HubSidebar(store: store, pick: $pick, menuBar: $menuBar)
@@ -53,6 +63,34 @@ struct HubRootView: View {
             }
         }
         .tint(HubStyle.accent)
+        .onChange(of: pick) { old, _ in
+            if travelling { travelling = false } else { back.append(old); forward = []; if back.count > 50 { back.removeFirst() } }
+        }
+        .toolbar {
+            ToolbarItemGroup(placement: .navigation) {
+                Button { goBack() } label: { Image(systemName: "chevron.left") }.disabled(back.isEmpty)
+                    .help("Back — mouse button 4, ⌘[")
+                Button { goForward() } label: { Image(systemName: "chevron.right") }.disabled(forward.isEmpty)
+                    .help("Forward — mouse button 5, ⌘]")
+            }
+        }
+        .background {   // ⌘[ ⌘]: back and forward
+            Button("") { goBack() }.keyboardShortcut("[", modifiers: .command).opacity(0).allowsHitTesting(false)
+            Button("") { goForward() }.keyboardShortcut("]", modifiers: .command).opacity(0).allowsHitTesting(false)
+        }
+        .onAppear {
+            // mouse 4 / 5 (buttonNumber 3 / 4): a LOCAL monitor — only the hub's own windows, no Accessibility or
+            // Input Monitoring permission
+            guard mouse == nil else { return }
+            mouse = NSEvent.addLocalMonitorForEvents(matching: .otherMouseDown) { e in
+                HubLog.shared.add(.info, "mouse: button \(e.buttonNumber + 1) (buttonNumber \(e.buttonNumber))\(e.buttonNumber == 3 ? " → back" : e.buttonNumber == 4 ? " → forward" : "")")
+                switch e.buttonNumber {
+                case 3: goBack(); return nil
+                case 4: goForward(); return nil
+                default: return e
+                }
+            }
+        }
         .background {   // ⌘K: search, from anywhere in the hub
             Button("") { pick = .search; focusTick += 1 }.keyboardShortcut("k", modifiers: .command).opacity(0).allowsHitTesting(false)
         }
