@@ -12,12 +12,23 @@ final class BundledANE: LocalEmbedding, @unchecked Sendable {
         self.engine = engine
         modelTag = assets.manifest.model_tag
         space = assets.manifest.vector_space_identity
-        label = "bundled CoreML/ANE · in-process · \(engine.workerCount) workers"
+        let d = engine.devices.map(\.rawValue)
+        label = "bundled CoreML · in-process · " + Device.allCases.compactMap { dev in
+            let n = d.filter { $0 == dev.rawValue }.count
+            return n == 0 ? nil : n == 1 ? dev.rawValue : "\(dev.rawValue) × \(n)"
+        }.joined(separator: " + ")
     }
 
     /// Loads the model the app carries and installs it as `GHIndex.loaded` (before publishing "finished", so whoever
     /// reacts to "finished" finds it). A build without the model is not an error: the HTTP service embeds instead.
-    static func load() async {
+    /// Where the workers run: "ane" (both on the Neural Engine), "gpu" (both on the GPU), "both" (one each).
+    /// Any GPU use means two GPU workers (Nat): GPU = GPU × 2, Both = GPU × 2 + one ANE worker.
+    static func devicesFor(_ mode: String) -> [Device] { mode == "gpu" ? [.gpu, .gpu] : mode == "both" ? [.gpu, .gpu, .ane] : [.ane, .ane] }
+    /// Only the newest load installs itself, when the engine picker changes again while one is loading.
+    @MainActor private static var generation = 0
+
+    static func load(mode: String = "ane") async {
+        let mine = await MainActor.run { generation += 1; return generation }
         guard let root = Bundle.main.resourceURL?.appendingPathComponent("ANEModel/embeddinggemma2-w16"),
               FileManager.default.fileExists(atPath: root.appendingPathComponent("manifest.json").path) else {
             await MainActor.run {
@@ -29,12 +40,12 @@ final class BundledANE: LocalEmbedding, @unchecked Sendable {
         let t0 = Date()
         do {
             let assets = try Assets(root: staged(root, identity: try Assets(root: root).manifest.vector_space_identity))
-            let workers = 2
+            let devices = devicesFor(mode)
             await MainActor.run {
-                ModelLoad.shared.begin(buckets: assets.manifest.buckets, workers: workers)
-                HubLog.shared.add(.load, "loading \(assets.manifest.model_tag): \(assets.manifest.buckets.count) buckets × \(workers) workers, CPU for \(assets.manifest.cpu_buckets ?? [])")
+                ModelLoad.shared.begin(buckets: assets.manifest.buckets, workers: devices.count)
+                HubLog.shared.add(.load, "loading \(assets.manifest.model_tag) on \(devices.map(\.rawValue).joined(separator: " + ")): \(assets.manifest.buckets.count) buckets per worker, CPU for \(assets.manifest.cpu_buckets ?? [])")
             }
-            let engine = try await Engine(assets: assets, workers: workers) { step in
+            let engine = try await Engine(assets: assets, devices: devices) { step in
                 await MainActor.run {
                     ModelLoad.shared.record(done: step.done, total: step.total, worker: step.worker, bucket: step.bucket,
                                             device: step.device, seconds: step.seconds)
@@ -42,12 +53,15 @@ final class BundledANE: LocalEmbedding, @unchecked Sendable {
             }
             let secs = Date().timeIntervalSince(t0)
             let ane = BundledANE(engine: engine, assets: assets)
-            await MainActor.run {
+            let current = await MainActor.run { () -> Bool in
+                guard mine == generation else { return false }   // the picker moved on: a newer load installs itself
                 GHIndex.loaded = ane
                 ModelLoad.shared.finish()
-                HubLog.shared.add(.load, String(format: "ready in %.1f s · warm-up call %.0f ms · searches and batches now run in-process on the ANE",
-                                                secs, engine.warmupSeconds * 1000))
+                HubLog.shared.add(.load, String(format: "ready in %.1f s · warm-up call %.0f ms · searches and batches now run in-process: %@",
+                                                secs, engine.warmupSeconds * 1000, ane.label))
+                return true
             }
+            if current { await GHIndex.shared.checkParity() }
         } catch {
             NSLog("ARRA Oracles: bundled ANE model did not load: \(error)")
             await MainActor.run {
@@ -100,6 +114,7 @@ final class BundledANE: LocalEmbedding, @unchecked Sendable {
         a.texts = s.texts; a.tokens = s.tokens; a.requests = s.requests; a.calls = s.calls
         a.textsPerSecond = s.textsPerSecond; a.tokensPerSecond = s.tokensPerSecond
         a.busy = s.busyWorkers
+        a.devices = engine.devices.map(\.rawValue)
         a.stageSeconds = s.stageSeconds; a.predictSeconds = s.predictSeconds; a.poolSeconds = s.poolSeconds
         a.last = s.lastRequests.map { EmbedActivity.Call(id: $0.id, at: $0.at, texts: $0.texts, tokens: $0.tokens, ms: $0.milliseconds) }
         return a

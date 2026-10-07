@@ -493,6 +493,7 @@ struct IndexSearchView: View {
                         EngineRow(name: "Engine", value: index.engine.map { $0.ok ? ($0.kind.hasPrefix("bundled") ? $0.kind : "\($0.kind) · 127.0.0.1:11435 · \($0.workers) workers") : "not answering" } ?? "checking…")
                         if load.loading || load.failed != nil || load.absent { ModelLoadRow(load: load, fallback: index.engine?.ok == true && index.engine?.kind.hasPrefix("bundled") == false) }
                         if index.engine?.kind.hasPrefix("bundled") == true { NeuralEngineRow() }
+                        if !load.absent { EnginePicker(load: load) }
                         EngineRow(name: "Model", value: GHIndex.model)
                         EngineRow(name: "Model check", value: index.engine.map { $0.ok && $0.models.contains(GHIndex.model) ? "✓ served" : "✗ not served — nothing embeds this model yet: see the debug log" } ?? "—",
                                   good: index.engine.map { $0.ok && $0.models.contains(GHIndex.model) })
@@ -811,17 +812,18 @@ struct NeuralEngineRow: View {
             let live = a.textsPerSecond > 0 || a.busy.contains(true)
             VStack(alignment: .leading, spacing: 4) {
                 HStack(alignment: .center, spacing: 10) {
-                    Text("Neural Engine").foregroundStyle(.secondary).frame(width: 110, alignment: .leading)
+                    Text(a.devices.allSatisfy { $0 == "ANE" } ? "Neural Engine" : "Workers").foregroundStyle(.secondary).frame(width: 110, alignment: .leading)
                     HStack(spacing: 4) {
                         ForEach(Array(a.busy.enumerated()), id: \.offset) { i, on in
+                            let tint: Color = i < a.devices.count && a.devices[i] == "GPU" ? .orange : .cyan
                             RoundedRectangle(cornerRadius: 3, style: .continuous)
-                                .fill(on ? Color.cyan : Color.primary.opacity(0.12))
-                                .frame(width: 18, height: 13)
-                                .overlay(Text("\(i + 1)").font(.system(size: 8, weight: .bold, design: .rounded)).foregroundStyle(on ? Color.black : .secondary))
-                                .shadow(color: on ? Color.cyan : .clear, radius: on ? 6 : 0)
+                                .fill(on ? tint : Color.primary.opacity(0.12))
+                                .frame(width: 30, height: 13)
+                                .overlay(Text(i < a.devices.count ? a.devices[i] : "\(i + 1)").font(.system(size: 8, weight: .bold, design: .rounded)).foregroundStyle(on ? Color.black : tint.opacity(0.8)))
+                                .shadow(color: on ? tint : .clear, radius: on ? 6 : 0)
                         }
                     }
-                    .help("ANE workers in this app: lit while that worker's model runs")
+                    .help("This app's workers and where each runs (ANE or GPU): lit while its model runs")
                     if live {
                         Text("\(short(a.textsPerSecond)) texts/s · \(short(a.tokensPerSecond)) tok/s").monospacedDigit().foregroundStyle(Color.cyan)
                     } else {
@@ -912,6 +914,31 @@ struct DebugLogView: View {
         case .search: return HubStyle.accent
         case .info: return .secondary
         case .error: return .orange
+        }
+    }
+}
+
+/// Where the bundled model runs: both workers on the Neural Engine (low power), both on the GPU, or one on each
+/// (fastest). Saved per Mac; a change reloads the model while the running engine keeps answering. The GPU's first
+/// load compiles too, then comes from the cache like the ANE's.
+struct EnginePicker: View {
+    @ObservedObject var load: ModelLoad
+    @AppStorage("hub.engineMode") private var mode = "ane"
+    var body: some View {
+        HStack(alignment: .center) {
+            Text("Run on").foregroundStyle(.secondary).frame(width: 110, alignment: .leading)
+            Picker("", selection: $mode) {
+                Text("ANE").tag("ane"); Text("GPU").tag("gpu"); Text("Both").tag("both")
+            }
+            .pickerStyle(.segmented).labelsHidden().frame(width: 210)
+            .help("ANE: two Neural Engine workers, low power. GPU: two GPU workers, ~5× faster. Both: two GPU workers plus one ANE worker.")
+            if load.loading { ProgressView().controlSize(.small) }
+            Spacer(minLength: 0)
+        }
+        .font(.callout).padding(.vertical, 3)
+        .onChange(of: mode) {
+            HubLog.shared.add(.load, "engine picker: \(mode.uppercased()) — loading the model there; the current engine answers meanwhile")
+            load.reload?(mode)
         }
     }
 }
