@@ -590,6 +590,7 @@ struct IndexSearchView: View {
             if action == "batch" { await index.index(repos: slugs, vaults: vaults, why: "-hubAction batch (test)") } else { await index.reembedAll(repos: slugs, vaults: vaults) }
         }
         .task {
+            GHIndex.active = index
             await index.checkEngine()
             if !Self.launchQueryDone, let q = UserDefaults.standard.string(forKey: "hubQuery"), !q.isEmpty, query.isEmpty {   // -hubQuery "…", once
                 Self.launchQueryDone = true
@@ -608,19 +609,26 @@ struct IndexSearchView: View {
 struct HitCard: View {
     let hit: IndexHit
     var rank = 0
+    var oracleName = "oracle"
     @State private var hover = false
+    @State private var copied = false
     var body: some View {
         let d = hit.doc
-        Button { if let u = URL(string: d.url) { NSWorkspace.shared.open(u) } } label: {
+        Button {
+            if d.kind == "history" {   // a session line: copy the command that reopens the session
+                NSPasteboard.general.clearContents(); NSPasteboard.general.setString(d.url, forType: .string)
+                copied = true; Task { try? await Task.sleep(for: .seconds(1.5)); copied = false }
+            } else if let u = URL(string: d.url) { NSWorkspace.shared.open(u) }
+        } label: {
             VStack(alignment: .leading, spacing: 5) {
                 HStack(spacing: 8) {
                     Text(String(format: "%.0f%%", max(0, hit.score) * 100)).font(.caption.monospacedDigit().weight(.semibold))
                         .foregroundStyle(HubStyle.accent).frame(width: 40, alignment: .leading)
-                    Text(d.kind == "pr" ? "PR" : d.kind == "note" ? "ψ note" : "issue").font(.caption2.weight(.semibold))
+                    Text(d.kind == "pr" ? "PR" : d.kind == "note" ? "ψ note" : d.kind == "history" ? (d.state == "user" ? "you" : oracleName) : "issue").font(.caption2.weight(.semibold))
                         .padding(.horizontal, 6).padding(.vertical, 2)
                         .background(Capsule().fill(Color.primary.opacity(0.08)))
-                    Text(d.kind == "note" ? String(d.updated.prefix(10)) : d.state.lowercased()).font(.caption2).foregroundStyle(d.state == "OPEN" ? Color.green : Color.secondary)
-                    Text(d.kind == "note" ? "\(d.repo) · ψ/\(d.state)" : "\(d.repo)#\(d.number)").font(.caption.monospaced()).foregroundStyle(.secondary)
+                    Text(d.kind == "note" || d.kind == "history" ? String(d.updated.prefix(10)) : d.state.lowercased()).font(.caption2).foregroundStyle(d.state == "OPEN" ? Color.green : Color.secondary)
+                    Text(d.kind == "note" ? "\(d.repo) · ψ/\(d.state)" : d.kind == "history" ? (copied ? "resume command copied ✓" : "session · \(String(d.updated.dropFirst(11).prefix(5)))") : "\(d.repo)#\(d.number)").font(.caption.monospaced()).foregroundStyle(.secondary)
                     Spacer()
                 }
                 Text(d.title).font(.custom("Avenir Next", size: 15).weight(.medium)).lineLimit(2)
@@ -645,7 +653,7 @@ struct HitCard: View {
         }
         .buttonStyle(.plain).handCursor()
         .onHover { hover = $0 }
-        .help(d.url)
+        .help(d.kind == "history" ? "Click to copy:  " + d.url : d.url)
     }
 }
 
@@ -655,6 +663,7 @@ struct CoverageRing: View {
     let ready: Int, pending: Int, running: Bool
     var progress: Double? = nil
     var phase = "idle"
+    var readingLabel = "READING REPOS"
     @State private var spin = false
     @State private var pulse = false
     var body: some View {
@@ -686,7 +695,7 @@ struct CoverageRing: View {
                     Text(ready == 0 && pending == 0 && !running ? "—" : String(format: "%.0f%%", shown * 100))
                         .font(.system(size: 38, weight: .heavy, design: .rounded)).monospacedDigit()
                         .contentTransition(.numericText()).animation(.easeOut, value: Int(shown * 100))
-                    Text(running ? (phase == "reading" ? "READING REPOS" : "EMBEDDING ON ANE") : (ready == 0 ? "AWAITING FIRST BATCH" : "COVERAGE"))
+                    Text(running ? (phase == "reading" ? readingLabel : "EMBEDDING") : (ready == 0 ? "AWAITING FIRST BATCH" : "COVERAGE"))
                         .font(.caption2.weight(.semibold)).tracking(1.8).foregroundStyle(running ? Color.cyan : .secondary)
                         .opacity(running && pulse ? 0.45 : 1)
                         .animation(running ? .easeInOut(duration: 0.8).repeatForever() : .default, value: pulse)
@@ -720,7 +729,7 @@ struct LiveTelemetry: View {
                 }
                 Spacer()
                 if index.phase == "reading" {
-                    Text("repo \(index.repoDone + 1)/\(index.repoTotal) · \(index.currentRepo)").font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                    Text(index.currentRepo.isEmpty ? "\(grouped(index.repoDone))/\(grouped(index.repoTotal)) transcripts" : "repo \(index.repoDone + 1)/\(index.repoTotal) · \(index.currentRepo)").font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
                 } else if index.textTotal > 0 {
                     Text("\(index.textDone)/\(index.textTotal) texts").font(.caption.monospaced()).foregroundStyle(.secondary)
                 }

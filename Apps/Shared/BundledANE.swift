@@ -1,9 +1,12 @@
+#if os(macOS)
 import Foundation
 import OracleKit
 import ANEEmbedCore
 
-/// The model the hub carries — Resources/ANEModel/embeddinggemma2-w16, put there by the build — run in-process on
-/// CoreML + the Neural Engine. Nothing to install, no server (Nat: "bundle it in the app, self contained").
+/// The EmbeddingGemma 2 model, run in-process on Core ML (Neural Engine and/or GPU). Nothing to install, no server
+/// (Nat: "bundle it in the app, self contained"). The hub carries it in Resources/ANEModel and stages it into
+/// Application Support; the oracle apps (Neo, Pulse, Nexus — shared source, Apps/Shared) carry no copy and load
+/// that staged one, or the export it came from.
 final class BundledANE: LocalEmbedding, @unchecked Sendable {
     let label: String, modelTag: String, space: String
     private let engine: Engine
@@ -27,19 +30,44 @@ final class BundledANE: LocalEmbedding, @unchecked Sendable {
     /// Only the newest load installs itself, when the engine picker changes again while one is loading.
     @MainActor private static var generation = 0
 
+    /// Sets the loaders without loading — an oracle app loads the model when its Memory page first asks for it.
+    @MainActor static func installLazily() {
+        UserDefaults.standard.register(defaults: ["hub.engineMode": "gpu"])   // GPU x2: ~9 s first load, no 4-min ANE compile
+        ModelLoad.shared.reload = { mode in Task { await BundledANE.load(mode: mode) } }
+        ModelLoad.shared.retry = { Task { await BundledANE.load(mode: UserDefaults.standard.string(forKey: "hub.engineMode") ?? "gpu") } }
+    }
+
+    /// Where the model is: in this app's bundle (the hub; staged before loading), the copy the hub staged, or the
+    /// export in ~/Library/Application Support/ANEEmbed. Each must be complete: a manifest and every compiled bucket.
+    static func modelRoot() -> (url: URL, bundled: Bool)? {
+        let fm = FileManager.default
+        let support = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        func complete(_ u: URL) -> Bool {
+            guard let a = try? Assets(root: u) else { return false }
+            return a.manifest.buckets.allSatisfy { fm.fileExists(atPath: u.appendingPathComponent("compiled/\($0).mlmodelc").path) }
+        }
+        if let b = Bundle.main.resourceURL?.appendingPathComponent("ANEModel/embeddinggemma2-w16"), complete(b) { return (b, true) }
+        let staged = support.appendingPathComponent("ARRA Oracles/ANEModel")
+        for d in ((try? fm.contentsOfDirectory(at: staged, includingPropertiesForKeys: nil)) ?? []) where !d.lastPathComponent.hasPrefix(".") {
+            if complete(d) { return (d, false) }
+        }
+        let export = support.appendingPathComponent("ANEEmbed/embeddinggemma2-w16")
+        return complete(export) ? (export, false) : nil
+    }
+
     static func load(mode: String = "ane") async {
         let mine = await MainActor.run { generation += 1; return generation }
-        guard let root = Bundle.main.resourceURL?.appendingPathComponent("ANEModel/embeddinggemma2-w16"),
-              FileManager.default.fileExists(atPath: root.appendingPathComponent("manifest.json").path) else {
+        guard let found = modelRoot() else {
             await MainActor.run {
                 ModelLoad.shared.markAbsent()
-                HubLog.shared.add(.info, "this build carries no ANE model (Resources/ANEModel) — embedding goes through 127.0.0.1:11435")
+                HubLog.shared.add(.info, "no EmbeddingGemma 2 model on this Mac (the ARRA Oracles hub stages one) — embedding goes through 127.0.0.1:11435")
             }
             return
         }
+        let root = found.url
         let t0 = Date()
         do {
-            let assets = try Assets(root: staged(root, identity: try Assets(root: root).manifest.vector_space_identity))
+            let assets = try Assets(root: found.bundled ? staged(root, identity: try Assets(root: root).manifest.vector_space_identity) : root)
             let devices = devicesFor(mode)
             await MainActor.run {
                 ModelLoad.shared.begin(buckets: assets.manifest.buckets, workers: devices.count)
@@ -61,7 +89,7 @@ final class BundledANE: LocalEmbedding, @unchecked Sendable {
                                                 secs, engine.warmupSeconds * 1000, ane.label))
                 return true
             }
-            if current { await GHIndex.shared.checkParity() }
+            if current { await GHIndex.active?.checkParity() }
         } catch {
             NSLog("ARRA Oracles: bundled ANE model did not load: \(error)")
             await MainActor.run {
@@ -120,3 +148,4 @@ final class BundledANE: LocalEmbedding, @unchecked Sendable {
         return a
     }
 }
+#endif

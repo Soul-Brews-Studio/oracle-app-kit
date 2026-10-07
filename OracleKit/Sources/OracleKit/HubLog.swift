@@ -23,7 +23,8 @@ public final class HubLog: ObservableObject {
         let dir = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("Logs/ARRA Oracles", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir.appendingPathComponent("embed.log")
+        let app = Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String ?? "app"
+        return dir.appendingPathComponent(app == "ARRA Oracles" ? "embed.log" : "\(app).log")   // one file per app: Pulse.log, Neo.log…
     }()
 
     private lazy var handle: FileHandle? = Self.open()
