@@ -16,7 +16,9 @@ public struct OracleRootView: View {
     @State private var issueHot = false
     @State private var draft: IssueDraft?
     @State private var heyText = ""
-    @State private var openPane: String?      // a LIVE pane clicked in Work: its terminal shows in a 3rd column until ×
+    @State private var openPane: String?      // the ACTIVE pane in the drawer (message box + esc go to it)
+    @State private var openPanes: [String] = []   // every pane in the drawer, stacked, at most 3 (Nat: "open 2nd and 3rd pane")
+    @State private var escMonitor: Any?
     @AppStorage("oracle.drawerWidth") private var drawerWidth: Double = 560   // dragged wider or narrower, remembered
     // how much the drawer has grown the window — macOS saves the window frame on quit, so growth must be undone on launch
     @AppStorage("oracle.drawerGrown") private var drawerGrown: Double = 0
@@ -28,9 +30,13 @@ public struct OracleRootView: View {
 
     private var c: OracleConfig { store.config }
 
+    private func closePane(_ place: String) {
+        if place == openPane { openPane = nil } else { openPanes.removeAll { $0 == place } }
+    }
+
     public var body: some View {
         NavigationSplitView {
-            OracleSidebar(store: store, section: $section, menuBar: $menuBar)
+            OracleSidebar(store: store, section: $section, menuBar: $menuBar, openPane: $openPane)
                 .navigationSplitViewColumnWidth(min: 240, ideal: 272)
         } detail: {
             HStack(spacing: 0) {
@@ -41,21 +47,45 @@ public struct OracleRootView: View {
                     #endif
                 #if os(macOS)
                 // the 3rd column exists only while a pane is open (Nat: 3 columns all the time was "too nested")
-                if let place = openPane, section == .status {
+                if !openPanes.isEmpty, section == .status {
                     DrawerHandle(width: $drawerWidth)
-                    TerminalColumn(store: store, place: place) { openPane = nil }
-                        .frame(width: drawerWidth)
-                        .transition(.move(edge: .trailing).combined(with: .opacity))
+                    VStack(spacing: 0) {
+                        ForEach(openPanes, id: \.self) { place in
+                            TerminalColumn(store: store, place: place, active: place == openPane,
+                                           activate: { openPane = place }, close: { closePane(place) })
+                            if place != openPanes.last { Divider() }
+                        }
+                    }
+                    .frame(width: drawerWidth)
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
                 #endif
             }
             #if os(macOS)
             // a right DRAWER: the window grows by the drawer's width so Work keeps its size (Nat: "not resize the current")
+            // a click anywhere sets openPane: a new place joins the stack (the oldest leaves past 3); nil = close the active one
             .onChange(of: openPane) { old, new in
-                if old == nil, new != nil { let dx = drawerWidth + DrawerHandle.width; Drawer.grow(by: dx); drawerGrown += dx }
-                if old != nil, new == nil { Drawer.grow(by: -drawerGrown); drawerGrown = 0 }   // give back exactly what it took
+                if let new {
+                    if !openPanes.contains(new) { openPanes.append(new); if openPanes.count > 3 { openPanes.removeFirst() } }
+                } else if let old, openPanes.contains(old) {
+                    openPanes.removeAll { $0 == old }
+                    openPane = openPanes.last
+                }
             }
-            .onChange(of: section) { _, s in if s != .status { openPane = nil } }
+            .onChange(of: openPanes.isEmpty) { wasEmpty, isEmpty in
+                if wasEmpty, !isEmpty {
+                    let dx = drawerWidth + DrawerHandle.width; Drawer.grow(by: dx); drawerGrown += dx
+                    escMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { e in   // esc closes the ACTIVE pane
+                        if e.keyCode == 53, openPane != nil { openPane = nil; return nil }
+                        return e
+                    }
+                }
+                if !wasEmpty, isEmpty {
+                    Drawer.grow(by: -drawerGrown); drawerGrown = 0   // give back exactly what it took
+                    if let m = escMonitor { NSEvent.removeMonitor(m); escMonitor = nil }
+                }
+            }
+            .onChange(of: section) { _, s in if s != .status { openPanes = []; openPane = nil } }
             .onAppear {   // quit with the drawer open: the saved frame still holds the drawer's width — take it back
                 guard drawerGrown > 0 else { return }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { Drawer.grow(by: -drawerGrown, animate: false); drawerGrown = 0 }
@@ -130,6 +160,7 @@ struct OracleSidebar: View {
     @ObservedObject var store: OracleStore
     @Binding var section: Section?
     @Binding var menuBar: Bool
+    var openPane: Binding<String?> = .constant(nil)
     #if os(macOS)
     static let hubApp = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "co.laris.oracle.hub")
     #endif
@@ -149,6 +180,7 @@ struct OracleSidebar: View {
             VStack(spacing: 3) {
                 NavRow(symbol: "square.stack.3d.up", title: "Work", badge: store.work.isEmpty ? nil : "\(store.work.count)",
                        on: (section ?? .status) == .status, accent: c.color) { section = .status }
+                if (section ?? .status) == .status { WorkTree(store: store, openPane: openPane) }   // herdr-style, LIVE only
                 #if os(macOS)
                 NavRow(symbol: store.unread.isEmpty ? "tray" : "tray.full", title: "Inbox",
                        badge: store.unread.isEmpty ? (store.inbox.isEmpty ? nil : store.inbox.count >= 300 ? "300+" : "\(store.inbox.count)")
@@ -280,9 +312,11 @@ struct WorkView: View {
                 if !live.isEmpty {
                     block("LIVE", live.count) {
                         ForEach(live) { w in
-                            LiveCard(item: w, config: c, twins: twins, home: home, copied: $copied, openPane: openPane) {
+                            LiveCard(item: w, config: c, twins: twins, home: home, copied: $copied, openPane: openPane,
+                                     shells: panesOf(w, store: store).filter { p in !w.panes.contains { $0.place == p } }) {
                                 #if os(macOS)
                                 store.bringToMain(w)
+                                if w.panes.contains(where: { $0.place == openPane.wrappedValue }) { openPane.wrappedValue = nil }   // bring here closes its drawer
                                 #endif
                             }
                         }
@@ -376,6 +410,7 @@ struct LiveCard: View {
     let item: WorkItem; let config: OracleConfig; let twins: [String: String]; let home: String
     @Binding var copied: String?
     var openPane: Binding<String?> = .constant(nil)
+    var shells: [String] = []          // plain shell panes of this worktree's herdr space
     var bring: () -> Void = {}
     var body: some View {
         VStack(alignment: .leading, spacing: 9) {
@@ -415,6 +450,22 @@ struct LiveCard: View {
                 .handCursor()
                 .onTapGesture { withAnimation(.easeOut(duration: 0.15)) { openPane.wrappedValue = openPane.wrappedValue == p.place ? nil : p.place } }
                 .help("Show this pane's terminal here (click again to close)")
+            }
+            ForEach(shells, id: \.self) { place in   // no agent here: its shell, openable all the same
+                HStack(spacing: 8) {
+                    Circle().stroke(Color.secondary, lineWidth: 1).frame(width: 7, height: 7)
+                    Text(WorkFormat.pane(place, home: home)).font(.caption.monospaced()).foregroundStyle(.secondary).frame(width: 104, alignment: .leading)
+                    Text("shell").foregroundStyle(.secondary)
+                    Spacer(minLength: 6)
+                    Image(systemName: openPane.wrappedValue == place ? "chevron.right.circle.fill" : "chevron.right")
+                        .font(.caption).foregroundStyle(openPane.wrappedValue == place ? config.color : Color.secondary.opacity(0.6))
+                }
+                .font(.callout)
+                .padding(.vertical, 3).padding(.horizontal, 6)
+                .background(RoundedRectangle(cornerRadius: 7).fill(openPane.wrappedValue == place ? config.color.opacity(0.14) : Color.clear))
+                .contentShape(Rectangle()).handCursor()
+                .onTapGesture { withAnimation(.easeOut(duration: 0.15)) { openPane.wrappedValue = openPane.wrappedValue == place ? nil : place } }
+                .help("Show this shell's terminal here")
             }
         }
         .padding(14)
@@ -1148,29 +1199,35 @@ struct TerminalColumn: View {
     }
     @ObservedObject var store: OracleStore
     let place: String
+    var active = true
+    var activate: () -> Void = {}
     let close: () -> Void
     @State private var text = ""
     @State private var read: Date?
     @State private var failed = false
-    @State private var escMonitor: Any?
     @AppStorage("oracle.drawerFit") private var fit = true   // ☑ fit the drawer · ☐ bigger font, scroll (Nat's choice)
     var body: some View {
         let act = store.activity.first { $0.place == place }
+        let shell = store.spaces.flatMap(\.panes).first { $0.place == place }   // a plain shell pane: no agent record
         let home = WorkFormat.homeSession(store.activity)
         VStack(spacing: 0) {
             HStack(spacing: 8) {
-                Circle().fill(WorkFormat.dot(act?.status ?? "", store.config.color)).frame(width: 8, height: 8)
+                Circle().fill(WorkFormat.dot(act?.status ?? shell?.status ?? "", store.config.color)).frame(width: 8, height: 8)
                 Text(WorkFormat.pane(place, home: home)).font(.callout.monospaced().weight(.semibold))
-                Text(act?.title ?? "").font(.callout).foregroundStyle(.secondary).lineLimit(1).truncationMode(.tail)
+                    .foregroundStyle(active ? store.config.color : Color.primary)
+                Text(act?.title ?? shell.map { ($0.agent ?? "shell") + " · " + (($0.cwd as NSString).lastPathComponent) } ?? "")
+                    .font(.callout).foregroundStyle(.secondary).lineLimit(1).truncationMode(.tail)
                 Spacer(minLength: 6)
                 if let item = store.work.first(where: { $0.panes.contains { $0.place == place } }) {
-                    Button("bring here") { store.bringToMain(item) }.buttonStyle(.borderless).font(.caption.weight(.medium)).handCursor()
+                    Button("bring here") { store.bringToMain(item); close() }.buttonStyle(.borderless).font(.caption.weight(.medium)).handCursor()
                         .help("Bring this pane's WezTerm window to the main display")
                 }
                 Button(action: close) { Image(systemName: "xmark").font(.callout.weight(.semibold)) }
-                    .buttonStyle(.plain).foregroundStyle(.secondary).handCursor().keyboardShortcut(.escape, modifiers: []).help("Close (esc)")
+                    .buttonStyle(.plain).foregroundStyle(.secondary).handCursor().help(active ? "Close (esc)" : "Close")
             }
             .padding(.horizontal, 14).padding(.vertical, 11)
+            .background(active ? store.config.color.opacity(0.12) : Color.clear)
+            .contentShape(Rectangle()).onTapGesture(perform: activate)   // click a header: that pane becomes the active one
             Divider()
             let shown = failed && text.isEmpty ? "can't read \(place) — is herdr running?\n  herdr pane list" : text
             Group { if fit {
@@ -1213,13 +1270,6 @@ struct TerminalColumn: View {
             }
             .padding(.horizontal, 14).padding(.vertical, 7)
         }
-        .onAppear {
-            escMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { e in
-                if e.keyCode == 53 { close(); return nil }   // 53 = esc
-                return e
-            }
-        }
-        .onDisappear { if let m = escMonitor { NSEvent.removeMonitor(m); escMonitor = nil } }
         .task(id: place) {
             text = ""; failed = false
             let parts = place.split(separator: ":", maxSplits: 1).map(String.init)
@@ -1293,3 +1343,66 @@ struct DrawerHandle: View {
     }
 }
 #endif
+
+/// Under "Work" in the sidebar: this oracle's LIVE worktrees as herdr draws them — name, branch dimmed underneath,
+/// worktrees hanging off the main checkout with ├─ / └─, a state dot. A row with a pane opens its terminal drawer;
+/// one without brings its WezTerm window here. RESUMABLE and COLD stay on the Work page (Nat: no long extra sections).
+/// Every pane of a worktree, agents first, then the plain shells of its herdr space (agent-less panes are not in
+/// `activity`, so a worktree with only a shell had nothing to open).
+@MainActor func panesOf(_ w: WorkItem, store: OracleStore) -> [String] {
+    let agents = w.panes.sorted { WorkFormat.rank($0.status) < WorkFormat.rank($1.status) }.map(\.place)
+    let shells = store.spaces.filter { $0.checkout == w.path || $0.panes.contains { $0.cwd == w.path || $0.cwd.hasPrefix(w.path + "/") } }
+        .flatMap(\.panes).map(\.place).filter { !agents.contains($0) }
+    return agents + shells
+}
+
+struct WorkTree: View {
+    @ObservedObject var store: OracleStore
+    let openPane: Binding<String?>
+    var body: some View {
+        let live = store.work.filter { $0.state <= .open }
+        let main = live.first { $0.isMain }
+        let rest = live.filter { !$0.isMain }
+        let home = WorkFormat.homeSession(store.activity)
+        VStack(alignment: .leading, spacing: 1) {
+            if let m = main { row(m, prefix: "", home: home) }
+            ForEach(Array(rest.enumerated()), id: \.element.id) { i, w in
+                row(w, prefix: main == nil ? "" : (i == rest.count - 1 ? "└─ " : "├─ "), cont: main == nil ? "" : (i == rest.count - 1 ? "   " : "│  "), home: home)
+            }
+        }
+        .padding(.leading, 30).padding(.trailing, 8).padding(.bottom, 4)
+    }
+    @ViewBuilder private func row(_ w: WorkItem, prefix: String, cont: String = "", home: String) -> some View {
+        let pane = panesOf(w, store: store).first
+        let open = pane != nil && openPane.wrappedValue == pane
+        let dot: (String, Color) = switch w.state {
+            case .needsYou: ("◐", .orange); case .working: ("●", .green); default: ("○", .secondary) }
+        HStack(alignment: .top, spacing: 0) {
+            Text(prefix).font(.caption.monospaced()).foregroundStyle(.tertiary)
+            VStack(alignment: .leading, spacing: 1) {
+                HStack(spacing: 5) {
+                    Text(dot.0).font(.caption).foregroundStyle(dot.1)
+                    Text(w.slug).font(.callout.weight(open ? .semibold : .regular)).lineLimit(1).truncationMode(.tail)
+                    if let n = w.issue { Text("#\(n)").font(.caption2.monospacedDigit()).foregroundStyle(.secondary) }
+                    Spacer(minLength: 0)
+                }
+                Text(pane.map { "\(w.branch) · \(WorkFormat.pane($0, home: home))" } ?? w.branch)
+                    .font(.caption.monospaced()).foregroundStyle(.tertiary).lineLimit(1).truncationMode(.middle)
+                    .padding(.leading, cont.isEmpty ? 0 : 0)
+            }
+        }
+        .padding(.vertical, 3).padding(.horizontal, 6)
+        .background(RoundedRectangle(cornerRadius: 7).fill(open ? store.config.color.opacity(0.16) : Color.clear))
+        .contentShape(Rectangle())
+        .handCursor()
+        .onTapGesture {
+            if let p = pane { openPane.wrappedValue = open ? nil : p } else { bring(w) }
+        }
+        .help(pane == nil ? "Bring its WezTerm window here" : "Show its terminal in the drawer")
+    }
+    private func bring(_ w: WorkItem) {
+        #if os(macOS)
+        store.bringToMain(w)
+        #endif
+    }
+}
