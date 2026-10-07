@@ -35,24 +35,31 @@
     } catch { return href; }
   }
 
-  async function permalink(post) {
-    // The post's own link is its header timestamp — the first link after the author. Other post links inside
-    // the post can belong to a SHARED post (measured: a re-share on a permalink page linked the original first).
+  // Facebook leaves header links as "?__cft__…" until they are focused; focusin (not hover) makes it write the
+  // real href (measured 2026-10-07). Focus every such link in a range, read, then blur them again.
+  async function resolve(anchors) {
+    const lazy = anchors.filter(a => (a.getAttribute('href') || '').startsWith('?'));
+    lazy.forEach(a => a.dispatchEvent(new FocusEvent('focusin', { bubbles: true })));
+    if (lazy.length) await tick(180);
+    lazy.forEach(a => a.dispatchEvent(new FocusEvent('focusout', { bubbles: true })));
+  }
+
+  // The post's own link is in its header — between the author and the message ("Sira Ekabut · 4 days ago" in a
+  // group post: Nat's XPath, 2026-10-07). Links after the message belong to a SHARED post; they go in the body.
+  async function links(post) {
     const author = post.querySelector('[data-ad-rendering-role="profile_name"]');
-    const ts = author && [...post.querySelectorAll('a[role="link"]')].find(a =>
-      !author.contains(a) && (author.compareDocumentPosition(a) & Node.DOCUMENT_POSITION_FOLLOWING) &&
-      ((a.getAttribute('href') || '').startsWith('?') || POSTLINK.test(a.href)));
-    if (ts && !POSTLINK.test(ts.href)) {
-      // it holds only "?__cft__…" until focused — focusin (not hover) makes Facebook write the real
-      // /posts/pfbid… href (measured 2026-10-07)
-      ts.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
-      await tick(150);
-    }
-    let h = ts && POSTLINK.test(ts.href) ? ts.href : '';
-    ts?.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));   // drop the focus ring + date tooltip it raised
+    const message = post.querySelector('[data-ad-rendering-role="story_message"]');
+    const all = [...post.querySelectorAll('a[role="link"]')];
+    const after = (x, a) => x && !x.contains(a) && (x.compareDocumentPosition(a) & Node.DOCUMENT_POSITION_FOLLOWING);
+    const header = all.filter(a => after(author, a) && !(message && after(message, a)));
+    const below = message ? all.filter(a => after(message, a)) : [];
+    await resolve(header);
+    let own = header.map(a => a.href).find(h => POSTLINK.test(h)) || '';
     // a single-post page: the page itself is the post (never borrow it for another post on the page)
-    if (!h && document.querySelectorAll(LIKE).length === 1 && POSTLINK.test(location.href)) h = location.href;
-    return h ? clean(h) : '';
+    if (!own && document.querySelectorAll(LIKE).length === 1 && POSTLINK.test(location.href)) own = location.href;
+    await resolve(below);
+    const shared = [...new Set(below.map(a => a.href).filter(h => POSTLINK.test(h)).map(clean))].filter(h => h !== clean(own));
+    return { own: own ? clean(own) : '', shared: shared.slice(0, 3) };
   }
 
   async function details(post) {
@@ -62,11 +69,13 @@
     const author = (post.querySelector('[data-ad-rendering-role="profile_name"]')?.innerText || '').split('\n')[0].trim();
     const text = (post.querySelector('[data-ad-rendering-role="story_message"]')?.innerText || '').trim();
     const first = text.split('\n').find(l => l.trim()) || 'Facebook post';
-    return { url: await permalink(post), title: (author ? author + ': ' : '') + first.slice(0, 90),
-             text: text.slice(0, 2000) + (author ? `\n\nby ${author} on Facebook` : '') };
+    const { own, shared } = await links(post);
+    return { url: own || shared[0] || '', title: (author ? author + ': ' : '') + first.slice(0, 90),
+             text: text.slice(0, 2000) + (author ? `\n\nby ${author} on Facebook` : '') +
+                   shared.map(h => `\nShared post: ${h}`).join('') };
   }
 
-  function menu(anchor, post) {
+  function menu(anchor, post, getDetails) {
     document.querySelectorAll('.oracle-issue-menu').forEach(m => m.remove());
     const m = document.createElement('div');
     m.className = 'oracle-issue-menu';
@@ -82,7 +91,7 @@
       b.onmouseenter = () => (b.style.background = '#3a3b3c'); b.onmouseleave = () => (b.style.background = '');
       b.onclick = async (e) => {
         e.stopPropagation(); m.remove();
-        const d = await details(post);
+        const d = getDetails ? getDetails() : await details(post);
         if (window.chrome?.runtime?.sendMessage) chrome.runtime.sendMessage({ kind: 'issue', oracle: o, ...d });
         else console.log('[oracle] would send', o, d);
       };
@@ -121,8 +130,37 @@
     }
   }
 
+  // Video (/watch, /videos/), photo (/photo/?fbid=) and reel pages carry none of the post markers above
+  // (measured 2026-10-07: no like_button there) — but there the page IS the post: a floating pill sends its link.
+  const SINGLE = /\/videos\/|\/watch\/?\?v=|\/photo\/?\?fbid=|\/photo\.php|\/reel\/\d|\/posts\/|\/permalink|story\.php/;
+  function pill() {
+    let p = document.getElementById('oracle-nexus-pill');
+    const want = SINGLE.test(location.href) && !document.querySelector('[data-oracle-btn]');
+    if (!want) { p?.remove(); return; }
+    if (p) return;
+    p = document.createElement('div');
+    p.id = 'oracle-nexus-pill'; p.setAttribute('role', 'button'); p.textContent = `🔮 ${DEFAULT}`;
+    p.title = `New issue in ${DEFAULT} Oracle for this page (⇧-click: another oracle)`;
+    Object.assign(p.style, { position: 'fixed', right: '24px', bottom: '24px', zIndex: 2147483646, cursor: 'pointer',
+      background: '#242526', color: '#e4e6eb', border: '1px solid #3a3b3c', borderRadius: '999px', padding: '10px 16px',
+      font: '600 15px system-ui, sans-serif', boxShadow: '0 6px 20px rgba(0,0,0,.45)' });
+    const page = () => {
+      const title = document.title.replace(/^\(\d+\+?\)\s*/, '').replace(/\s*\|\s*Facebook$/, '').trim() || 'Facebook';
+      const caption = (document.querySelector('[data-ad-rendering-role="story_message"]')?.innerText || String(getSelection() || '')).trim();
+      return { url: clean(location.href), title: title.slice(0, 100), text: caption.slice(0, 2000) };
+    };
+    p.onclick = (e) => {
+      e.stopPropagation(); e.preventDefault();
+      if (e.shiftKey) return menu(p, document.body, page);
+      const d = page();
+      if (window.chrome?.runtime?.sendMessage) chrome.runtime.sendMessage({ kind: 'issue', oracle: DEFAULT, ...d });
+      else console.log('[oracle] would send', DEFAULT, d);
+    };
+    document.body.append(p);
+  }
+
   let t;
-  new MutationObserver(() => { clearTimeout(t); t = setTimeout(addButtons, 400); })
+  new MutationObserver(() => { clearTimeout(t); t = setTimeout(() => { addButtons(); pill(); }, 400); })
     .observe(document.body, { childList: true, subtree: true });
-  addButtons();
+  addButtons(); pill();
 })();
