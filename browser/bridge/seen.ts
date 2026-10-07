@@ -30,16 +30,17 @@ const show = (e: any) => {
     ? `${t(e.ts)}  ${e.kind.padEnd(13)} ${head}\n${body.split('\n').map(l => '    │ ' + l).join('\n')}\n    └ ${tail}\n`
     : `${t(e.ts)}  ${e.kind.padEnd(13)} ${head}${body && e.kind !== 'nav' ? ': ' + body : ''}\n${''.padEnd(24)}${tail}`);
 };
-if (follow) {   // text only, newest last, like tail -f
-  let last = 0;
-  const first = await fetch(`http://127.0.0.1:${PORT}/stream?limit=1`, { headers: { 'x-fb-token': token } }).then(x => x.json()).catch(() => []);
-  last = first[0]?.id ?? 0;
-  console.log(`following the stream from now (REC must be on in a Facebook tab) — Ctrl-C to stop`);
+if (follow) {   // text only, as it happens: the bridge pushes each event (no polling)
+  console.log(`live from the bridge (REC must be on in a Facebook tab) — Ctrl-C to stop`);
+  const res = await fetch(`http://127.0.0.1:${PORT}/live`, { headers: { 'x-fb-token': token } });
+  const reader = res.body!.getReader(), dec = new TextDecoder();
+  let buf = '';
   while (true) {
-    const rows = await fetch(`http://127.0.0.1:${PORT}/stream?since=${last}&limit=100`, { headers: { 'x-fb-token': token } }).then(x => x.json()).catch(() => null);
-    if (rows) for (const e of rows) { show(e); last = Math.max(last, e.id); }
-    await Bun.sleep(1000);
+    const { value, done } = await reader.read(); if (done) break;
+    buf += dec.decode(value, { stream: true });
+    let i; while ((i = buf.indexOf('\n\n')) >= 0) { const msg = buf.slice(0, i); buf = buf.slice(i + 2); if (msg.startsWith('data: ')) show(JSON.parse(msg.slice(6))); }
   }
+  console.error('✗ the bridge closed the stream'); process.exit(1);
 }
 const rows = r as any[];
 if (!rows.length) { console.log(q ? `nothing seen matching "${q}"` : `nothing recorded${day ? ` on ${day}` : ' today'} — turn on REC in a Facebook tab (bottom-left badge)`); process.exit(0); }

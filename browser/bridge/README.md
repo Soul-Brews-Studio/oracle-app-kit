@@ -36,7 +36,9 @@ Stored locally only (`~/.oracle-fb`, mode 700): `stream/<day>.jsonl` (the record
 trigram FTS — Thai works — and the graph).
 
     bun seen.ts                  today          bun seen.ts --full       whole text
-    bun seen.ts --follow         live, text only, like tail -f
+    bun seen.ts --follow         live, text only, pushed by the bridge (no polling)
+    curl -N -H "x-fb-token: $(cat ~/.oracle-fb/token)" 127.0.0.1:4747/live     # the raw push stream (server-sent events)
+    chrome-extension://hadknpihalkpmhfdppedhdoaeaddcgig/stream.html          # the same, as a page (toolbar popup → Open live stream)
     bun seen.ts "pgvector"       search         bun seen.ts --stats
 
 ### The graph

@@ -30,4 +30,26 @@ async function tick() {
     $('count').textContent = `${shown} shown`;
   } catch { $('state').textContent = '○ bridge not running — bun …/oracle-app-kit/browser/bridge/server.ts'; $('state').style.color = '#ef5350'; }
 }
-tick(); setInterval(tick, 1000);
+// first the last 60 (one /stream call), then the bridge PUSHES each new event down one long POST /live response
+async function live() {
+  await tick();
+  try {
+    const res = await fetch(`${B}/live`, { method: 'POST' });
+    if (!res.ok) throw new Error(res.status);
+    $('state').textContent = '● live (pushed by the bridge)';
+    const reader = res.body.getReader(), dec = new TextDecoder(); let buf = '';
+    while (true) {
+      const { value, done } = await reader.read(); if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let i; while ((i = buf.indexOf('\n\n')) >= 0) {
+        const msg = buf.slice(0, i); buf = buf.slice(i + 2);
+        if (!msg.startsWith('data: ')) continue;
+        if ($('list').querySelector('.empty')) $('list').textContent = '';
+        $('list').prepend(card(JSON.parse(msg.slice(6)), true)); shown++; $('count').textContent = `${shown} shown`;
+      }
+    }
+  } catch {}
+  $('state').textContent = '○ stream dropped — retrying'; $('state').style.color = '#ef5350';
+  setTimeout(live, 2000);   // the bridge restarted or went away: reconnect
+}
+live();

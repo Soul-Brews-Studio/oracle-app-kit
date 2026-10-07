@@ -55,6 +55,11 @@ const upNode = db.prepare(`INSERT INTO node (id, type, label, url, first_seen, l
     url = CASE WHEN node.url = '' THEN excluded.url ELSE node.url END, last_seen = max(node.last_seen, excluded.last_seen), seen = node.seen + excluded.seen`);
 const upEdge = db.prepare(`INSERT INTO edge (src, rel, dst, first_seen, last_seen) VALUES ($s, $r, $d, $ts, $ts)
   ON CONFLICT(src, rel, dst) DO UPDATE SET last_seen = max(edge.last_seen, excluded.last_seen), n = edge.n + 1`);
+// ── /live: the bridge pushes every new event to whoever listens (server-sent events) — the browsing, as text, live
+const listeners = new Set<(chunk: string) => void>();
+const enc = new TextEncoder();
+const pushLive = (e: any) => { const line = `data: ${JSON.stringify(e)}\n\n`; for (const l of listeners) try { l(line); } catch { listeners.delete(l); } };
+setInterval(() => { for (const l of listeners) try { l(': keepalive\n\n'); } catch { listeners.delete(l); } }, 15_000);
 const ME = 'me:nat';
 const mainNode = (href: string) => { const ns = nodesOf(href); return ns.find(n => n.type === 'post') || ns.find(n => n.type === 'video') || ns.find(n => n.type === 'photo') || ns[0]; };
 const getNode = db.prepare('SELECT id, seen, first_seen, last_seen FROM node WHERE id = ?');
@@ -146,6 +151,7 @@ Bun.serve({
       const list = await req.json() as any[];
       if (!Array.isArray(list) || list.length > 2000) return json({ error: 'bad batch' }, 400);
       const kept = storeEvents(list);
+      for (const e of list) pushLive({ ts: e.ts, kind: e.kind, author: e.author || '', text: e.text || '', link: e.link || '', key: e.key || '', post: e.post || '', media: e.media || 0, browser: e.browser, tab: e.tab });
       console.log(`${stamp()} stream +${kept}/${list.length}  ${[...new Set(list.map(e => e.kind))].join(',')}`);
       // tell the page which node each seen post became, so its 🔮 chip can show "collected" (Nat: "check uuid collected or not")
       const ids: Record<string, any> = {};
@@ -164,6 +170,17 @@ Bun.serve({
       const out = db.query('SELECT e.rel, e.n, x.* FROM edge e JOIN node x ON x.id = e.dst WHERE e.src = ? ORDER BY e.rel').all(id);
       const inn = db.query('SELECT e.rel, e.n, x.* FROM edge e JOIN node x ON x.id = e.src WHERE e.dst = ? ORDER BY e.rel').all(id);
       return json({ node: n, out, in: inn });
+    }
+    if (u.pathname === '/live') {   // curl -N -H "x-fb-token: …" 127.0.0.1:4747/live   ·   the extension's stream.html (POST, for its Origin)
+      if (!fromCli(req) && !fromExtension(req)) return json({ error: 'token' }, 403);
+      server.timeout(req, 0);   // a live stream must outlive the 120 s idle limit
+      let send: (c: string) => void;
+      const body = new ReadableStream({
+        start(c) { send = (chunk) => c.enqueue(enc.encode(chunk)); listeners.add(send); send(`: live — ${listeners.size} listening\n\n`); },
+        cancel() { listeners.delete(send); },
+      });
+      console.log(`${stamp()} live listener +1 (${listeners.size + 1})`);
+      return new Response(body, { headers: { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' } });
     }
     if (u.pathname === '/stream') {   // seen.ts and the extension's stream.html: search / list / stats (read-only)
       if (!fromCli(req) && !fromExtension(req)) return json({ error: 'token' }, 403);
