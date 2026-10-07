@@ -24,3 +24,5 @@ function paint(r) {
 const ask = (kind) => chrome.runtime.sendMessage({ kind }, (r) => r ? paint(r) : ($('body').textContent = 'the extension did not answer'));
 $('retry').onclick = () => { $('body').className = 'muted'; $('body').textContent = 'reconnecting…'; ask('popup-reconnect'); };
 ask('popup-status');
+
+$('live').onclick = () => chrome.tabs.create({ url: chrome.runtime.getURL('stream.html') });   // the text-only live view

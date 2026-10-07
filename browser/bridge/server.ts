@@ -165,8 +165,10 @@ Bun.serve({
       const inn = db.query('SELECT e.rel, e.n, x.* FROM edge e JOIN node x ON x.id = e.src WHERE e.dst = ? ORDER BY e.rel').all(id);
       return json({ node: n, out, in: inn });
     }
-    if (u.pathname === '/stream') {   // seen.ts: search / list / stats
-      if (!fromCli(req)) return json({ error: 'token' }, 403);
+    if (u.pathname === '/stream') {   // seen.ts and the extension's stream.html: search / list / stats (read-only)
+      if (!fromCli(req) && !fromExtension(req)) return json({ error: 'token' }, 403);
+      // the extension page asks by POST: Chrome sends no Origin on its GETs, so a GET from it cannot be told from anyone's
+      if (req.method === 'POST') for (const [k, v] of Object.entries(await req.json().catch(() => ({})) as any)) u.searchParams.set(k, String(v));
       const q = u.searchParams.get('q') || '', day = u.searchParams.get('day') || '', kind = u.searchParams.get('kind') || '';
       const limit = Math.min(Number(u.searchParams.get('limit') || 30), 500);
       const since = Number(u.searchParams.get('since') || 0);   // seen --follow: only what is newer than the last row shown
