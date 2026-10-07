@@ -16,6 +16,12 @@ packages:
     path: OracleKit
   ANEEmbed:            # the in-process ANE embedder the hub links (copied from the Chippy service)
     path: ANEEmbed
+aggregateTargets:
+  CalVer:              # runs first in every build: one CalVer for an app AND its extensions (scripts/calver-stamp.sh)
+    buildScripts:
+      - name: Fix this build's CalVer
+        basedOnDependencyAnalysis: false
+        script: sh "$SRCROOT/scripts/calver-stamp.sh" begin
 include:
   - path: apps.yml
     relativePaths: false

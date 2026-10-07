@@ -6,6 +6,22 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXAggregateTarget section */
+		66AE9A2BF807D63B4AF62FDE /* CalVer */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 44DB8856B5FB483BB38C2808 /* Build configuration list for PBXAggregateTarget "CalVer" */;
+			buildPhases = (
+				A531914287F3562728CC056C /* Fix this build's CalVer */,
+			);
+			dependencies = (
+			);
+			name = CalVer;
+			packageProductDependencies = (
+			);
+			productName = CalVer;
+		};
+/* End PBXAggregateTarget section */
+
 /* Begin PBXBuildFile section */
 		05DAAADEDF82BFF4F279342B /* MapLayoutEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 976327A7B1A9B72817DDDF05 /* MapLayoutEngine.swift */; };
 		0B250C1843C4CAF984D3C87F /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = BF28BFF93E30F2016054C7FC /* OracleKit */; };
@@ -109,6 +125,41 @@
 			remoteGlobalIDString = 9EC664F778F344E25A6035DF;
 			remoteInfo = NeoShare;
 		};
+		47299C0C9F82B97306F3FFB8 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 430DB4AF39A44099EA106CF8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 66AE9A2BF807D63B4AF62FDE;
+			remoteInfo = CalVer;
+		};
+		478366F9D871C5F32BC084B6 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 430DB4AF39A44099EA106CF8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 66AE9A2BF807D63B4AF62FDE;
+			remoteInfo = CalVer;
+		};
+		4DF2E7F8E9C5E0B8CC4B3CB1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 430DB4AF39A44099EA106CF8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 66AE9A2BF807D63B4AF62FDE;
+			remoteInfo = CalVer;
+		};
+		781B0C313D195006735E1DFE /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 430DB4AF39A44099EA106CF8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 66AE9A2BF807D63B4AF62FDE;
+			remoteInfo = CalVer;
+		};
+		8F4283E480C2088B00B0CD11 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 430DB4AF39A44099EA106CF8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 66AE9A2BF807D63B4AF62FDE;
+			remoteInfo = CalVer;
+		};
 		94212C719841CD3C4694701C /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 430DB4AF39A44099EA106CF8 /* Project object */;
@@ -122,6 +173,41 @@
 			proxyType = 1;
 			remoteGlobalIDString = 19EE540E3E022009C36A99F1;
 			remoteInfo = PulseWidget;
+		};
+		B0B27E3F1DA82C2E399B4336 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 430DB4AF39A44099EA106CF8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 66AE9A2BF807D63B4AF62FDE;
+			remoteInfo = CalVer;
+		};
+		BC25A9A29888E7A1D86146E4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 430DB4AF39A44099EA106CF8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 66AE9A2BF807D63B4AF62FDE;
+			remoteInfo = CalVer;
+		};
+		C1031C247FEEE019A7BF2A3C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 430DB4AF39A44099EA106CF8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 66AE9A2BF807D63B4AF62FDE;
+			remoteInfo = CalVer;
+		};
+		FBD2DFC9BE6FD4347200FB61 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 430DB4AF39A44099EA106CF8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 66AE9A2BF807D63B4AF62FDE;
+			remoteInfo = CalVer;
+		};
+		FEB6389F25835D3E9640CFCB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 430DB4AF39A44099EA106CF8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 66AE9A2BF807D63B4AF62FDE;
+			remoteInfo = CalVer;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -503,10 +589,12 @@
 				DA9DF48BAA5BE8C6647B2424 /* Sources */,
 				4A5F5316769E356FF35B231E /* Resources */,
 				93D2C7785CB40242C2F5BBB5 /* Frameworks */,
+				BAA93AA4F0DFA68FB62FD35F /* Stamp CalVer */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				89DAB9489CA0221834979602 /* PBXTargetDependency */,
 			);
 			name = NeoWidget;
 			packageProductDependencies = (
@@ -522,10 +610,12 @@
 			buildPhases = (
 				57F7BCC8DE25AEFCDF2F5069 /* Sources */,
 				975FC034CB1B3C7BDFFED236 /* Frameworks */,
+				33A9F1D9284F908982FA86E4 /* Stamp CalVer */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				B29B7612C916A4B5EACB16E8 /* PBXTargetDependency */,
 			);
 			name = NexusShare;
 			packageProductDependencies = (
@@ -542,10 +632,12 @@
 				57DCBADD2F9B5D6EEE8D5005 /* Sources */,
 				022E820BF862913217552C98 /* Resources */,
 				9628DF4DC38625536E4DA480 /* Frameworks */,
+				FF74E29687D0BF11F065B37B /* Stamp CalVer */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				169FDBAE34008A5E104B87CB /* PBXTargetDependency */,
 			);
 			name = PulseWidget;
 			packageProductDependencies = (
@@ -569,6 +661,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				D0FB6E827D62071E3FB724A7 /* PBXTargetDependency */,
 			);
 			name = Oracles;
 			packageProductDependencies = (
@@ -604,10 +697,12 @@
 			buildPhases = (
 				2C41809D19F74310392F3049 /* Sources */,
 				D0975524617156F53C74D696 /* Frameworks */,
+				5EA82B4743A1E08665524A0E /* Stamp CalVer */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				6A9FD51DF3864444ED43743C /* PBXTargetDependency */,
 			);
 			name = NeoShare;
 			packageProductDependencies = (
@@ -631,6 +726,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				66E5CE447E2B431F94BDDC21 /* PBXTargetDependency */,
 				25BA7D1429D8E4A9D33200DC /* PBXTargetDependency */,
 				214813755916FDF9DAB2BBAB /* PBXTargetDependency */,
 			);
@@ -650,10 +746,12 @@
 			buildPhases = (
 				BFE6C4030E63FB39B7303ACF /* Sources */,
 				D6B7AC7A174D8DA4AFB95F45 /* Frameworks */,
+				E5435A66F48D540A1984326A /* Stamp CalVer */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				0866163004925277E22DB8D5 /* PBXTargetDependency */,
 			);
 			name = PulseShare;
 			packageProductDependencies = (
@@ -670,10 +768,12 @@
 				D5C5193115A84A5B6B26EF07 /* Sources */,
 				6E97DA5AEE51272CD44CBAE9 /* Resources */,
 				EBC875A5A30813481BAABA83 /* Frameworks */,
+				3A8736BD156C01C1C137E38F /* Stamp CalVer */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				ECED93761748899463C9087C /* PBXTargetDependency */,
 			);
 			name = NexusWidget;
 			packageProductDependencies = (
@@ -697,6 +797,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				80A5FDB5B667808DA2659745 /* PBXTargetDependency */,
 				F7E0EBFB87FA7EBF98C4E5C8 /* PBXTargetDependency */,
 				44F34CBB47421F978E675D25 /* PBXTargetDependency */,
 			);
@@ -724,6 +825,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				C2EF29E40F8043B883393038 /* PBXTargetDependency */,
 				643EFF85B4AE6367F0B47C4C /* PBXTargetDependency */,
 				F4AD72B2B5A0089245802712 /* PBXTargetDependency */,
 			);
@@ -755,6 +857,10 @@
 						ProvisioningStyle = Automatic;
 					};
 					19EE540E3E022009C36A99F1 = {
+						DevelopmentTeam = 6K28WEXX78;
+						ProvisioningStyle = Automatic;
+					};
+					66AE9A2BF807D63B4AF62FDE = {
 						DevelopmentTeam = 6K28WEXX78;
 						ProvisioningStyle = Automatic;
 					};
@@ -810,6 +916,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
+				66AE9A2BF807D63B4AF62FDE /* CalVer */,
 				9CBD3CAC09ABBCB109575F65 /* MapSpike */,
 				F4C43E59E3D089F341776040 /* Neo */,
 				9EC664F778F344E25A6035DF /* NeoShare */,
@@ -972,6 +1079,46 @@
 			shellPath = /bin/sh;
 			shellScript = "[ \"$PLATFORM_NAME\" = macosx ] || exit 0\nexport PATH=\"/opt/homebrew/opt/rustup/bin:$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH\"\nif ! command -v cargo >/dev/null; then\n  echo \"error: cargo not found: the Memory page's embedder builds its tokenizer with Rust. Install it, then build again:\"\n  echo \"error:   brew install rustup && /opt/homebrew/opt/rustup/bin/rustup default stable\"\n  exit 1\nfi\ncd \"$SRCROOT/ANEEmbed/tokenizer-ffi\" && cargo build --release --locked\n";
 		};
+		33A9F1D9284F908982FA86E4 /* Stamp CalVer */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)",
+			);
+			name = "Stamp CalVer";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "sh \"$SRCROOT/scripts/calver-stamp.sh\"";
+		};
+		3A8736BD156C01C1C137E38F /* Stamp CalVer */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)",
+			);
+			name = "Stamp CalVer";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "sh \"$SRCROOT/scripts/calver-stamp.sh\"";
+		};
 		3B09AB01243CCE4635BAF525 /* Build the tokenizer + UMAP (Rust) */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -992,6 +1139,26 @@
 			shellScript = "[ \"$PLATFORM_NAME\" = macosx ] || exit 0\nexport PATH=\"/opt/homebrew/opt/rustup/bin:$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH\"\nif ! command -v cargo >/dev/null; then\n  echo \"error: cargo not found: the Memory page's embedder builds its tokenizer with Rust. Install it, then build again:\"\n  echo \"error:   brew install rustup && /opt/homebrew/opt/rustup/bin/rustup default stable\"\n  exit 1\nfi\ncd \"$SRCROOT/ANEEmbed/tokenizer-ffi\" && cargo build --release --locked\n";
 		};
 		41A9AD718F4603DEE6D82949 /* Stamp CalVer */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)",
+			);
+			name = "Stamp CalVer";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "sh \"$SRCROOT/scripts/calver-stamp.sh\"";
+		};
+		5EA82B4743A1E08665524A0E /* Stamp CalVer */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -1068,6 +1235,85 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "[ \"$PLATFORM_NAME\" = macosx ] || exit 0\nexport PATH=\"/opt/homebrew/opt/rustup/bin:$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH\"\nif ! command -v cargo >/dev/null; then\n  echo \"error: cargo not found: the Memory page's embedder builds its tokenizer with Rust. Install it, then build again:\"\n  echo \"error:   brew install rustup && /opt/homebrew/opt/rustup/bin/rustup default stable\"\n  exit 1\nfi\ncd \"$SRCROOT/ANEEmbed/tokenizer-ffi\" && cargo build --release --locked\n";
+		};
+		A531914287F3562728CC056C /* Fix this build's CalVer */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Fix this build's CalVer";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "sh \"$SRCROOT/scripts/calver-stamp.sh\" begin";
+		};
+		BAA93AA4F0DFA68FB62FD35F /* Stamp CalVer */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)",
+			);
+			name = "Stamp CalVer";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "sh \"$SRCROOT/scripts/calver-stamp.sh\"";
+		};
+		E5435A66F48D540A1984326A /* Stamp CalVer */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)",
+			);
+			name = "Stamp CalVer";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "sh \"$SRCROOT/scripts/calver-stamp.sh\"";
+		};
+		FF74E29687D0BF11F065B37B /* Stamp CalVer */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)",
+			);
+			name = "Stamp CalVer";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "sh \"$SRCROOT/scripts/calver-stamp.sh\"";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -1184,6 +1430,16 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		0866163004925277E22DB8D5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 66AE9A2BF807D63B4AF62FDE /* CalVer */;
+			targetProxy = 4DF2E7F8E9C5E0B8CC4B3CB1 /* PBXContainerItemProxy */;
+		};
+		169FDBAE34008A5E104B87CB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 66AE9A2BF807D63B4AF62FDE /* CalVer */;
+			targetProxy = 47299C0C9F82B97306F3FFB8 /* PBXContainerItemProxy */;
+		};
 		214813755916FDF9DAB2BBAB /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			platformFilters = (
@@ -1209,6 +1465,46 @@
 			isa = PBXTargetDependency;
 			target = 01CF40E90577B244E67480F2 /* NeoWidget */;
 			targetProxy = 0A143AA29BF2AB14D5BDF335 /* PBXContainerItemProxy */;
+		};
+		66E5CE447E2B431F94BDDC21 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 66AE9A2BF807D63B4AF62FDE /* CalVer */;
+			targetProxy = C1031C247FEEE019A7BF2A3C /* PBXContainerItemProxy */;
+		};
+		6A9FD51DF3864444ED43743C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 66AE9A2BF807D63B4AF62FDE /* CalVer */;
+			targetProxy = FBD2DFC9BE6FD4347200FB61 /* PBXContainerItemProxy */;
+		};
+		80A5FDB5B667808DA2659745 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 66AE9A2BF807D63B4AF62FDE /* CalVer */;
+			targetProxy = 478366F9D871C5F32BC084B6 /* PBXContainerItemProxy */;
+		};
+		89DAB9489CA0221834979602 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 66AE9A2BF807D63B4AF62FDE /* CalVer */;
+			targetProxy = 781B0C313D195006735E1DFE /* PBXContainerItemProxy */;
+		};
+		B29B7612C916A4B5EACB16E8 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 66AE9A2BF807D63B4AF62FDE /* CalVer */;
+			targetProxy = 8F4283E480C2088B00B0CD11 /* PBXContainerItemProxy */;
+		};
+		C2EF29E40F8043B883393038 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 66AE9A2BF807D63B4AF62FDE /* CalVer */;
+			targetProxy = FEB6389F25835D3E9640CFCB /* PBXContainerItemProxy */;
+		};
+		D0FB6E827D62071E3FB724A7 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 66AE9A2BF807D63B4AF62FDE /* CalVer */;
+			targetProxy = BC25A9A29888E7A1D86146E4 /* PBXContainerItemProxy */;
+		};
+		ECED93761748899463C9087C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 66AE9A2BF807D63B4AF62FDE /* CalVer */;
+			targetProxy = B0B27E3F1DA82C2E399B4336 /* PBXContainerItemProxy */;
 		};
 		F4AD72B2B5A0089245802712 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -1551,6 +1847,12 @@
 			};
 			name = Release;
 		};
+		64E9A3775FF3C14C3E791A50 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Release;
+		};
 		6ACDA8AAF747476CF29997FA /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1887,6 +2189,12 @@
 			};
 			name = Debug;
 		};
+		EF979F02E187E47C52A04FDB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Debug;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -1922,6 +2230,15 @@
 			buildConfigurations = (
 				9C61075B9EF3ACC783F8B62C /* Debug */,
 				B0B11DBACFB893E589CEFA06 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		44DB8856B5FB483BB38C2808 /* Build configuration list for PBXAggregateTarget "CalVer" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EF979F02E187E47C52A04FDB /* Debug */,
+				64E9A3775FF3C14C3E791A50 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

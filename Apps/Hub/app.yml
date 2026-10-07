@@ -7,6 +7,7 @@ targets:
         excludes: ["app.yml", "Info.plist"]
       - path: Apps/Shared
     dependencies:
+      - target: CalVer                  # this build's CalVer (project.yml)
       - package: OracleKit
       - package: ANEEmbed
         product: ANEEmbedCore
