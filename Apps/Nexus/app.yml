@@ -5,8 +5,24 @@ targets:
     sources:
       - path: Apps/Nexus
         excludes: ["app.yml", "Info.plist", "Widget/**", "Share/**", "*.entitlements"]
+      - path: Apps/Shared
+    preBuildScripts:
+      - name: Build the tokenizer (Rust)
+        basedOnDependencyAnalysis: false
+        script: |
+          [ "$PLATFORM_NAME" = macosx ] || exit 0
+          export PATH="$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+          if ! command -v cargo >/dev/null; then
+            echo "error: cargo not found: the Memory page's embedder builds its tokenizer with Rust. Install it, then build again:"
+            echo "error:   brew install rustup && rustup-init -y && . ~/.cargo/env"
+            exit 1
+          fi
+          cd "$SRCROOT/ANEEmbed/tokenizer-ffi" && cargo build --release --locked
     dependencies:
       - package: OracleKit
+      - package: ANEEmbed           # the Memory page's in-process embedder (Mac only)
+        product: ANEEmbedCore
+        destinationFilters: [macOS]
       - target: NexusWidget
       - target: NexusShare
         destinationFilters: [macOS]
@@ -24,6 +40,8 @@ targets:
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         ENABLE_APP_SANDBOX: NO
         ENABLE_HARDENED_RUNTIME: NO
+        ENABLE_USER_SCRIPT_SANDBOXING: NO     # the tokenizer is built with cargo
+        "ARCHS[sdk=macosx*]": arm64           # the Neural Engine and the Float16 code exist only on Apple silicon
     info:
       path: Apps/Nexus/Info.plist
       properties:

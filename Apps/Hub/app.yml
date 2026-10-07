@@ -5,6 +5,7 @@ targets:
     sources:
       - path: Apps/Hub
         excludes: ["app.yml", "Info.plist"]
+      - path: Apps/Shared
     dependencies:
       - package: OracleKit
       - package: ANEEmbed

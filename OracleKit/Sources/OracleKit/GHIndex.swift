@@ -9,9 +9,10 @@ import Accelerate
 /// Stored as one JSON file — a few thousand 768-d vectors fit in memory and a brute-force cosine is instant.
 /// Only new or changed items are embedded again (a hash of the text that was embedded).
 public struct IndexDoc: Codable, Identifiable, Hashable, Sendable {
-    public var id: String { kind == "note" ? "note:\(url)" : "\(repo)#\(number)" }
+    public var id: String { kind == "note" ? "note:\(url)" : kind == "history" ? "hist:\(hash)" : "\(repo)#\(number)" }
     public let repo: String          // owner/name
-    public let kind: String          // issue · pr · note (a ψ vault note: url is file://, state is its folder)
+    public let kind: String          // issue · pr · note (ψ vault: url file://, state its folder) · history (a session:
+                                     // state user|assistant, url the resume command, number the piece of a long message)
     public let number: Int
     public let title: String
     public let state: String         // OPEN · CLOSED · MERGED
@@ -137,9 +138,11 @@ public final class GHIndex: ObservableObject {
     @Published public private(set) var stopping = false
     /// A moment after a stopped run, so a second click on Stop does not land on Run batch.
     @Published public private(set) var cooldown = false
+    /// The Stop a history scan sees from its own thread.
+    private var stopFlag = StopFlag()
     public func stop() {
         guard running, !stopRequested else { return }
-        stopRequested = true; stopping = true
+        stopRequested = true; stopping = true; stopFlag.set()
         HubLog.shared.add(.info, "stop requested — finishing the current step")
         progress = "stopping…"
     }
@@ -202,19 +205,40 @@ public final class GHIndex: ObservableObject {
 
     /// The index on disk: docs (text, no vectors) as JSON, and every vector, in doc order, as raw Float32 in
     /// gh-index.vectors — 30k notes × 768 floats as JSON would be ~300 MB. An older file keeps vectors inline.
-    private struct File: Codable { var model: String; var built: Date?; var docs: [IndexDoc]; var space: String?; var dim: Int? }
-    private var vectorsPath: URL { path.deletingLastPathComponent().appendingPathComponent("gh-index.vectors") }
+    private struct File: Codable {
+        var model: String; var built: Date?; var docs: [IndexDoc]; var space: String?; var dim: Int?
+        var ledger: [String: SessionHistory.Mark]?   // a history index: how far each transcript has been read
+    }
+    private var vectorsPath: URL { path.deletingPathExtension().appendingPathExtension("vectors") }
     private var saving: Task<Void, Never>?
-    private let path: URL = {
-        let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("ARRA Oracles", isDirectory: true)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir.appendingPathComponent("gh-index.json")
-    }()
+    /// ~/Library/Application Support/ARRA Oracles/<name>.json — "gh-index" for the hub, "history/<org>__<repo>" for an
+    /// oracle's own sessions, so the hub can later search every oracle's history too.
+    private let path: URL
+
+    /// One oracle's session history, one index per oracle and per app process.
+    public static func history(_ repo: String) -> GHIndex {
+        if let i = histories[repo] { return i }
+        let i = GHIndex(name: "history/" + repo.replacingOccurrences(of: "/", with: "__"))
+        histories[repo] = i
+        return i
+    }
+    private static var histories: [String: GHIndex] = [:]
+    /// What the last history scan found (nil before one has run).
+    @Published public private(set) var scanned: SessionHistory.Counts?
+    @Published public private(set) var scannedSources: [SessionHistory.Source] = []
+    private var ledger: [String: SessionHistory.Mark] = [:]
 
     /// One index per app: a window closed and opened again does not decode the 50 MB file again.
     public static let shared = GHIndex()
-    public init() { load() }
+    /// The index the page on screen shows — the parity check after a model load compares against it.
+    public static weak var active: GHIndex?
+    public init(name: String = "gh-index") {
+        let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("ARRA Oracles", isDirectory: true)
+        path = dir.appendingPathComponent(name + ".json")
+        try? FileManager.default.createDirectory(at: path.deletingLastPathComponent(), withIntermediateDirectories: true)
+        load()
+    }
 
     /// Why the index should refresh without anyone asking — nil when it is fresh. The one rule behind both automatic
     /// starts (launch, and opening the search page): empty, or older than 6 h. The Run batch button does not ask it.
@@ -233,18 +257,19 @@ public final class GHIndex: ObservableObject {
                 for i in f.docs.indices { f.docs[i].vec = Array(all[(i * dim)..<((i + 1) * dim)]) }
             }
         }
-        docs = f.docs.filter { !$0.vec.isEmpty }; built = f.built; space = f.space
+        docs = f.docs.filter { !$0.vec.isEmpty }; built = f.built; space = f.space; ledger = f.ledger ?? [:]
         repos = Array(Set(docs.filter { $0.kind != "note" }.map(\.repo))).sorted()
     }
     /// Writes off the main actor, one save after another (a later save waits for the earlier one).
     private func save() {
         let snapshot = docs, built = built, space = space, path = path, vectorsPath = vectorsPath, previous = saving, model = Self.model
+        let ledger = ledger.isEmpty ? nil : ledger
         saving = Task.detached(priority: .utility) {
             await previous?.value
             let dim = snapshot.first?.vec.count ?? 0
             var raw = Data(capacity: snapshot.count * dim * 4)
             for d in snapshot { d.vec.withUnsafeBufferPointer { raw.append(Data(buffer: $0)) } }
-            let f = File(model: model, built: built, docs: snapshot.map { var d = $0; d.vec = []; return d }, space: space, dim: dim)
+            let f = File(model: model, built: built, docs: snapshot.map { var d = $0; d.vec = []; return d }, space: space, dim: dim, ledger: ledger)
             guard let json = try? JSONEncoder().encode(f) else { return }
             try? raw.write(to: vectorsPath, options: .atomic)
             try? json.write(to: path, options: .atomic)
@@ -431,6 +456,103 @@ public final class GHIndex: ObservableObject {
         return r
     }
 
+    /// One oracle's own memory, and only its own: its sessions on this Mac (Claude Code + Codex, read the relic way,
+    /// only what was appended since the last run), its ψ vault, its GitHub issues and PRs. A scan counts what there is
+    /// and changes nothing on disk; with `embed`, what is new or changed is embedded and saved.
+    public func indexMemory(repo: String, checkout: String, embed: Bool, why: String) async {
+        guard !running else { HubLog.shared.add(.info, "a run is already going — \(why) skipped"); return }
+        running = true; stopRequested = false; problem = nil
+        defer { endRun() }
+        HubLog.shared.add(.info, "\(embed ? "memory batch" : "memory scan"): \(repo) — \(why)")
+        phase = "reading"; repoTotal = 1; repoDone = 0; textDone = 0; textTotal = 0; rateHistory = []
+        defer { phase = "idle"; currentRepo = "" }
+        // 1 · sessions
+        progress = "scanning transcripts…"
+        let t0 = Date()
+        let known = Set(docs.filter { $0.kind == "history" }.map(\.hash)), start = ledger
+        stopFlag = StopFlag()
+        let flag = stopFlag
+        let r = await Task.detached(priority: .userInitiated) {
+            SessionHistory.collect(repo: repo, ledger: start, known: known, stop: flag) { done, total in
+                Task { @MainActor in self.repoDone = done; self.repoTotal = max(total, 1); self.progress = "scanning transcripts \(done)/\(total)" }
+            }
+        }.value
+        scanned = r.counts; scannedSources = r.sources
+        let c = r.counts
+        HubLog.shared.add(.read, String(format: "sessions: %@ transcripts read in %.1f s (%@ of them %@'s, %@ MB new) from %d sources: %@",
+                                        grouped(c.files), Date().timeIntervalSince(t0), grouped(c.filesOurs), repo, grouped(c.bytes / 1_000_000),
+                                        r.sources.count, r.sources.map(\.label).joined(separator: ", ")))
+        HubLog.shared.add(.read, "said: \(grouped(c.prose)) prose (user + assistant) · \(grouped(c.short)) too short · \(grouped(c.host)) host text · " +
+                          "tools \(grouped(c.toolUse + c.toolResult)) (later) · thinking \(grouped(c.thinking)) (never) · " +
+                          "\(grouped(c.distinct)) distinct pieces, \(grouped(r.docs.count)) new")
+        if stopRequested { progress = "stopped while scanning — the index is unchanged"; HubLog.shared.add(.info, progress); return }
+        // 2 · its own ψ vault and its own issues and PRs: the current set replaces the old one; unchanged keeps its vector
+        progress = "reading the ψ vault and GitHub…"
+        let tv = Date()
+        let vault = checkout.isEmpty ? [] : await Task.detached(priority: .userInitiated) { GHIndex.readVaults([checkout]).docs }.value
+        let gh = await Self.read(repo)
+        gh.errors.forEach { HubLog.shared.add(.error, $0) }
+        let oldSide = Dictionary(docs.filter { $0.kind != "history" }.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        var side = vault + gh.docs
+        for i in side.indices { if let o = oldSide[side[i].id], o.hash == side[i].hash, !o.vec.isEmpty { side[i].vec = o.vec } }
+        let sideNew = side.filter { $0.vec.isEmpty }.count
+        sideScan = (vault.count, gh.issues, gh.prs, sideNew)
+        HubLog.shared.add(.read, String(format: "own ψ vault: %@ notes · GitHub: %@ issues, %@ PRs · %@ new or changed · %.1f s",
+                                        grouped(vault.count), grouped(gh.issues), grouped(gh.prs), grouped(sideNew), Date().timeIntervalSince(tv)))
+        if stopRequested { progress = "stopped while reading — the index is unchanged"; HubLog.shared.add(.info, progress); return }
+        // pieces embedded in an older form (the session title inside every piece): the same pieces, embedded again
+        let hist = docs.filter { $0.kind == "history" }
+        let stale = hist.indices.filter { !(hist[$0].text ?? "").hasPrefix("title: none |") }
+        let toEmbed = r.docs.count + sideNew + stale.count
+        guard embed else {
+            pending = toEmbed
+            let est = Double(toEmbed) / max(rateHistory.last ?? 0, lastRateEstimate)
+            progress = toEmbed == 0 ? "scan: up to date — nothing new" : "scan: \(grouped(toEmbed)) to embed (\(grouped(r.docs.count)) session pieces, \(grouped(sideNew)) notes/issues/PRs\(stale.isEmpty ? "" : ", \(grouped(stale.count)) older pieces")), ~\(Self.duration(est))"
+            HubLog.shared.add(.info, progress)
+            return
+        }
+        var fresh = hist + side + r.docs
+        if toEmbed == 0 {   // nothing to embed; notes, issues or PRs that are gone leave the index
+            docs = fresh; ledger = r.ledger; built = Date(); save(); pending = 0
+            progress = "up to date — nothing new in \(repo)'s memory"; HubLog.shared.add(.info, progress); return
+        }
+        guard await alive() else { problem = noEmbedderProblem(); HubLog.shared.add(.error, problem ?? ""); progress = ""; return }
+        let runSpace = bundled()?.space ?? serviceSpace
+        if let sp = space, let rs = runSpace, sp != rs, !docs.isEmpty {
+            problem = "this index is in another vector space (\(sp.prefix(32))…) — press Re-embed all"; HubLog.shared.add(.error, problem ?? ""); return
+        }
+        if !stale.isEmpty { HubLog.shared.add(.info, "\(grouped(stale.count)) session pieces were embedded with their session title — embedding them again, alone") }
+        let staleTexts = stale.map { fresh[$0].text }
+        for i in stale {
+            let body = (fresh[i].text ?? "").components(separatedBy: " | text: ").dropFirst().joined(separator: " | text: ")
+            let piece = body.hasPrefix("asked: ") ? String(body.dropFirst(7)) : body.hasPrefix("answered: ") ? String(body.dropFirst(10)) : body
+            fresh[i].text = SessionHistory.embedText(piece)
+        }
+        let sideTodo = (hist.count..<(hist.count + side.count)).filter { fresh[$0].vec.isEmpty }
+        let todo = stale + sideTodo + Array((hist.count + side.count)..<fresh.count)   // older pieces, notes/issues/PRs, then new pieces
+        phase = "embedding"; textTotal = todo.count; repoDone = repoTotal
+        let t1 = Date()
+        let done = await embedChunks(&fresh, todo, want: space ?? runSpace)
+        for (k, i) in stale.enumerated() where k >= done { fresh[i].text = staleTexts[k] }   // not reached: still the old form, found again
+        docs = fresh.filter { !$0.vec.isEmpty }
+        pending = fresh.count - docs.count
+        if let rs = runSpace, space == nil { space = rs }
+        if done == todo.count { ledger = r.ledger; built = Date() }   // a stopped run reads the same lines again next time
+        save()
+        let secs = Date().timeIntervalSince(t1)
+        lastRateEstimate = secs > 1 ? Double(done) / secs : lastRateEstimate
+        progress = done == todo.count
+            ? "embedded \(grouped(done)) in \(String(format: "%.1f", secs)) s (\(Int(Double(done) / max(secs, 0.001))) texts/s, \(via))"
+            : "\(stopRequested ? "stopped" : "stopped early") after \(grouped(done))/\(grouped(todo.count)) — kept; the rest next run"
+        HubLog.shared.add(.info, "memory batch done — " + progress)
+    }
+    /// The last scan's own notes, issues, PRs, and how many of them need embedding.
+    @Published public private(set) var sideScan: (notes: Int, issues: Int, prs: Int, new: Int)?
+
+    /// texts/s to estimate a scan's embedding time before any run here (GPU x2 on issue text, measured 2026-10-07).
+    private var lastRateEstimate = 100.0
+    static func duration(_ s: Double) -> String { s < 90 ? "\(Int(s.rounded())) s" : s < 5400 ? "\(Int((s / 60).rounded())) min" : String(format: "%.1f h", s / 3600) }
+
     /// Embed every item again, on this Mac's ANE once the bundled model has loaded — the way to rebuild every vector,
     /// and to watch the Neural Engine work. No GitHub calls when the index carries the embedded text (batches since
     /// 2026-10-07 store it); an older index reads the repos first.
@@ -519,7 +641,7 @@ public final class GHIndex: ObservableObject {
 
     // MARK: search
 
-    public func search(_ q: String, kind: String? = nil, openOnly: Bool = false) async {
+    public func search(_ q: String, kind: String? = nil, openOnly: Bool = false, state: String? = nil, kinds: Set<String>? = nil) async {
         let q = q.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !q.isEmpty else { hits = []; return }
         searching = true; defer { searching = false }
@@ -528,7 +650,8 @@ public final class GHIndex: ObservableObject {
             problem = refusal ?? noEmbedderProblem(); return
         }
         let t1 = Date()
-        let pool = docs.filter { (kind == nil || $0.kind == kind) && (!openOnly || $0.state == "OPEN") }
+        let pool = docs.filter { (kind == nil || $0.kind == kind) && (kinds == nil || kinds!.contains($0.kind))
+            && (!openOnly || $0.state == "OPEN") && (state == nil || $0.state == state) }
         hits = pool.map { d in IndexHit(doc: d, score: d.vec.count == v.count ? vDSP.dot(d.vec, v) : -1) }   // unit vectors: dot = cosine
             .sorted { $0.score > $1.score }.prefix(25).map { $0 }
         if !running { problem = nil }

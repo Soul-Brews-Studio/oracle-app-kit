@@ -5,12 +5,12 @@ import AppKit
 import UIKit
 #endif
 
-enum Section: Hashable { case status, inbox, prs, issues, extra(String) }
+enum Section: Hashable { case status, inbox, prs, issues, memory, extra(String) }
 
 public struct OracleRootView: View {
     @ObservedObject private var store: OracleStore
     @Binding private var menuBar: Bool
-    @State private var section: Section? = .status
+    @State private var section: Section? = UserDefaults.standard.string(forKey: "oracleSection") == "memory" ? .memory : .status   // -oracleSection memory
     @State private var dropTargeted = false
     @State private var inboxHot = false
     @State private var issueHot = false
@@ -148,6 +148,12 @@ public struct OracleRootView: View {
         case .inbox: InboxList(store: store)
         case .prs: GHList(kind: .prs, items: store.prs, work: store.work, accent: c.color) { heyText = Self.brief($0, pr: true) }
         case .issues: GHList(kind: .issues, items: store.issues, work: store.work, accent: c.color) { heyText = Self.brief($0, pr: false) }
+        case .memory:
+            #if os(macOS)
+            HistoryView(config: c)   // the oracle's own sessions, searched by meaning
+            #else
+            EmptyView()
+            #endif
         case .extra(let id): c.extras.sections.first { $0.id == id }.map { $0.view() } ?? AnyView(EmptyView())
         }
     }
@@ -191,6 +197,10 @@ struct OracleSidebar: View {
                        on: section == .prs, accent: c.color) { section = .prs }
                 NavRow(symbol: "exclamationmark.circle", title: "Issues", badge: store.issues.isEmpty ? nil : "\(store.issues.count)",
                        on: section == .issues, accent: c.color) { section = .issues }
+                #if os(macOS)
+                NavRow(symbol: "brain", title: "Memory", badge: nil, on: section == .memory, accent: c.color) { section = .memory }
+                    .help("\(c.name)'s own session history, searched by meaning")
+                #endif
                 ForEach(c.extras.sections) { x in
                     NavRow(symbol: x.symbol, title: x.title, badge: nil, on: section == .extra(x.id), accent: c.color) { section = .extra(x.id) }
                 }
