@@ -1,7 +1,9 @@
-// Right-click anywhere in Chrome → "New issue in" ▸ <Name> Oracle.
-// Opens oracle-<name>://issue?url=…&title=…&text=… — the oracle app shows the issue draft (title = page title,
+// Right-click anywhere in Chrome → "🔮 Issue to Nexus" (one click, Nat 2026-10-07).
+// Opens oracle-nexus://issue?url=…&title=…&text=… — Nexus shows the issue draft (title = page title,
 // body = link + selection); Nat checks it and presses Create. Nothing is posted from here.
-const ORACLES = ['Neo', 'Pulse', 'Nexus'];           // one per installed oracle app (co.laris.oracle.<name>)
+// One top-level item on purpose: Chrome folds two or more of an extension's items under one parent.
+const ORACLES = ['Neo', 'Pulse', 'Nexus'];           // the 🔮 button's ⇧-click menu and fb.js messages accept these
+const DEFAULT = 'Nexus';
 const CONTEXTS = ['page', 'link', 'selection', 'image'];
 
 chrome.runtime.onInstalled.addListener(() => {
@@ -11,10 +13,7 @@ chrome.runtime.onInstalled.addListener(() => {
     for (const t of tabs) chrome.scripting.executeScript({ target: { tabId: t.id }, files: ['fb.js'] }).catch(() => {});
   });
   chrome.contextMenus.removeAll(() => {
-    chrome.contextMenus.create({ id: 'root', title: 'New issue in', contexts: CONTEXTS });
-    for (const o of ORACLES) {
-      chrome.contextMenus.create({ id: o, parentId: 'root', title: `${o} Oracle`, contexts: CONTEXTS });
-    }
+    chrome.contextMenus.create({ id: DEFAULT, title: `🔮 Issue to ${DEFAULT}`, contexts: CONTEXTS });
   });
 });
 
