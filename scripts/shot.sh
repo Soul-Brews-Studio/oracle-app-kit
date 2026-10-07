@@ -40,7 +40,12 @@ mkdir -p "${OUT:h}" 2>/dev/null
 if [[ -n $W && $W != 0 ]] && screencapture -x -o -l$W "$OUT"; then print -r -- "shot $OUT"
 elif [[ $(swift -e 'import CoreGraphics; let d = CGSessionCopyCurrentDictionary() as? [String: Any] ?? [:]; print((d["CGSSessionScreenIsLocked"] as? Int) ?? 0)' 2>/dev/null) == 1 ]]; then
   print -r -- "✗ the screen locked during the wait — unlock it, then:  zsh $0 ${(@q)ARGV_ALL}"; rc=3
-else print -r -- "✗ no window for $APP — on screen? Screen Recording for this terminal?  System Settings → Privacy & Security → Screen Recording"; rc=1; fi
+else
+  print -r -- "✗ no window for $APP — not running, off screen, or no Screen Recording for this terminal:"
+  print -r -- "    pgrep -fl '$APP.app/Contents/MacOS'; ls -t ~/Library/Logs/DiagnosticReports/${(q)APP}-*(N) | head -1"
+  print -r -- "    swift -e 'import CoreGraphics; print(CGPreflightScreenCaptureAccess())'   # false → open 'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture'"
+  rc=1
+fi
 L="$HOME/Library/Logs/ARRA Oracles/$APP.log"; [[ $APP == "ARRA Oracles" ]] && L="$HOME/Library/Logs/ARRA Oracles/embed.log"   # the hub logs to embed.log
 [ -f "$L" ] && tail -5 "$L"
 exit $rc
