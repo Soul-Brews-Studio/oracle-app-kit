@@ -38,7 +38,7 @@ struct SearchCloud: View {
 
     var body: some View {
         let words = cloud
-        let top = Double(words.first?.count ?? 1)
+        let top = Double(max(words.first?.count ?? 1, 4))   // a young cloud (a query or two) stays calm, not all huge
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text("What's searched").font(.caption.weight(.semibold)).foregroundStyle(.secondary)

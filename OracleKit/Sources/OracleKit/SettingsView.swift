@@ -123,21 +123,22 @@ public struct SettingsView: View {
     }
 
     private var traceCard: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            SearchCloud(accent: accent).padding(.bottom, 8)
+        let all = trace.past + trace.entries   // every launch: the query log, then this launch
+        return VStack(alignment: .leading, spacing: 4) {
             HStack {
-                Text("\(trace.entries.count) queries since launch").font(.caption).foregroundStyle(.secondary)
+                Text("\(grouped(all.count)) queries · \(grouped(trace.entries.count)) since launch").font(.caption).foregroundStyle(.secondary)
                 Spacer()
                 Button("Open the query log") { NSWorkspace.shared.open(TraceLog.file) }.controlSize(.small).buttonStyle(.borderless).handCursor()
                     .help(TraceLog.file.path)
             }
-            if trace.entries.isEmpty {
+            if all.isEmpty {
                 Text("no query yet — search a page, or ask over MCP").font(.caption.monospaced()).foregroundStyle(.secondary)
             }
-            ForEach(trace.entries.suffix(30).reversed()) { e in
+            ForEach(all.suffix(30).reversed()) { e in
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 8) {
-                        Text(HubLog.clock(e.at)).foregroundStyle(.tertiary)
+                        Text(Calendar.current.isDateInToday(e.at) ? HubLog.clock(e.at) : e.at.formatted(.dateTime.month(.abbreviated).day().hour().minute()))
+                            .foregroundStyle(.tertiary)
                         Text(e.source.uppercased()).foregroundStyle(e.source == "mcp" ? Color.orange : accent).frame(width: 40, alignment: .leading)
                         Text("\"\(e.query)\"").lineLimit(1)
                         Text(e.filter).foregroundStyle(.secondary)
@@ -150,7 +151,9 @@ public struct SettingsView: View {
                 }
                 .font(.system(size: 11, design: .monospaced))
             }
+            SearchCloud(accent: accent).padding(.top, 10)
         }
+        .task { await trace.loadPast() }
     }
 
     // MARK: parts
