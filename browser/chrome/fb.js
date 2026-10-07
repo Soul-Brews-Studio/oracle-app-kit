@@ -76,7 +76,7 @@
       .filter(e => !inComment(e) && !e.closest('[role="button"], a, h1, h2, h3, h4') && !isName(e) &&
         !e.querySelector('[data-oracle-btn], [data-oracle-comment]'))   // never read our own chips back as the caption
       .map(e => e.innerText.trim().replace(SEE, ''))
-      .find(t => /\p{L}/u.test(t) && t !== author && !/^[\d.,]+\s*[KMB]?\s+\S+$/i.test(t)) || '';
+      .find(t => /\p{L}/u.test(t) && t !== author && !/^(facebook|reels?|follow|public)$/i.test(t) && !/^[\d.,]+\s*[KMB]?\s+\S+$/i.test(t)) || '';
   }
 
   async function details(post) {
@@ -167,9 +167,11 @@
     for (const like of document.querySelectorAll(LIKE)) {
       const wrap = (like.closest('[role="button"]') || like).parentElement;
       const bar = wrap?.parentElement;
-      if (!bar || bar.hasAttribute(MARK)) continue;
+      if (!bar) continue;
       const post = postOf(like);
       if (!post) continue;
+      headerChip(post, () => details(post));   // checked every pass: Facebook re-renders headers
+      if (bar.hasAttribute(MARK)) continue;
       bar.setAttribute(MARK, '1');
       bar.lastElementChild.after(barButton(() => details(post)));   // after Share, or after Comment when there is no Share
     }
@@ -211,19 +213,22 @@
     return c;
   }
 
-  // Photo pages: 🔮 on the header line, after "a day ago · 🌐" (Nat marked that spot, 2026-10-07). The line is the
-  // flex div around the time link (first link after the author's name) and the privacy globe.
-  function addHeaderChip() {
-    const side = document.querySelector('[role="complementary"]');
-    if (!side || side.querySelector('[data-oracle-head]')) return;
-    const links = [...side.querySelectorAll('a')].filter(a => !a.closest('[role="article"]'));
-    const name = links.find(a => a.innerText.trim() && !/online status|^active$/i.test(a.innerText.trim()));
-    let line = name && links[links.indexOf(name) + 1];
-    while (line && !(line.tagName === 'DIV' && getComputedStyle(line).display === 'flex' && line.querySelector('svg'))) line = line.parentElement;
-    if (!line || line.contains(name)) return;
-    line.append(chip(`🔮 ${DEFAULT}`, `New issue in ${DEFAULT} Oracle for this photo (⇧-click: another oracle)`, pageDetails, 'data-oracle-btn'));
-    line.firstElementChild?.setAttribute('data-oracle-head', '1'); side.setAttribute('data-oracle-head', '1');
+  // 🔮 on a header line, after "a day ago · globe" (Nat marked that spot, 2026-10-07). The line is the flex div that
+  // holds the time link (first link after the author's name) and the privacy globe — and not the name itself.
+  // Photo panel: root = the right panel; feed post: root = the post.
+  function headerChip(root, getDetails) {
+    if (!root || root.querySelector('[data-oracle-head]')) return;
+    const links = [...root.querySelectorAll('a')].filter(a => !a.closest('[role="article"]') || a.closest('[role="article"]') === root);
+    const nameEl = root.querySelector('[data-ad-rendering-role="profile_name"]');
+    const name = nameEl ? links.find(a => nameEl.contains(a)) : links.find(a => a.innerText.trim() && !/online status|^active$/i.test(a.innerText.trim()));
+    const time = name && links.find(a => (name.compareDocumentPosition(a) & Node.DOCUMENT_POSITION_FOLLOWING) && !(nameEl || name).contains(a));
+    let line = time; while (line && line !== root && !(line.tagName === 'DIV' && getComputedStyle(line).display === 'flex' && line.querySelector('svg') && !line.contains(name))) line = line.parentElement;
+    if (!line || line === root) return;
+    const c = chip(`🔮 ${DEFAULT}`, `New issue in ${DEFAULT} Oracle for this post (⇧-click: another oracle)`, getDetails, 'data-oracle-btn');
+    c.setAttribute('data-oracle-head', '1');
+    line.append(c);
   }
+  function addHeaderChip() { headerChip(document.querySelector('[role="complementary"]'), pageDetails); }
 
   // 🔗 inline after every comment's Reply (Nat via the right pane, 2026-10-07): sends THAT comment — its link,
   // text and the links in it. Reply lives in an <li> inside a wrapper div; the chip is that wrapper's next sibling in the same flex row.
