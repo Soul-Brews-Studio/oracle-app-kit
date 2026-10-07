@@ -115,7 +115,8 @@ public struct MapView: View {
         .onChange(of: clusters.revision) { regroupScene() }
         .onChange(of: scene.built) { regroupScene() }
         // #36: every query asked of this memory — a page, the map, another oracle over MCP — fires its hits
-        .onChange(of: trace.entries.count) { _, _ in fireTraced() }
+        // keyed on the newest entry, not the count: TraceLog keeps 500, so past that the count stops changing
+        .onChange(of: trace.entries.last?.id) { _, _ in fireTraced() }
         // #37: a query another oracle app answered
         .onChange(of: heard.last?.id) { _, _ in fireHeard() }
     }
