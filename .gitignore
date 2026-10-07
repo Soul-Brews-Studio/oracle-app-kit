@@ -6,3 +6,4 @@ OracleKit/.swiftpm/
 ANEEmbed/tokenizer-ffi/target/
 ANEEmbed/.build/
 ANEEmbed/.swiftpm/
+.tmp/

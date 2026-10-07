@@ -21,15 +21,17 @@ for s in $schemes; do
   (( r )) && { rg 'error:' $log | sed "s|^$R/||" | sort -u | head -12; echo "  full log: $R/$log"; }
 done
 (( INSTALL && $#built )) || exit $rc
-lock_take "$@" || exit 75
-trap lock_drop EXIT INT TERM
+lock_take "zsh $R/scripts/build.sh ${(q)@}" || exit 75
+trap lock_drop EXIT; trap 'lock_drop; exit 130' INT TERM HUP
 for s in $built; do
   app=$s; [[ $s == Oracles ]] && app="ARRA Oracles"
   was=0; pgrep -x "$app" >/dev/null && was=1; [[ $app == "ARRA Oracles" ]] && was=1
   pkill -x "$app"; for i in {1..50}; do pgrep -x "$app" >/dev/null || break; sleep 0.2; done
-  rsync -a --delete "$R/build/Build/Products/Release/$app.app/" "/Applications/$app.app/"
+  if ! rsync -a --delete "$R/build/Build/Products/Release/$app.app/" "/Applications/$app.app/"; then
+    print -r -- "✗ $app: copying into /Applications failed — nothing relaunched:  ls -ld '/Applications/$app.app'"; rc=1; continue
+  fi
   v=$(/usr/libexec/PlistBuddy -c "Print :ARRACalVer" "/Applications/$app.app/Contents/Info.plist" 2>/dev/null)
-  (( was )) && { open "/Applications/$app.app" || { sleep 2; open "/Applications/$app.app"; }; }
+  if (( was )); then for i in 1 2 3; do open "/Applications/$app.app" 2>/dev/null && break; sleep 2; done; fi   # -600 while the old copy quits
   echo "$app $v $( (( was )) && echo relaunched || echo installed)"
 done
 exit $rc
