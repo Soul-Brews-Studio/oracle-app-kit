@@ -28,6 +28,7 @@ public final class MapClusters: ObservableObject {
     struct File: Codable {
         var built: Date; var n: Int; var labels: [Int]; var groups: [Group]; var version: Int?
         var leafLabels: [Int]?; var leaves: [Group]?; var ids: [String]?; var titled: Date?
+        var joined: Int?   // docs that joined by nearest centre since the last grouping
     }
     static let version = 3   // bump when grouping or naming changes: cached groups are recomputed
 
@@ -51,6 +52,9 @@ public final class MapClusters: ObservableObject {
     private var built: Date?
     private var version = 0
     private var ids: [String] = []        // the layout ids the labels belong to
+    private var joined = 0                // docs that joined by nearest centre since the last grouping
+    /// Past this share of joined docs the memory is grouped again (the groups no longer describe it).
+    static let regroupShare = 0.25
     private var generation = 0            // a new grouping stops the titling of the old one
     private var titleTask: Task<Void, Never>?
     private var saving: Task<Void, Never>?
@@ -60,7 +64,7 @@ public final class MapClusters: ObservableObject {
         let d = JSONDecoder(); d.dateDecodingStrategy = .iso8601
         if let data = try? Data(contentsOf: url), let f = try? d.decode(File.self, from: data) {
             groups = f.groups; labels = f.labels; built = f.built; version = f.version ?? 1
-            leaves = f.leaves ?? []; leafLabels = f.leafLabels ?? []; ids = f.ids ?? []; titled = f.titled
+            leaves = f.leaves ?? []; leafLabels = f.leafLabels ?? []; ids = f.ids ?? []; titled = f.titled; joined = f.joined ?? 0
         }
     }
 
@@ -70,14 +74,19 @@ public final class MapClusters: ObservableObject {
             .map { ($0.key, $0.value.count) }.sorted { $0.1 > $1.1 }
     }
 
-    /// The groups for the layout. Kept when made for this layout — by id, so docs placed since or gone move nothing
-    /// else; anything else (a re-fit, a new version) groups everything again. Then untitled groups are titled in the
-    /// background — a plain relaunch finds them all titled and asks the model nothing.
+    /// The groups for the layout. The groups live in the 768-d space, so a re-fit (which only moves the 3-D layout)
+    /// changes nothing: every doc keeps its groups by id and a new doc joins its nearest. The memory is grouped again
+    /// only with no groups, a new version, or once more than a quarter of the docs joined that way. Then untitled
+    /// groups are titled in the background — a plain relaunch finds them all titled and asks the model nothing.
     public func refresh(layout: MapLayout, docs: [IndexDoc]) async {
         guard let meta = layout.meta, !running, layout.ids.count >= 50 else { return }
-        if built == meta.built, version == Self.version, !labels.isEmpty, labels.count == leafLabels.count, labels.count == ids.count {
-            if ids != layout.ids { await realign(layout: layout, docs: docs) }
-            startTitling(); return
+        if version == Self.version, !labels.isEmpty, labels.count == leafLabels.count, labels.count == ids.count {
+            let known = Set(ids), fresh = layout.ids.reduce(0) { $0 + (known.contains($1) ? 0 : 1) }
+            if Double(joined + fresh) <= Self.regroupShare * Double(layout.ids.count) {
+                if ids != layout.ids { await realign(layout: layout, docs: docs) }
+                if built != meta.built { built = meta.built; save() }
+                startTitling(); return
+            }
         }
         await regroup(layout: layout, docs: docs, built: meta.built)
         startTitling()
@@ -128,7 +137,7 @@ public final class MapClusters: ObservableObject {
         let kept = Self.carry(into: &g, labels: r.labels, ids: newIds, from: oldGroups, labels: oldLabels, ids: oldIds)
             + Self.carry(into: &l, labels: r.leafLabels, ids: newIds, from: oldLeaves, labels: oldLeafLabels, ids: oldIds)
         groups = g; labels = r.labels; leaves = l; leafLabels = r.leafLabels; ids = newIds
-        built = b; version = Self.version; revision += 1
+        built = b; version = Self.version; revision += 1; joined = 0
         save()
         HubLog.shared.add(.info, String(format: "map groups: %d docs in %d regions (k %d at the elbow) and %d leaves in %.1f s (%@) — %d titles kept",
                                         n, g.count, r.k, l.count, Date().timeIntervalSince(t0), r.timing, kept))
@@ -143,23 +152,11 @@ public final class MapClusters: ObservableObject {
         let byId = Dictionary(docs.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         let vecs = target.map { byId[$0]?.vec ?? [] }
         guard let dim = vecs.first(where: { !$0.isEmpty })?.count else { return }
-        var was: [String: (Int, Int)] = [:]
-        was.reserveCapacity(ids.count)
-        for (i, id) in ids.enumerated() { was[id] = (labels[i], leafLabels[i]) }
+        let oldIds = ids, oldTop = labels, oldLeaf = leafLabels
         let regions = groups.map(\.id), leafParent = leaves.map { ($0.id, $0.parent ?? -1) }
-        let k = (regions.max() ?? 0) + 1, L = (leafParent.map(\.0).max() ?? 0) + 1
         let gen = generation, before = ids.count
-        let (top, leaf, fresh) = await Task.detached(priority: .utility) { () -> ([Int], [Int], Int) in
-            var top = [Int](repeating: -1, count: target.count), leaf = [Int](repeating: -1, count: target.count)
-            for (i, id) in target.enumerated() { if let w = was[id] { top[i] = w.0; leaf[i] = w.1 } }
-            let C = Self.centres(vecs, labels: top, k: k, dim: dim), LC = Self.centres(vecs, labels: leaf, k: L, dim: dim)
-            var fresh = 0
-            for i in target.indices where top[i] < 0 {
-                let g = Self.nearest(vecs[i], in: C, dim: dim, among: regions)
-                let mine = leafParent.filter { $0.1 == g }.map(\.0)
-                top[i] = g; leaf[i] = Self.nearest(vecs[i], in: LC, dim: dim, among: mine.isEmpty ? leafParent.map(\.0) : mine); fresh += 1
-            }
-            return (top, leaf, fresh)
+        let (top, leaf, fresh) = await Task.detached(priority: .utility) {
+            Self.realigned(oldIds: oldIds, labels: oldTop, leafLabels: oldLeaf, regions: regions, leafParent: leafParent, ids: target, vecs: vecs, dim: dim)
         }.value
         guard gen == generation, !running, layout.ids == target else { return }   // moved meanwhile: the next refresh redoes it
         var topCount: [Int: Int] = [:], leafCount: [Int: Int] = [:]
@@ -167,9 +164,29 @@ public final class MapClusters: ObservableObject {
         for x in leaf { leafCount[x, default: 0] += 1 }
         groups = groups.map { var x = $0; x.count = topCount[x.id] ?? 0; return x }.filter { $0.count > 0 }
         leaves = leaves.map { var x = $0; x.count = leafCount[x.id] ?? 0; return x }.filter { $0.count > 0 }
-        labels = top; leafLabels = leaf; ids = target; revision += 1
+        labels = top; leafLabels = leaf; ids = target; revision += 1; joined += fresh
         save()
         HubLog.shared.add(.info, "map groups: \(fresh) new docs joined their nearest groups, \(before + fresh - target.count) gone — relabelled 0 of \(groups.count + leaves.count)")
+    }
+
+    /// The labels for a new list of ids: an old doc keeps its region and leaf; a new one joins the region, then the
+    /// leaf of that region, whose centre is closest in cosine. Returns the labels and how many docs joined.
+    nonisolated static func realigned(oldIds: [String], labels: [Int], leafLabels: [Int], regions: [Int], leafParent: [(Int, Int)],
+                                      ids target: [String], vecs: [[Float]], dim: Int) -> (top: [Int], leaf: [Int], fresh: Int) {
+        var was: [String: (Int, Int)] = [:]
+        was.reserveCapacity(oldIds.count)
+        for (i, id) in oldIds.enumerated() where i < labels.count && i < leafLabels.count { was[id] = (labels[i], leafLabels[i]) }
+        let k = (regions.max() ?? 0) + 1, L = (leafParent.map(\.0).max() ?? 0) + 1
+        var top = [Int](repeating: -1, count: target.count), leaf = [Int](repeating: -1, count: target.count)
+        for (i, id) in target.enumerated() { if let w = was[id] { top[i] = w.0; leaf[i] = w.1 } }
+        let C = centres(vecs, labels: top, k: k, dim: dim), LC = centres(vecs, labels: leaf, k: L, dim: dim)
+        var fresh = 0
+        for i in target.indices where top[i] < 0 {
+            let g = nearest(vecs[i], in: C, dim: dim, among: regions)
+            let mine = leafParent.filter { $0.1 == g }.map(\.0)
+            top[i] = g; leaf[i] = nearest(vecs[i], in: LC, dim: dim, among: mine.isEmpty ? leafParent.map(\.0) : mine); fresh += 1
+        }
+        return (top, leaf, fresh)
     }
 
     /// Titles every group the model has not named yet, one at a time in the background (~1 s each), regions first.
@@ -219,7 +236,7 @@ public final class MapClusters: ObservableObject {
     private func save() {
         guard let built else { return }
         let f = File(built: built, n: labels.count, labels: labels, groups: groups, version: Self.version,
-                     leafLabels: leafLabels, leaves: leaves, ids: ids, titled: titled)
+                     leafLabels: leafLabels, leaves: leaves, ids: ids, titled: titled, joined: joined)
         let url = url, previous = saving
         saving = Task.detached(priority: .utility) {
             await previous?.value
@@ -375,7 +392,7 @@ public final class MapClusters: ObservableObject {
     /// Spherical k-means on unit vectors: assign by the largest dot product (one sgemm per pass), centroids =
     /// normalised member means. Seeded farthest-first, so the same input gives the same groups. Returns the label
     /// per row and the k × dim centroids.
-    nonisolated static func sphericalKMeans(_ X: [Float], n: Int, dim: Int, k: Int, iters: Int = 15, start: [Float]? = nil) -> (labels: [Int], centroids: [Float]) {
+    nonisolated static func sphericalKMeans(_ X: [Float], n: Int, dim: Int, k: Int, iters: Int = 40, start: [Float]? = nil) -> (labels: [Int], centroids: [Float]) {
         var C = [Float](repeating: 0, count: k * dim)
         if let start, start.count == k * dim { C = start } else { seedFarthestFirst(X, n: n, dim: dim, k: k, into: &C) }
         var labels = [Int](repeating: 0, count: n)
@@ -394,7 +411,7 @@ public final class MapClusters: ObservableObject {
             C = [Float](repeating: 0, count: k * dim)
             for i in 0..<n { let c = labels[i]; for j in 0..<dim { C[c * dim + j] += X[i * dim + j] } }
             normaliseRows(&C, k: k, dim: dim)
-            if changed == 0 { break }
+            if changed * 2_000 <= n { break }   // settled: fewer than 0.05 % still move
         }
         return (labels, C)
     }

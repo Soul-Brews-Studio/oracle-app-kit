@@ -74,6 +74,17 @@ final class MapClustersTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(kept * 5, old.groups.count * 4, "\(kept) of \(old.groups.count) titles kept")
     }
 
+    func testRealignKeepsGroupsById() {
+        // two regions on two axes, one leaf each; d1 is gone, d9 is new (near the y axis), the rest moved up a row
+        let v: [String: [Float]] = ["d0": [1, 0], "d1": [0.9, 0.1], "d2": [0, 1], "d3": [0.1, 0.9], "d9": [0.05, 1]]
+        let oldIds = ["d0", "d1", "d2", "d3"], ids = ["d0", "d2", "d3", "d9"]
+        let r = MapClusters.realigned(oldIds: oldIds, labels: [0, 0, 1, 1], leafLabels: [10, 10, 11, 11], regions: [0, 1],
+                                      leafParent: [(10, 0), (11, 1)], ids: ids, vecs: ids.map { v[$0]!.normalised() }, dim: 2)
+        XCTAssertEqual(r.top, [0, 1, 1, 1])        // d2 and d3 keep region 1 although their rows moved; d9 joins it
+        XCTAssertEqual(r.leaf, [10, 11, 11, 11])
+        XCTAssertEqual(r.fresh, 1)
+    }
+
     func testTitlesCarryOnlyWhenMembersStay() {
         let ids = (0..<100).map { "d\($0)" }
         let old = [MapClusters.Group(id: 0, count: 50, keywords: ["a"], title: "Old A", model: "apple-fm"),
@@ -175,6 +186,10 @@ final class MapClustersTests: XCTestCase {
 }
 
 /// A small deterministic generator (SplitMix64) with a Box–Muller normal.
+private extension Array where Element == Float {
+    func normalised() -> [Float] { let n = reduce(0) { $0 + $1 * $1 }.squareRoot(); return map { $0 / n } }
+}
+
 private struct Seeded {
     var s: UInt64
     init(_ seed: UInt64) { s = seed }
