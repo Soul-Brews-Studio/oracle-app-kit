@@ -33,21 +33,22 @@ public struct OracleRootView: View {
             OracleSidebar(store: store, section: $section, menuBar: $menuBar)
                 .navigationSplitViewColumnWidth(min: 240, ideal: 272)
         } detail: {
-            HStack(spacing: 0) {
+            GeometryReader { geo in HStack(spacing: 0) {
                 detail
+                    .frame(minWidth: 420)
                     #if os(macOS)
                     .safeAreaInset(edge: .bottom) { HeyComposer(store: store, text: $heyText, focus: openPane) }
                     #endif
                 #if os(macOS)
                 // the 3rd column exists only while a pane is open (Nat: 3 columns all the time was "too nested")
                 if let place = openPane, section == .status {
-                    DrawerHandle(width: $drawerWidth, grown: $drawerGrown)
+                    DrawerHandle(width: $drawerWidth, maxWidth: max(360, geo.size.width - 420 - DrawerHandle.width))
                     TerminalColumn(store: store, place: place) { openPane = nil }
                         .frame(width: drawerWidth)
                         .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
                 #endif
-            }
+            } }
             #if os(macOS)
             // a right DRAWER: the window grows by the drawer's width so Work keeps its size (Nat: "not resize the current")
             .onChange(of: openPane) { old, new in
@@ -1137,12 +1138,21 @@ struct HeyComposer: View {
 /// The real terminal of one herdr pane, read live (`herdr --session S pane read P`, every second), newest at the bottom.
 /// Read-only: typing goes through the message box under the Work column, which targets this pane while it is open.
 struct TerminalColumn: View {
+    /// The widest row in terminal cells (a CJK or emoji glyph takes two), so the font can be sized to fit it.
+    static func columns(_ text: String) -> Int {
+        text.split(separator: "\n", omittingEmptySubsequences: false).map { row in
+            row.unicodeScalars.reduce(0) { n, u in n + ((0x1100...0x115F).contains(u.value) || (0x2E80...0xA4CF).contains(u.value) || (0xAC00...0xD7A3).contains(u.value)
+                || (0xF900...0xFAFF).contains(u.value) || (0xFE30...0xFE4F).contains(u.value) || (0xFF00...0xFF60).contains(u.value) || (0x1F300...0x1FAFF).contains(u.value) ? 2
+                : (u.properties.generalCategory == .nonspacingMark ? 0 : 1)) }
+        }.max() ?? 0
+    }
     @ObservedObject var store: OracleStore
     let place: String
     let close: () -> Void
     @State private var text = ""
     @State private var read: Date?
     @State private var failed = false
+    @State private var escMonitor: Any?
     var body: some View {
         let act = store.activity.first { $0.place == place }
         let home = WorkFormat.homeSession(store.activity)
@@ -1161,16 +1171,21 @@ struct TerminalColumn: View {
             }
             .padding(.horizontal, 14).padding(.vertical, 11)
             Divider()
-            ScrollViewReader { proxy in
-                ScrollView([.vertical, .horizontal]) {
-                    Text(failed && text.isEmpty ? "can't read \(place) — is herdr running?\n  herdr pane list" : text)
-                        .font(.system(size: 12, design: .monospaced)).foregroundStyle(Color(white: 0.86))
-                        .fixedSize(horizontal: true, vertical: false)   // never re-wrap: tables and boxes keep their shape
-                        .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading).padding(12)
-                    Color.clear.frame(height: 1).id("end")
-                }
-                .onChange(of: text) { proxy.scrollTo("end", anchor: .bottom) }
-                .onAppear { proxy.scrollTo("end", anchor: .bottom) }
+            GeometryReader { geo in
+                // a terminal screen, not a scroll view (Nat: "make the right fit, no scroll"): the font shrinks until the
+                // widest row fits the drawer (a monospaced cell is ~0.6 of the font size), and only the newest rows that
+                // fit the height are shown — widen or heighten the drawer to see more
+                let all = (failed && text.isEmpty ? "can't read \(place) — is herdr running?\n  herdr pane list" : text)
+                    .split(separator: "\n", omittingEmptySubsequences: false)
+                let recent = all.suffix(160).joined(separator: "\n")
+                let fit = min(13, max(7, (geo.size.width - 26) / (CGFloat(max(TerminalColumn.columns(recent), 40)) * 0.602)))
+                let rows = max(4, Int((geo.size.height - 24) / (fit * 1.22)))
+                Text(all.suffix(rows).joined(separator: "\n"))
+                    .font(.system(size: fit, design: .monospaced)).foregroundStyle(Color(white: 0.86))
+                    .fixedSize(horizontal: true, vertical: false)   // never re-wrap: tables and boxes keep their shape
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading).padding(12)
+                    .clipped()
             }
             .background(Color(red: 0.04, green: 0.04, blue: 0.06))
             HStack {
@@ -1180,6 +1195,13 @@ struct TerminalColumn: View {
             }
             .padding(.horizontal, 14).padding(.vertical, 7)
         }
+        .onAppear {
+            escMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { e in
+                if e.keyCode == 53 { close(); return nil }   // 53 = esc
+                return e
+            }
+        }
+        .onDisappear { if let m = escMonitor { NSEvent.removeMonitor(m); escMonitor = nil } }
         .task(id: place) {
             text = ""; failed = false
             let parts = place.split(separator: ":", maxSplits: 1).map(String.init)
@@ -1217,12 +1239,12 @@ struct TerminalColumn: View {
     }
 }
 
-/// The drawer's left edge: drag it to make the terminal wider or narrower (360–1200 px). The window grows or shrinks to
-/// the left by the same amount, so the Work column never changes size.
+/// The drawer's left edge: drag it to trade width with the Work column (Nat: "middle more narrow, the right edge stays,
+/// so the drawer gets wider"). The window does not move; Work keeps at least 420 px.
 struct DrawerHandle: View {
     static let width: CGFloat = 7
     @Binding var width: Double
-    @Binding var grown: Double
+    var maxWidth: CGFloat = 1200
     @State private var start: Double?
     @State private var inside = false
     var body: some View {
@@ -1241,9 +1263,8 @@ struct DrawerHandle: View {
         .gesture(DragGesture(minimumDistance: 1, coordinateSpace: .global)
             .onChanged { g in
                 let base = start ?? width; if start == nil { start = width }
-                let next = min(1200, max(360, base - g.translation.width))
-                let dx = next - width
-                if abs(dx) >= 1 { Drawer.grow(by: dx, leftward: true, animate: false); width = next; grown += dx }
+                let next = min(Double(maxWidth), max(360, base - g.translation.width))
+                if abs(next - width) >= 1 { width = next }
             }
             .onEnded { _ in start = nil })
         .help("Drag to make the terminal wider or narrower")
