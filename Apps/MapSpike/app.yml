@@ -1,0 +1,20 @@
+targets:
+  MapSpike:                 # issue #32: a throwaway RealityKit view of Neo's 48,950 real points — fps and picking, nothing shipped
+    type: application
+    platform: macOS
+    deploymentTarget: "27.0"
+    sources:
+      - path: Apps/MapSpike
+        excludes: ["app.yml"]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: co.laris.oracle.mapspike
+        PRODUCT_NAME: MapSpike
+        ENABLE_APP_SANDBOX: NO
+        ENABLE_HARDENED_RUNTIME: NO
+        "ARCHS[sdk=macosx*]": arm64
+    info:
+      path: Apps/MapSpike/Info.plist
+      properties:
+        CFBundleName: MapSpike
+        NSHighResolutionCapable: true

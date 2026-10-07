@@ -7,3 +7,5 @@ include:
     relativePaths: false
   - path: Apps/Pulse/app.yml
     relativePaths: false
+  - path: Apps/MapSpike/app.yml
+    relativePaths: false
