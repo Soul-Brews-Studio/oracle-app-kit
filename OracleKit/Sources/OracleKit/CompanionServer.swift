@@ -970,7 +970,7 @@ public final class CompanionServer: ObservableObject {
         return CompanionAPI.MapData(ids: ids, kinds: kinds, titles: titles, xyz: MapLayout.pack(xyz),
                                     knn: hasKNN ? knn.withUnsafeBufferPointer { Data(buffer: $0) } : Data(), k: hasKNN ? k : 0,
                                     labels: grouped ? labels : [],
-                                    groups: grouped ? groups.map { CompanionAPI.MapGroup(id: $0.id, count: $0.count, keywords: $0.keywords) } : [])
+                                    groups: grouped ? groups.map { CompanionAPI.MapGroup(id: $0.id, count: $0.count, keywords: $0.keywords, title: $0.title) } : [])
     }
 
     /// What the Map page names a point: what was said for a session piece, else the title — at most 120 characters.

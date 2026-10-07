@@ -1582,7 +1582,8 @@ struct PhoneMapPanel: View {
                 if let g {
                     Divider()
                     Text("GROUP").font(.caption2.weight(.bold)).tracking(1.5).foregroundStyle(accent)
-                    Text(g.keywords.prefix(5).joined(separator: " · ")).font(.callout.weight(.medium))
+                    Text(g.title ?? g.keywords.prefix(5).joined(separator: " · ")).font(.callout.weight(.medium))
+                    if g.title != nil { Text(g.keywords.prefix(5).joined(separator: " · ")).font(.caption).foregroundStyle(.secondary) }
                     Text("\(grouped(g.count)) memories").font(.caption).foregroundStyle(.secondary)
                 }
                 Divider()
