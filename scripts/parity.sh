@@ -33,6 +33,7 @@ for N in $names; do
       print -r -- "✗ $N/$f differs from what the generator writes:"; sed 's/^/    /' $T/d.txt | head -40; rc=1; bad=1
     fi
   done
-  (( bad )) || print -r -- "✓ $N — generator output == Apps/$N (key $KEY, port $PORT, team $TEAM)"
+  if (( bad )); then print -r -- "    regenerate $N:  zsh $R/scripts/new-oracle-app.sh ${(q)N} ${(q)SLUG} ${(q)LP} ${(q)HEX} ${(q)SYM} ${(q)TAG} $opts --update"
+  else print -r -- "✓ $N — generator output == Apps/$N (key $KEY, port $PORT, team $TEAM)"; fi
 done
 exit $rc

@@ -42,7 +42,7 @@ elif [[ $(swift -e 'import CoreGraphics; let d = CGSessionCopyCurrentDictionary(
   print -r -- "✗ the screen locked during the wait — unlock it, then:  zsh $0 ${(@q)ARGV_ALL}"; rc=3
 else
   print -r -- "✗ no window for $APP — not running, off screen, or no Screen Recording for this terminal:"
-  print -r -- "    pgrep -fl '$APP.app/Contents/MacOS'; ls -t ~/Library/Logs/DiagnosticReports/${(q)APP}-*(N) | head -1"
+  print -r -- "    pgrep -fl '$APP.app/Contents/MacOS'; ls -t ~/Library/Logs/DiagnosticReports | rg -m1 '^${APP}(Widget|Share)?-'"
   print -r -- "    swift -e 'import CoreGraphics; print(CGPreflightScreenCaptureAccess())'   # false → open 'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture'"
   rc=1
 fi

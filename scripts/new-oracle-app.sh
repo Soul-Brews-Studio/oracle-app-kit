@@ -19,22 +19,31 @@
 # Refuses before writing anything.
 set -e
 die() { print -r -- "✗ $*"; exit 2; }
+usage='usage:  zsh scripts/new-oracle-app.sh <Name> <org/repo> <mac checkout path> <#rrggbb> <sf-symbol> ['"'"'<tagline>'"'"'] [--update] [--key=k] [--port=n] [--team=id] [--no-regen]'
 ARGS=("$@"); pos=(); UPDATE=0; REGEN=1; KEY=""; PORT=""; TEAM=""
 while (( $# )); do
   case $1 in
     --update) UPDATE=1 ;;
     --no-regen) REGEN=0 ;;
-    --key=*|--port=*|--team=*) v=${1#*=}; [ -n "$v" ] || die "$1: empty value"; typeset -g ${${1%%=*}#--}_opt=$v ;;
-    --key|--port|--team) [ -n "${2:-}" ] && [[ $2 != --* ]] || die "$1 needs a value"; typeset -g ${1#--}_opt=$2; shift ;;
-    --*) die "unknown option $1" ;;
+    --key=*|--port=*|--team=*) v=${1#*=}; [ -n "$v" ] || die "$1: empty value — $usage"; typeset -g ${${1%%=*}#--}_opt=$v ;;
+    --key|--port|--team) [ -n "${2:-}" ] && [[ $2 != --* ]] || die "$1 needs a value — $usage"; typeset -g ${1#--}_opt=$2; shift ;;
+    --*) die "unknown option $1 — $usage" ;;
     *) pos+=("$1") ;;
   esac; shift
 done
 KEY=${key_opt:-}; PORT=${port_opt:-}; TEAM=${team_opt:-}; OLDPORT=""; KEYSRC=${key_opt:+--key}; TEAMSRC=${team_opt:+--team}
-(( $#pos >= 5 && $#pos <= 6 )) || die "usage: new-oracle-app.sh <Name> <org/repo> <mac checkout path> <#hex> <sf-symbol> [\"<tagline>\"] [--update] [--key=k] [--port=n] [--team=id] [--no-regen]"
+(( $#pos >= 5 && $#pos <= 6 )) || die "$usage"
 N=$pos[1]; SLUG=$pos[2]; LP=$pos[3]; HEX=$pos[4]; SYM=$pos[5]; TAG=${pos[6]:-"$N oracle"}
 R=${0:A:h}/..; R=${R:A}; D=$R/Apps/$N; low=${(L)N}
 [[ $N =~ '^[A-Z][A-Za-z0-9]*$' ]] || die "Name must be a Swift type name (Neo, DustBoyPhd), got '$N' — the hyphenated portal key goes in --key"
+# the lower-case Name becomes a declaration (static let <name> = OracleConfig(…)): not a Swift keyword
+swiftkw=(associatedtype class deinit enum extension fileprivate func import init inout internal let operator private
+  precedencegroup protocol public rethrows static struct subscript typealias var break case catch continue default defer
+  do else fallthrough for guard if in repeat return throw switch where while as false is nil self super throws true try)
+if (( ${swiftkw[(Ie)$low]} )); then
+  alt=(); for a in "${ARGS[@]}"; do [[ $a == $N ]] && alt+=(${N}Oracle) || alt+=("$a"); done
+  die "Name '$N' lower-cases to the Swift keyword '$low' (OracleConfig.$low would not compile); the key still comes from the repo — e.g.:  zsh $0 ${(q)alt[@]}"
+fi
 [[ $SLUG == */* ]] || die "repo must be org/repo, got '$SLUG'"
 [[ $HEX =~ '^#[0-9a-fA-F]{6}$' ]] || die "colour must be #rrggbb, got '$HEX'"
 # these land inside Swift string literals and are read back by scripts/parity.sh — no '"' or '\'
@@ -45,8 +54,8 @@ for v in "$SLUG" "$LP" "$TAG" "$SYM"; do [[ $v == *${~cc}* ]] && die "no '\"', '
 [[ $LP == /* ]] || die "mac checkout path must be absolute, got '$LP' — the oracle's main checkout:  ghq list -p --exact $SLUG"
 [[ -n ${ORACLE_APP_SCRATCH:-} || -d $LP ]] || die "no checkout at $LP on this Mac — clone it:  ghq get -p $SLUG"
 [ -n "$SYM" ] || die "sf-symbol is empty — pass one, e.g. star.fill"
-[ -e $D ] && (( ! UPDATE )) && die "Apps/$N exists — regenerate it with --update (keeps Extras, icon, key, port, team)"
-[ ! -e $D ] && (( UPDATE )) && die "Apps/$N does not exist — drop --update to create it"
+[ -e $D ] && (( ! UPDATE )) && die "Apps/$N exists — regenerate it (keeps Extras, icon, key, port, team):  zsh $0 ${(q)ARGS[@]} --update"
+[ ! -e $D ] && (( UPDATE )) && { new=("${(@)ARGS:#--update}"); die "Apps/$N does not exist — create it:  zsh $0 ${(q)new[@]}"; }
 # --update: what the app already is wins over the defaults (an explicit option still wins over both)
 if (( UPDATE )); then
   [ -n "$KEY" ]  || { KEY=$(sed -n 's/^ *PRODUCT_BUNDLE_IDENTIFIER: co\.laris\.oracle\.\([a-z0-9-]*\)$/\1/p' $D/app.yml 2>/dev/null | head -1); KEYSRC=${KEY:+Apps/$N/app.yml}; }
@@ -91,7 +100,7 @@ if [[ $okeys == *" $KEY "* ]]; then
   free=$KEY-2; i=2; while [[ $okeys == *" $free "* ]]; do i=$((i + 1)); free=$KEY-$i; done
   die "key '$KEY' (from $KEYSRC) is already another app's (co.laris.oracle.$KEY) — a free one:  zsh $0 ${(q)again[@]} --key=$free"
 fi
-[[ ${(L)ohex} == *" ${(L)HEX} "* ]] && die "colour $HEX is already another app's — pick another"
+[[ ${(L)ohex} == *" ${(L)HEX} "* ]] && die "colour $HEX is already another app's — the taken ones, then pass another #rrggbb:  rg -o 'colorHex: \"#[0-9a-fA-F]{6}\"' $R/Apps/*/*Config.swift"
 # a live listener check; scripts/parity.sh generates into a scratch copy and sets ORACLE_APP_SCRATCH=1 to skip it
 live() { lsof -nP -iTCP:$1 -sTCP:LISTEN -t >/dev/null 2>&1 }   # false when lsof is missing
 listening() {
@@ -100,7 +109,9 @@ listening() {
   live $1
 }
 if [ -n "$PORT" ]; then
-  [[ $PORT =~ '^[1-9][0-9]{0,4}$' ]] && (( PORT <= 65535 )) || die "port must be 1–65535, no leading zero, got '$PORT'"
+  [[ $PORT =~ '^[1-9][0-9]{0,4}$' ]] && (( PORT <= 65535 )) || {
+    free=4791; while [[ $oports == *" $free "* ]] || live $free; do free=$((free + 1)); done
+    die "port must be 1–65535, no leading zero, got '$PORT' — a free one (the last --port wins):  zsh $0 ${(q)ARGS[@]} --port=$free"; }
   if [[ $oports == *" $PORT "* ]]; then
     free=4791; while [[ $oports == *" $free "* ]] || live $free; do free=$((free + 1)); done   # a suggestion must be free HERE, scratch or not
     die "port $PORT is already another app's MCP port — a free one (the last --port wins):  zsh $0 ${(q)ARGS[@]} --port=$free"
@@ -113,7 +124,11 @@ fi
 if (( REGEN )) && ! command -v xcodegen >/dev/null; then
   die "xcodegen is needed to regenerate the project:  brew install xcodegen   (or add --no-regen and run scripts/regen.sh later)"
 fi
-if [[ -z ${ORACLE_APP_SCRATCH:-} ]] && [ ! -d $D/Assets.xcassets/AppIcon.appiconset ] && ! command -v uv >/dev/null; then
+if [ -f $R/design/icons/$N.png ] && [[ $(file -b --mime-type $R/design/icons/$N.png) != image/* ]]; then
+  die "design/icons/$N.png is not an image — set it aside and the generator draws the icon:  mv $R/design/icons/$N.png $R/design/icons/$N.png.bad"
+fi
+# an icon is there only when make_icon.py got to its LAST file (Contents.json): a failed run leaves an empty folder
+if [[ -z ${ORACLE_APP_SCRATCH:-} ]] && [ ! -f $D/Assets.xcassets/AppIcon.appiconset/Contents.json ] && ! command -v uv >/dev/null; then
   die "uv is needed to make the icon:  brew install uv"
 fi
 GROUP="$TEAM.co.laris.oracle.$KEY"
@@ -122,7 +137,7 @@ mkdir -p $D/Widget $D/Share $D/Assets.xcassets
 [ -f $D/Assets.xcassets/Contents.json ] || print -r -- '{"info":{"version":1,"author":"xcode"}}' > $D/Assets.xcassets/Contents.json
 # the icon: design/icons/<Name>.png (a Codex / imagegen emblem) resized when present, else drawn
 icon_from=(); [ -f $R/design/icons/$N.png ] && icon_from=(--from $R/design/icons/$N.png)
-[ -d $D/Assets.xcassets/AppIcon.appiconset ] || [ -n "${ORACLE_APP_SCRATCH:-}" ] || uv run --quiet --with pillow python $R/scripts/make_icon.py $D/Assets.xcassets/AppIcon.appiconset $HEX ${N[1]} $icon_from
+[ -f $D/Assets.xcassets/AppIcon.appiconset/Contents.json ] || [ -n "${ORACLE_APP_SCRATCH:-}" ] || uv run --quiet --with pillow python $R/scripts/make_icon.py $D/Assets.xcassets/AppIcon.appiconset $HEX ${N[1]} $icon_from
 cat > $D/${N}Config.swift <<SWIFT
 import OracleKit
 
