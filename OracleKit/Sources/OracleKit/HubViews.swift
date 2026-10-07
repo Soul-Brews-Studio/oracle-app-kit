@@ -125,7 +125,7 @@ struct SessionRow: View {
                 .fill(on ? HubStyle.accent.opacity(0.16) : (hover ? Color.primary.opacity(0.06) : Color.clear)))
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.plain).handCursor()
         .onHover { hover = $0 }
     }
 }
@@ -198,7 +198,7 @@ struct OracleBoard: View {
                             ForEach(allResumable ? resumable : Array(resumable.prefix(8))) { RestingRow(oracle: $0) }
                         }
                         if resumable.count > 8 {
-                            Button(allResumable ? "show less" : "\(resumable.count - 8) more") { allResumable.toggle() }
+                            Button(allResumable ? "show less" : "\(resumable.count - 8) more") { allResumable.toggle() }.handCursor()
                                 .buttonStyle(.link).padding(.leading, 4)
                         }
                     }
@@ -227,7 +227,7 @@ struct OracleBoard: View {
                     Image(systemName: open.wrappedValue || !query.isEmpty ? "chevron.down" : "chevron.right")
                         .font(.caption2.bold()).foregroundStyle(.secondary)
                 }.contentShape(Rectangle())
-            }.buttonStyle(.plain)
+            }.buttonStyle(.plain).handCursor()
             if open.wrappedValue || !query.isEmpty {   // a filter opens every fold, so a match is never hidden
                 VStack(alignment: .leading, spacing: 2) { ForEach(list) { RestingRow(oracle: $0).opacity(0.75) } }
             }
@@ -273,7 +273,7 @@ struct OracleCard: View {
                 .strokeBorder(hover ? HubStyle.accent.opacity(0.6) : Color.primary.opacity(0.08)))
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.plain).handCursor()
         .onHover { hover = $0 }
         .help(app != nil ? "Open the \(oracle.name) app" : oracle.spaces.isEmpty ? "No herdr space open" : "Show in herdr")
         .contextMenu {
@@ -328,7 +328,7 @@ struct RestingRow: View {
             Spacer(minLength: 8)
             Text("\(oracle.resumable) resumable · \(oracle.cold) cold").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
             if let r = oracle.resume {
-                Button(copied ? "copied" : "resume") { WorkFormat.copy(r); copied = true }
+                Button(copied ? "copied" : "resume") { WorkFormat.copy(r); copied = true }.handCursor()
                     .buttonStyle(.borderless).help(r).frame(width: 64, alignment: .trailing)
             } else {
                 Color.clear.frame(width: 64, height: 1)
@@ -362,7 +362,7 @@ struct SessionSpaces: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("This herdr session is not running. Open it in WezTerm, or from any terminal:").foregroundStyle(.secondary)
                         Text("herdr --session \(session)").font(.callout.monospaced()).textSelection(.enabled)
-                        Button("Open in WezTerm") { store.openSession(session) }.buttonStyle(.borderedProminent).controlSize(.small)
+                        Button("Open in WezTerm") { store.openSession(session) }.buttonStyle(.borderedProminent).controlSize(.small).handCursor()
                     }
                     .padding(14)
                     .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -401,9 +401,9 @@ struct SpaceLine: View {
             Text("\(space.panes) \(space.panes == 1 ? "pane" : "panes") · \(space.agents) \(space.agents == 1 ? "agent" : "agents")")
                 .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
             if app != nil, let r = space.repo {
-                Button("Open app") { store.openApp(HubParse.displayName(r).lowercased()) }.controlSize(.small)
+                Button("Open app") { store.openApp(HubParse.displayName(r).lowercased()) }.controlSize(.small).handCursor()
             }
-            Button("Show in herdr") { store.showInHerdr(space) }.controlSize(.small)
+            Button("Show in herdr") { store.showInHerdr(space) }.controlSize(.small).handCursor()
         }
         .padding(.vertical, 7).padding(.horizontal, 10)
         .padding(.leading, space.linked ? 14 : 0)
