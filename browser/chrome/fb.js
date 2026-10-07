@@ -266,6 +266,62 @@
     document.body.append(p);
   }
 
+  // Hover a photo or video → a big 🔮 button on its corner; one click sends the post (Nat: "if the image can hover
+  // and show big icon to Nexus, let me click"). Facebook lays transparent divs over media, so the media is found
+  // by the pointer position (elementsFromPoint), not by the event target.
+  const HOVER_ID = 'oracle-hover', HOVER_BG = 'rgba(70,30,85,.82)';   // the chip's purple, opaque enough to read over a photo
+  let hoverMedia = null, hoverTimer = 0, lastMove = 0;
+  function mediaAt(x, y) {
+    return document.elementsFromPoint(x, y).find(e => {
+      if (e.tagName !== 'IMG' && e.tagName !== 'VIDEO') return false;
+      const r = e.getBoundingClientRect();
+      return r.width >= 200 && r.height >= 160 && !e.closest('#' + HOVER_ID);
+    });
+  }
+  function postOfMedia(m) {
+    for (let n = m, i = 0; n && n !== document.body && i < 40; i++, n = n.parentElement) {
+      const likes = n.querySelectorAll(LIKE);
+      if (likes.length === 1) return postOf(likes[0]);
+      if (likes.length > 1) return null;
+    }
+    return null;
+  }
+  function hoverButton() {
+    let b = document.getElementById(HOVER_ID);
+    if (b) return b;
+    b = document.createElement('div');
+    b.id = HOVER_ID; b.setAttribute('role', 'button'); b.textContent = `🔮 ${DEFAULT}`;
+    b.title = `New issue in ${DEFAULT} Oracle from this post (⇧-click: another oracle)`;
+    Object.assign(b.style, { position: 'fixed', zIndex: 2147483646, display: 'none', cursor: 'pointer', userSelect: 'none',
+      padding: '10px 18px', borderRadius: '16px', background: HOVER_BG, color: '#e1bee7',   // the header chip's look (Nat: "make it like this button")
+      font: '600 14px system-ui, sans-serif', backdropFilter: 'blur(6px)', boxShadow: '0 4px 14px rgba(0,0,0,.45)' });
+    b.onmouseenter = () => { clearTimeout(hoverTimer); b.style.background = 'rgba(171,71,188,.85)'; b.style.color = '#fff'; };
+    b.onmouseleave = () => { b.style.background = HOVER_BG; b.style.color = '#e1bee7'; hoverTimer = setTimeout(() => (b.style.display = 'none'), 350); };
+    b.onclick = async (e) => {
+      e.stopPropagation(); e.preventDefault();
+      const m = hoverMedia, post = m && postOfMedia(m);
+      const get = () => post ? details(post) : pageDetails();
+      if (e.shiftKey) return menu(b, null, get);
+      b.style.display = 'none';
+      send(DEFAULT, await get());
+    };
+    document.body.append(b);
+    return b;
+  }
+  document.addEventListener('mousemove', (e) => {
+    const now = performance.now(); if (now - lastMove < 80) return; lastMove = now;
+    const m = mediaAt(e.clientX, e.clientY), b = document.getElementById(HOVER_ID);
+    if (!m) { if (b && b.style.display !== 'none' && !b.matches(':hover')) { clearTimeout(hoverTimer); hoverTimer = setTimeout(() => (b.style.display = 'none'), 350); } return; }
+    // only where there is something to send: inside a post, or on a single-post page
+    if (!postOfMedia(m) && !SINGLE.test(location.href)) return;
+    clearTimeout(hoverTimer);
+    hoverMedia = m;
+    const btn = hoverButton(), r = m.getBoundingClientRect();
+    btn.style.display = 'block';
+    btn.style.left = `${Math.max(8, Math.min(innerWidth - btn.offsetWidth - 8, r.right - btn.offsetWidth - 14))}px`;
+    btn.style.top = `${Math.max(64, r.top + 14)}px`;
+  }, { passive: true });
+
   let t;
   new MutationObserver(() => { clearTimeout(t); t = setTimeout(() => { addButtons(); pill(); }, 400); })
     .observe(document.body, { childList: true, subtree: true });
