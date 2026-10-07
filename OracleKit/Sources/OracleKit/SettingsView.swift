@@ -76,6 +76,7 @@ public struct SettingsView: View {
                           + (i.built.map { $0.formatted(date: .abbreviated, time: .shortened) } ?? "never"))
                 EngineRow(name: "Vector space", value: i.space ?? "—")
                 MapLayoutRow(index: i)
+                MapClustersRow(clusters: i.clusters)
                 HStack(spacing: 10) {
                     Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: i.filePath)]) }
                     Button("Check engine") { Task { await i.checkEngine() } }
@@ -83,6 +84,7 @@ public struct SettingsView: View {
                         Task { await i.layout.fit(docs: i.docs, space: i.space, why: "Rebuild map layout button") }
                     }
                     .disabled(i.layout.running || i.docs.count < 10 || MapLayout.engine == nil)
+                    RelabelGroupsButton(clusters: i.clusters)
                 }
                 .controlSize(.small).buttonStyle(.bordered).handCursor().padding(.vertical, 6)
             }
@@ -390,6 +392,36 @@ struct MapLayoutRow: View {
             return s
         }()
         EngineRow(name: "Map layout", value: value, good: layout.problem != nil ? false : nil)
+    }
+}
+
+/// Relabel groups — its own view, so it follows the grouping and titling as they run.
+struct RelabelGroupsButton: View {
+    @ObservedObject var clusters: MapClusters
+    var body: some View {
+        Button("Relabel groups") { clusters.relabel() }
+            .disabled(!clusters.canRelabel)
+            .help(ClusterTitler.unavailable.map { "Needs Apple's model: \($0)" } ?? "Name every map group again with Apple's on-device model")
+    }
+}
+
+/// The map's groups of an index (Settings → Vector search): how many, who named them, when, and why the model
+/// could not.
+struct MapClustersRow: View {
+    @ObservedObject var clusters: MapClusters
+    var body: some View {
+        let value: String = {
+            if clusters.running { return "grouping…" }
+            if clusters.groups.isEmpty { return "not grouped yet — open the Map page" }
+            var s = "\(clusters.groups.count) regions · \(clusters.leaves.count) smaller groups"
+            let by = clusters.namedBy.map { "\($0.0) \($0.1)" }.joined(separator: " · ")
+            if !by.isEmpty { s += " · named by " + by }
+            if !clusters.titling.isEmpty { s += " · \(clusters.titling)" }
+            else if let t = clusters.titled { s += " · " + t.formatted(date: .abbreviated, time: .shortened) }
+            if let why = ClusterTitler.unavailable { s += " · \(why)" }
+            return s
+        }()
+        EngineRow(name: "Map groups", value: value, good: nil)
     }
 }
 

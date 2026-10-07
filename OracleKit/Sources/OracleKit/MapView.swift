@@ -20,6 +20,8 @@ public struct MapView: View {
     @State private var query = ""
     @State private var who = "all"
     @State private var flat = false
+    @State private var showGroups = false
+    @State private var openRegion: Int?
     @FocusState private var focused: Bool
     private static var actionDone = false
 
@@ -45,11 +47,14 @@ public struct MapView: View {
                         scene.build(into: &content, layout: layout, docs: index.docs)
                         _ = content.subscribe(to: SceneEvents.Update.self) { _ in scene.frame() }
                     } update: { _ in }
+                    // a new layout (a re-fit, docs placed) is a new scene: rows and positions changed together
+                    .id("\(layout.meta?.built.timeIntervalSince1970 ?? 0)·\(layout.xyz.count)")
                     .realityViewCameraControls(.orbit)
                     .onContinuousHover(coordinateSpace: .local) { phase in
                         if case .active(let p) = phase { scene.pointer = p } else { scene.pointer = nil; scene.hoverDoc = nil; scene.setHand(false) }
                     }
                     .onTapGesture { scene.click() }
+                    .onGeometryChange(for: CGSize.self) { $0.size } action: { scene.viewSize = $0 }
                     .background(Color(red: 0.03, green: 0.03, blue: 0.05))
                     .onAppear { scene.installScrollZoom() }
                     .onDisappear { scene.removeScrollZoom() }
@@ -61,7 +66,11 @@ public struct MapView: View {
                         .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
                 controls.padding(14)
-                searchField.frame(maxWidth: 460).padding(14).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                VStack(alignment: .leading, spacing: 10) {
+                    searchField.frame(maxWidth: 460)
+                    if showGroups { groupList.frame(width: 300).transition(.move(edge: .leading).combined(with: .opacity)) }
+                }
+                .padding(14).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 GeometryReader { g in
                     if let d = scene.hoverDoc.flatMap({ $0 < index.docs.count ? index.docs[$0] : nil }), let p = scene.hoverAt {
                         let flipX = p.x > g.size.width - 340, flipY = p.y > g.size.height - 110
@@ -77,7 +86,7 @@ public struct MapView: View {
             .padding(.horizontal, 28).padding(.bottom, 14)
         }
         .onChange(of: layout.xyz.count) { scene.needsRebuild = true }
-        .onChange(of: clusters.labels.count) { scene.setGroups(clusters.labels) }
+        .onChange(of: clusters.revision) { scene.setGroups(clusters.labels, leaves: clusters.leafLabels, ids: clusters.layoutIds) }
         // #36: every query asked of this memory — a page, the map, another oracle over MCP — fires its hits
         // keyed on the newest entry, not the count: TraceLog keeps 500, so past that the count stops changing
         .onChange(of: trace.entries.last?.id) { _, _ in
@@ -85,8 +94,9 @@ public struct MapView: View {
             let rows = e.top.compactMap { layout.row(of: $0.id) }
             scene.fire(rows: rows, color: MapScene.callerColor(e.caller, source: e.source, accent: accent), label: Self.who(e))
         }
-        .onChange(of: scene.built) { scene.setGroups(clusters.labels) }
+        .onChange(of: scene.built) { scene.setGroups(clusters.labels, leaves: clusters.leafLabels, ids: clusters.layoutIds) }
         .animation(.easeOut(duration: 0.18), value: scene.selectedRow)
+        .animation(.easeOut(duration: 0.18), value: showGroups)
         .onAppear {   // esc: clear the selection, then the lit hits
             escMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { e in
                 guard e.keyCode == 53 else { return e }
@@ -108,7 +118,8 @@ public struct MapView: View {
                 await layout.fit(docs: index.docs, space: index.space, why: why)
             }
             await clusters.refresh(layout: layout, docs: index.docs)
-            scene.setGroups(clusters.labels)
+            scene.setGroups(clusters.labels, leaves: clusters.leafLabels, ids: clusters.layoutIds)
+            if UserDefaults.standard.bool(forKey: "mapGroups") { showGroups = true }   // -mapGroups YES (tests)
             if !Self.actionDone, let q = UserDefaults.standard.string(forKey: "mapQuery"), !q.isEmpty {   // -mapQuery <text> (tests)
                 Self.actionDone = true
                 for _ in 0..<600 where layout.xyz.isEmpty || scene.built == 0 || ModelLoad.shared.loading { try? await Task.sleep(for: .milliseconds(100)) }
@@ -141,24 +152,29 @@ public struct MapView: View {
         }
     }
 
-    /// The names of the biggest groups, floating at their centres; a name lights its whole group.
+    /// The names of the biggest groups, floating at their centres — the regions, or, zoomed in, the leaves of what is
+    /// on screen. A name lights its whole group.
     private var groupLabels: some View {
+        let leafLevel = !scene.leafAt.isEmpty
+        let at = leafLevel ? scene.leafAt : scene.labelAt
+        let all = leafLevel ? clusters.leaves : clusters.groups
         // biggest first; a name that would overlap one already placed is left out (hover its group to see it)
         var placed: [CGPoint] = []
-        let shown = clusters.groups.sorted { $0.count > $1.count }.prefix(16).filter { g in
-            guard let p = scene.labelAt[g.id], !placed.contains(where: { abs($0.x - p.x) < 130 && abs($0.y - p.y) < 26 }) else { return false }
+        let shown = all.sorted { $0.count > $1.count }.filter { g in
+            guard let p = at[g.id], !placed.contains(where: { abs($0.x - p.x) < 150 && abs($0.y - p.y) < 26 }) else { return false }
             placed.append(p); return true
-        }.prefix(12)
+        }.prefix(leafLevel ? 16 : 12)
         return ZStack(alignment: .topLeading) {
             ForEach(Array(shown)) { g in
-                if let p = scene.labelAt[g.id] {
-                    Button { scene.light(scene.members(of: g.id).prefix(600).map { $0 }) } label: {
-                        Text(g.name).font(.caption.weight(.semibold)).foregroundStyle(.white.opacity(0.85))
-                            .padding(.horizontal, 8).padding(.vertical, 3)
-                            .background(.black.opacity(0.55), in: Capsule())
-                            .overlay(Capsule().strokeBorder(accent.opacity(0.35)))
+                if let p = at[g.id] {
+                    Button { scene.focus(group: g.id, leaf: leafLevel) } label: {
+                        Text(g.name).font(leafLevel ? .caption2.weight(.semibold) : .caption.weight(.semibold))
+                            .foregroundStyle(.white.opacity(leafLevel ? 0.75 : 0.85))
+                            .padding(.horizontal, leafLevel ? 6 : 8).padding(.vertical, leafLevel ? 2 : 3)
+                            .background(.black.opacity(leafLevel ? 0.45 : 0.55), in: Capsule())
+                            .overlay(Capsule().strokeBorder(accent.opacity(leafLevel ? 0.22 : 0.35)))
                     }
-                    .buttonStyle(.plain).handCursor().help("\(grouped(g.count)) memories — click to light the group")
+                    .buttonStyle(.plain).handCursor().help("\(grouped(g.count)) memories — \(g.keywords.prefix(5).joined(separator: " · ")) — click to light the group")
                     .fixedSize().position(p)
                 }
             }
@@ -166,10 +182,58 @@ public struct MapView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
+    /// Every region with its count; open one for its leaves. A click lights the group and turns the map to it.
+    private var groupList: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("GROUPS").font(.caption2.weight(.bold)).tracking(1.5).foregroundStyle(accent)
+                Text("\(clusters.groups.count) regions · \(clusters.leaves.count) smaller").font(.caption2).foregroundStyle(.secondary)
+                Spacer()
+                Button { showGroups = false } label: { Image(systemName: "xmark") }.buttonStyle(.borderless).handCursor().help("Close")
+            }
+            if clusters.running { Text("grouping…").font(.caption).foregroundStyle(.secondary) }
+            else if !clusters.titling.isEmpty { Text("\(clusters.titling) — Apple's on-device model names them").font(.caption).foregroundStyle(.secondary) }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 1) {
+                    ForEach(clusters.groups.sorted { $0.count > $1.count }) { g in
+                        groupRow(g, leaf: false)
+                        if openRegion == g.id {
+                            ForEach(clusters.leaves.filter { $0.parent == g.id }.sorted { $0.count > $1.count }) { l in groupRow(l, leaf: true) }
+                        }
+                    }
+                }
+            }
+            .frame(maxHeight: 360)
+        }
+        .padding(12)
+        .background(.black.opacity(0.78), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(accent.opacity(0.35)))
+    }
+
+    private func groupRow(_ g: MapClusters.Group, leaf: Bool) -> some View {
+        Button {
+            scene.focus(group: g.id, leaf: leaf)
+            if !leaf { openRegion = openRegion == g.id ? nil : g.id }
+        } label: {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                if !leaf { Image(systemName: openRegion == g.id ? "chevron.down" : "chevron.right").font(.caption2).foregroundStyle(.tertiary).frame(width: 10) }
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(g.name).font(leaf ? .caption : .callout.weight(.medium)).lineLimit(1)
+                    if g.title != nil { Text(g.keywords.prefix(4).joined(separator: " · ")).font(.caption2).foregroundStyle(.tertiary).lineLimit(1) }
+                }
+                Spacer(minLength: 4)
+                Text(grouped(g.count)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+            }
+            .padding(.vertical, 4).padding(.leading, leaf ? 22 : 4).padding(.trailing, 4).contentShape(Rectangle())
+        }
+        .buttonStyle(.plain).handCursor().help(leaf ? "Light this group and turn to it" : "Light this region and turn to it; shows its smaller groups")
+    }
+
     /// The clicked point: what it is, what is closest to it (its nearest neighbours in meaning), and its group.
     private func panel(row: Int, doc d: IndexDoc) -> some View {
         let rel = scene.neighbours(of: row).prefix(15).compactMap { r in scene.doc(row: r).map { (r, $0) } }
         let g = scene.group(of: row).flatMap { gid in clusters.groups.first { $0.id == gid } }
+        let leaf = scene.leaf(of: row).flatMap { lid in clusters.leaves.first { $0.id == lid } }
         return VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top) {
                 Circle().fill(Color(nsColor: MapScene.color(d.kind, accent: accent))).frame(width: 9, height: 9).padding(.top, 5)
@@ -185,11 +249,12 @@ public struct MapView: View {
             if let g {
                 Divider()
                 Text("GROUP").font(.caption2.weight(.bold)).tracking(1.5).foregroundStyle(accent)
-                Text(g.keywords.prefix(5).joined(separator: " · ")).font(.callout.weight(.medium))
+                Text(leaf.map { "\(g.name) › \($0.name)" } ?? g.name).font(.callout.weight(.medium)).lineLimit(2)
+                Text((leaf ?? g).keywords.prefix(5).joined(separator: " · ")).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 HStack {
-                    Text("\(grouped(g.count)) memories").font(.caption).foregroundStyle(.secondary)
+                    Text("\(grouped((leaf ?? g).count)) memories").font(.caption).foregroundStyle(.secondary)
                     Spacer()
-                    Button("Light the group") { scene.light(scene.members(of: g.id).prefix(600).map { $0 }) }
+                    Button("Light the group") { if let leaf { scene.focus(group: leaf.id, leaf: true) } else { scene.focus(group: g.id, leaf: false) } }
                         .buttonStyle(.bordered).controlSize(.small).handCursor()
                 }
             }
@@ -256,6 +321,9 @@ public struct MapView: View {
             }
             .pickerStyle(.segmented).labelsHidden().fixedSize()
             Toggle("2D", isOn: $flat).toggleStyle(.switch).controlSize(.mini)
+            Button { showGroups.toggle() } label: { Label("Groups", systemImage: "circle.hexagongrid") }
+                .buttonStyle(.bordered).controlSize(.small).handCursor().disabled(clusters.groups.isEmpty)
+                .help("Every group of this memory — click one to light it")
             if !scene.lit.isEmpty {
                 Button { scene.light([]); query = "" } label: { Label("\(scene.lit.count) lit", systemImage: "xmark.circle.fill") }
                     .buttonStyle(.bordered).controlSize(.small).handCursor().help("Clear the lit hits (esc)")
@@ -268,6 +336,10 @@ public struct MapView: View {
         VStack(alignment: .leading, spacing: 3) {
             Text(d.title).font(.callout.weight(.semibold)).lineLimit(2)
             Text(meta(d)).font(.caption.monospaced()).foregroundStyle(.secondary)
+            if let r = scene.hovered, let g = scene.group(of: r).flatMap({ gid in clusters.groups.first { $0.id == gid } }) {
+                let leaf = scene.leaf(of: r).flatMap { lid in clusters.leaves.first { $0.id == lid } }
+                Text("in \(g.name)" + (leaf.map { " › \($0.name)" } ?? "")).font(.caption).foregroundStyle(accent).lineLimit(1)
+            }
             Text("click: what is related, and its group").font(.caption).foregroundStyle(.tertiary)
         }
         .padding(10)
@@ -305,9 +377,17 @@ final class MapScene: ObservableObject {
     @Published var hoverDoc: Int?          // the doc under the pointer (index into docs)
     @Published var hoverAt: CGPoint?       // the pointer, where the card is drawn
     @Published var selectedRow: Int?       // the clicked point (layout row): the panel shows it, its relatives, its group
-    /// Where each group's name sits on screen (projected from the group's centre every few frames).
+    /// Where each region's name sits on screen (projected from the region's centre every few frames); empty when
+    /// zoomed in, where the leaves are named instead.
     @Published var labelAt: [Int: CGPoint] = [:]
+    /// Zoomed in: where each leaf on screen has its name.
+    @Published var leafAt: [Int: CGPoint] = [:]
+    /// The map's size on screen: leaf names outside it are not placed.
+    var viewSize: CGSize = .zero
     private var hoverRow: Int?
+    var hovered: Int? { hoverRow }
+    private var leafCentre: [Int: SIMD3<Float>] = [:]
+    private var leafOf: [Int] = []
     private(set) var docs: [IndexDoc] = []
     private var groupCentre: [Int: SIMD3<Float>] = [:]
     private var groupOf: [Int] = []
@@ -335,6 +415,9 @@ final class MapScene: ObservableObject {
     private var layout: MapLayout?
     private var content: RealityViewCameraContent?
     private var frames = 0
+    private var builtIds: [String] = []
+    private var pendingZoom: Float?
+    private var builtAt = Date()
     private var last = Date()
     private var lastPick = Date.distantPast
     private var scroll: Any?
@@ -355,9 +438,15 @@ final class MapScene: ObservableObject {
     }
 
     func build(into content: inout RealityViewCameraContent, layout: MapLayout, docs: [IndexDoc]) {
-        self.content = content; self.layout = layout
+        self.content = content; self.layout = layout; builtIds = layout.ids
+        // a rebuild (new layout): what pointed at rows of the old one goes
+        selectedRow = nil; hoverRow = nil; hoverDoc = nil; lit = []; firings = []; fireEntities = []; target = nil
+        litEntity = nil; lines = nil; hoverGlow = nil; selGlow = nil; selLines = nil; pulseEntity = nil; webEntity = nil
+        groupOf = []; leafOf = []; groupCentre = [:]; leafCentre = [:]; labelAt = [:]; leafAt = [:]
         root = Entity()
         root.scale = SIMD3(repeating: Self.scale)
+        let zoom = UserDefaults.standard.double(forKey: "mapZoom")   // -mapZoom 2.4 (tests: the leaves' names), once the camera has framed
+        pendingZoom = zoom > 0 ? Float(zoom) : nil
         // outliers pulled onto a shell at 0.8 so the camera frames the cloud, not three strays (picking uses the same)
         xyz = layout.xyz.map { p in let r = simd_length(p); return r > 0.8 ? p * (0.8 / r) : p }
         let byId = Dictionary(docs.enumerated().map { ($1.id, $0) }, uniquingKeysWith: { a, _ in a })
@@ -377,13 +466,20 @@ final class MapScene: ObservableObject {
         }
         web()
         content.add(root)
-        content.cameraTarget = root
+        // the camera frames its target's bounds as a sphere around their box, so the whole root (the web's box, a few
+        // outliers at the 0.8 shell) left half the points in a dot in the middle. A sphere at the 80th-percentile radius
+        // frames out to ~1.7× that: about 98 % of the points, filling the view
+        let r80 = xyz.map { simd_length($0) }.sorted().dropFirst(xyz.count * 8 / 10).first ?? 0.4
+        var clear = UnlitMaterial(color: .clear); clear.blending = .transparent(opacity: .init(floatLiteral: 0))
+        let frameEntity = ModelEntity(mesh: .generateSphere(radius: max(0.05, r80)), materials: [clear])
+        root.addChild(frameEntity)
+        content.cameraTarget = frameEntity
         if #available(macOS 27, *) {
             root.components.set(BloomComponent(scope: .unbounded))
             var o = BloomOptionsComponent(); o.strength = 1.2; o.threshold = 1.0; o.blurRadius = 10
             root.components.set(o)
         }
-        built += 1; shown = xyz.count; needsRebuild = false
+        built += 1; shown = xyz.count; needsRebuild = false; builtAt = Date()
         HubLog.shared.add(.info, "map: \(xyz.count) points in \(chunks.count) chunks")
     }
 
@@ -492,7 +588,15 @@ final class MapScene: ObservableObject {
     func row(ofDoc id: String) -> Int? { layout?.row(of: id) }
     func neighbours(of row: Int) -> [Int] { layout?.neighbours(of: row).filter { $0 < xyz.count } ?? [] }
     func group(of row: Int) -> Int? { row < groupOf.count ? groupOf[row] : nil }
+    func leaf(of row: Int) -> Int? { row < leafOf.count ? leafOf[row] : nil }
     func members(of g: Int) -> [Int] { groupOf.indices.filter { groupOf[$0] == g } }
+
+    /// A group from its name or the list: its members light up and the map turns to its centre.
+    func focus(group g: Int, leaf: Bool) {
+        let rows = (leaf ? leafOf : groupOf).indices.filter { (leaf ? leafOf : groupOf)[$0] == g }
+        light(Array(rows.prefix(600)))
+        if let c = (leaf ? leafCentre : groupCentre)[g] { target = c }
+    }
 
     // MARK: firing (#36)
 
@@ -556,14 +660,20 @@ final class MapScene: ObservableObject {
         if let e = Self.instanced(Array(pts.indices), xyz: pts, mesh: MeshResource.generateSphere(radius: 0.0028), material: m) { root.addChild(e); pulseEntity = e }
     }
 
-    /// Groups from MapClusters: each group's centre on the map, for its floating name.
-    func setGroups(_ labels: [Int]) {
-        guard labels.count == xyz.count else { return }
-        groupOf = labels
+    /// Groups from MapClusters: each region's and each leaf's centre on the map, for their floating names — only when
+    /// they were made for the rows this scene shows (after a re-fit the scene is rebuilt first, then they match).
+    func setGroups(_ labels: [Int], leaves: [Int], ids: [String]) {
+        guard labels.count == xyz.count, ids == builtIds else { return }
+        groupOf = labels; groupCentre = Self.centres(labels, xyz)
+        leafOf = leaves.count == xyz.count ? leaves : []; leafCentre = Self.centres(leafOf, xyz)
+    }
+    static func centres(_ labels: [Int], _ xyz: [SIMD3<Float>]) -> [Int: SIMD3<Float>] {
         var sum: [Int: SIMD3<Float>] = [:], n: [Int: Int] = [:]
         for (i, g) in labels.enumerated() { sum[g, default: .zero] += xyz[i]; n[g, default: 0] += 1 }
-        groupCentre = sum.reduce(into: [:]) { r, kv in r[kv.key] = kv.value / Float(n[kv.key] ?? 1) }
+        return sum.reduce(into: [:]) { r, kv in r[kv.key] = kv.value / Float(n[kv.key] ?? 1) }
     }
+    /// Zoomed in past 1.8× the leaves are named instead of the regions.
+    var zoomedIn: Bool { root.scale.x > Self.scale * 1.8 && !leafCentre.isEmpty }
 
     private func firing(at row: Int, glow: Float, lineAlpha: CGFloat, radius: Float) -> (ModelEntity?, ModelEntity?) {
         guard let layout, row < xyz.count else { return (nil, nil) }
@@ -607,6 +717,7 @@ final class MapScene: ObservableObject {
     func frame() {
         frames += 1
         let now = Date()
+        if let z = pendingZoom, now.timeIntervalSince(builtAt) > 0.6 { root.scale = SIMD3(repeating: Self.scale * z); pendingZoom = nil }
         if now.timeIntervalSince(last) >= 1 { fps = Double(frames) / now.timeIntervalSince(last); frames = 0; last = now }
         if let t = target {   // turn the map so the lit centroid faces the camera (a slow ease), then stop
             let want = simd_quatf(from: simd_normalize(t == .zero ? SIMD3(0, 0, 1) : t), to: SIMD3(0, 0, 1))
@@ -617,8 +728,13 @@ final class MapScene: ObservableObject {
         if let p = pointer, now.timeIntervalSince(lastPick) > (xyz.count > 15_000 ? 0.1 : 0.05) { lastPick = now; pick(at: p) }   // a pick projects every point: ~22 ms at 49k
         if frames % 6 == 0, let content, !groupCentre.isEmpty {
             var at: [Int: CGPoint] = [:]
-            for (g, c) in groupCentre { if let q = content.project(point: root.convert(position: flat ? SIMD3(c.x, c.y, 0) : c, to: nil), to: .local) { at[g] = q } }
-            labelAt = at
+            let zoomed = zoomedIn
+            let bounds = CGRect(origin: .zero, size: viewSize).insetBy(dx: -40, dy: -20)
+            for (g, c) in zoomed ? leafCentre : groupCentre {
+                if let q = content.project(point: root.convert(position: flat ? SIMD3(c.x, c.y, 0) : c, to: nil), to: .local),
+                   !zoomed || viewSize == .zero || bounds.contains(q) { at[g] = q }
+            }
+            if zoomed { leafAt = at; if !labelAt.isEmpty { labelAt = [:] } } else { labelAt = at; if !leafAt.isEmpty { leafAt = [:] } }
         }
     }
 
