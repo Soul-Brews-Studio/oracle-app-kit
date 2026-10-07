@@ -5,7 +5,7 @@ import AppKit
 // MARK: - Oracles (the landing app) — sidebar: all herdr sessions · detail: every oracle as a card
 // Same look as the oracle apps: ARRA-style sidebar, cards like the Work view.
 
-enum HubPick: Hashable { case all, search, settings, session(String) }
+enum HubPick: Hashable { case all, search, trace, settings, session(String) }
 
 enum HubStyle {
     static let accent = Color(hex: "#9b8cff")
@@ -34,7 +34,7 @@ public struct HubScene: Scene {
 struct HubRootView: View {
     @ObservedObject var store: HubStore
     @Binding var menuBar: Bool
-    @State private var pick: HubPick = UserDefaults.standard.string(forKey: "hubPage") == "search" ? .search : .all   // -hubPage search
+    @State private var pick: HubPick = ["search": HubPick.search, "trace": .trace, "settings": .settings][UserDefaults.standard.string(forKey: "hubPage") ?? ""] ?? .all   // -hubPage search|trace|settings
     @ObservedObject private var index = GHIndex.shared
     @State private var focusTick = 0
     var body: some View {
@@ -45,7 +45,8 @@ struct HubRootView: View {
             switch pick {
             case .all: OracleBoard(store: store)
             case .search: IndexSearchView(store: store, index: index, focusTick: focusTick)
-            case .settings: SettingsView(title: "ARRA Oracles", accent: HubStyle.accent, indexes: [index])
+            case .trace: TraceView(name: "ARRA Oracles", accent: HubStyle.accent)
+            case .settings: SettingsView(title: "ARRA Oracles", accent: HubStyle.accent, indexes: [index]) { pick = .trace }
             case .session(let name): SessionSpaces(store: store, session: name)
             }
         }
@@ -86,6 +87,9 @@ struct HubSidebar: View {
             NavRow(symbol: "sparkle.magnifyingglass", title: "Search issues & PRs", badge: "⌘K",
                    on: pick == .search, accent: HubStyle.accent) { pick = .search }
                 .padding(.horizontal, 12)
+            NavRow(symbol: "list.bullet.rectangle", title: "Trace", badge: nil, on: pick == .trace, accent: HubStyle.accent, sub: true) { pick = .trace }
+                .padding(.horizontal, 12)
+                .help("Every query asked of the hub's index — search and MCP — and a cloud of what is searched")
             NavRow(symbol: "gearshape", title: "Settings", badge: nil, on: pick == .settings, accent: HubStyle.accent) { pick = .settings }
                 .padding(.horizontal, 12)
             Text("Sessions").font(.custom("Avenir Next", size: 13).weight(.medium)).foregroundStyle(.secondary)

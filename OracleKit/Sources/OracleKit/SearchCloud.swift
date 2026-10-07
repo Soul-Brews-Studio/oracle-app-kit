@@ -7,8 +7,14 @@ import NaturalLanguage
 /// Apple's tokenizer splits the words, so Thai queries cloud by word too.
 struct SearchCloud: View {
     let accent: Color
+    @Binding var who: String                     // all · mcp · page
+    var selected: Binding<String?> = .constant(nil)   // a word clicked: the trace list filters by it
+    var limit = 48
+    var scale: CGFloat = 1
+    var header = true
+    var minHeight: CGFloat = 0   // the Trace page: a big square the words float in
+    var center = false
     @ObservedObject private var trace = TraceLog.shared
-    @State private var who = "all"
 
     struct Word: Identifiable { let id: String; var count = 0; var mcp = 0; var last = "" }
 
@@ -33,36 +39,43 @@ struct SearchCloud: View {
                 all[w] = x
             }
         }
-        return all.values.sorted { $0.count != $1.count ? $0.count > $1.count : $0.id < $1.id }.prefix(48).map { $0 }
+        return all.values.sorted { $0.count != $1.count ? $0.count > $1.count : $0.id < $1.id }.prefix(limit).map { $0 }
     }
 
     var body: some View {
         let words = cloud
         let top = Double(max(words.first?.count ?? 1, 4))   // a young cloud (a query or two) stays calm, not all huge
         VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("What's searched").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-                Picker("", selection: $who) { Text("All").tag("all"); Text("MCP").tag("mcp"); Text("Page").tag("page") }
-                    .pickerStyle(.segmented).labelsHidden().frame(width: 180)
-                Spacer()
-                Text("\(trace.past.count + trace.entries.count) queries · every launch").font(.caption).foregroundStyle(.secondary)
+            if header {
+                HStack {
+                    Text("What's searched").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                    Picker("", selection: $who) { Text("All").tag("all"); Text("MCP").tag("mcp"); Text("Page").tag("page") }
+                        .pickerStyle(.segmented).labelsHidden().frame(width: 180)
+                    Spacer()
+                    Text("\(trace.past.count + trace.entries.count) queries · every launch").font(.caption).foregroundStyle(.secondary)
+                }
             }
             if words.isEmpty {
                 Text("no query yet — search a page, or ask over MCP").font(.caption.monospaced()).foregroundStyle(.secondary)
             } else {
-                Flow(spacing: 8) {
+                Flow(spacing: center ? 14 : 8, center: center) {
                     ForEach(words.shuffledStable()) { w in
                         let share = Double(w.count) / top
                         let tint = w.mcp * 2 >= w.count ? Color.orange : accent
+                        let on = selected.wrappedValue == w.id
                         Text(w.id)
-                            .font(.system(size: 11 + 17 * share, weight: share > 0.6 ? .bold : share > 0.3 ? .semibold : .regular, design: .rounded))
-                            .foregroundStyle(tint.opacity(0.45 + 0.55 * share))
-                            .shadow(color: tint.opacity(share > 0.6 ? 0.6 : 0), radius: 8)
-                            .help("\(w.count) quer\(w.count == 1 ? "y" : "ies") · \(w.mcp) from MCP — last: \(w.last)")
+                            .font(.system(size: (11 + 17 * share) * scale, weight: share > 0.6 ? .bold : share > 0.3 ? .semibold : .regular, design: .rounded))
+                            .foregroundStyle(tint.opacity(on ? 1 : 0.45 + 0.55 * share))
+                            .shadow(color: tint.opacity(share > 0.6 || on ? 0.6 : 0), radius: 8)
+                            .padding(.horizontal, on ? 6 : 0)
+                            .background(Capsule().fill(on ? tint.opacity(0.18) : .clear))
+                            .onTapGesture { selected.wrappedValue = on ? nil : w.id }
+                            .handCursor()
+                            .help("\(w.count) quer\(w.count == 1 ? "y" : "ies") · \(w.mcp) from MCP — last: \(w.last) · click to filter")
                     }
                 }
-                .padding(12)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(center ? 24 : 12)
+                .frame(maxWidth: .infinity, minHeight: minHeight, alignment: center ? .center : .leading)
                 .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.black.opacity(0.25)))
             }
         }
@@ -75,26 +88,39 @@ private extension Array where Element == SearchCloud.Word {
     func shuffledStable() -> [Element] { sorted { $0.id.hashValue % 97 < $1.id.hashValue % 97 } }
 }
 
-/// Lays children left to right, wrapping to a new line when the row is full.
+/// Lays children left to right, wrapping to a new line when the row is full; each child sits in the middle of its
+/// row's height, and `center` centres every row (a cloud).
 struct Flow: Layout {
     var spacing: CGFloat = 8
+    var center = false
+
+    private func rows(_ subviews: Subviews, width: CGFloat) -> [[(Int, CGSize)]] {
+        var out: [[(Int, CGSize)]] = [[]]
+        var x: CGFloat = 0
+        for (i, s) in subviews.enumerated() {
+            let size = s.sizeThatFits(.unspecified)
+            if x + size.width > width, x > 0 { out.append([]); x = 0 }
+            out[out.count - 1].append((i, size)); x += size.width + spacing
+        }
+        return out
+    }
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         let width = proposal.width ?? 600
-        var x: CGFloat = 0, y: CGFloat = 0, row: CGFloat = 0
-        for s in subviews {
-            let size = s.sizeThatFits(.unspecified)
-            if x + size.width > width, x > 0 { x = 0; y += row + spacing; row = 0 }
-            x += size.width + spacing; row = max(row, size.height)
-        }
-        return CGSize(width: width, height: y + row)
+        let rs = rows(subviews, width: width)
+        let height = rs.reduce(0) { $0 + ($1.map(\.1.height).max() ?? 0) } + spacing * CGFloat(max(0, rs.count - 1))
+        return CGSize(width: width, height: height)
     }
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        var x = bounds.minX, y = bounds.minY, row: CGFloat = 0
-        for s in subviews {
-            let size = s.sizeThatFits(.unspecified)
-            if x + size.width > bounds.maxX, x > bounds.minX { x = bounds.minX; y += row + spacing; row = 0 }
-            s.place(at: CGPoint(x: x, y: y + (row > 0 ? 0 : 0)), proposal: ProposedViewSize(size))
-            x += size.width + spacing; row = max(row, size.height)
+        var y = bounds.minY
+        for r in rows(subviews, width: bounds.width) {
+            let h = r.map(\.1.height).max() ?? 0
+            let w = r.reduce(0) { $0 + $1.1.width } + spacing * CGFloat(max(0, r.count - 1))
+            var x = bounds.minX + (center ? max(0, (bounds.width - w) / 2) : 0)
+            for (i, size) in r {
+                subviews[i].place(at: CGPoint(x: x, y: y + (h - size.height) / 2), proposal: ProposedViewSize(size))
+                x += size.width + spacing
+            }
+            y += h + spacing
         }
     }
 }

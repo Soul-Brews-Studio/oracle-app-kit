@@ -13,8 +13,13 @@ public struct SettingsView: View {
     @AppStorage("mcp.enabled") private var mcpEnabled = true
     @State private var cache: (count: Int, mb: Double) = (0, 0)
     @State private var copied = false
+    @State private var who = "all"
+    /// opens the Trace page (under Memory in the sidebar) — the Trace card's title is its button
+    let openTrace: (() -> Void)?
 
-    public init(title: String, accent: Color, indexes: [GHIndex]) { self.title = title; self.accent = accent; self.indexes = indexes }
+    public init(title: String, accent: Color, indexes: [GHIndex], openTrace: (() -> Void)? = nil) {
+        self.title = title; self.accent = accent; self.indexes = indexes; self.openTrace = openTrace
+    }
 
     public var body: some View {
         ScrollView {
@@ -29,7 +34,7 @@ public struct SettingsView: View {
                 card("Engine", "cpu", .cyan) { engine }
                 card("Vector search", "sparkle.magnifyingglass", accent) { vectors }
                 card("MCP", "point.3.connected.trianglepath.dotted", .orange) { mcpCard }
-                card("Trace", "list.bullet.rectangle", .green) { traceCard }
+                card("Trace", "list.bullet.rectangle", .green, open: openTrace) { traceCard }
                 DebugLogView()
             }
             .padding(.horizontal, 28).padding(.vertical, 22)
@@ -134,7 +139,7 @@ public struct SettingsView: View {
             if all.isEmpty {
                 Text("no query yet — search a page, or ask over MCP").font(.caption.monospaced()).foregroundStyle(.secondary)
             }
-            ForEach(all.suffix(30).reversed()) { e in
+            ForEach(all.suffix(8).reversed()) { e in
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 8) {
                         Text(Calendar.current.isDateInToday(e.at) ? HubLog.clock(e.at) : e.at.formatted(.dateTime.month(.abbreviated).day().hour().minute()))
@@ -151,16 +156,25 @@ public struct SettingsView: View {
                 }
                 .font(.system(size: 11, design: .monospaced))
             }
-            SearchCloud(accent: accent).padding(.top, 10)
+            SearchCloud(accent: accent, who: $who).padding(.top, 10)
         }
         .task { await trace.loadPast() }
     }
 
     // MARK: parts
 
-    private func card<Content: View>(_ title: String, _ symbol: String, _ tint: Color, @ViewBuilder _ content: () -> Content) -> some View {
+    /// A card; with `open`, its title is a button (Trace: the Trace page).
+    private func card<Content: View>(_ title: String, _ symbol: String, _ tint: Color, open: (() -> Void)? = nil,
+                                     @ViewBuilder _ content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            Label(title, systemImage: symbol).font(.headline).foregroundStyle(tint).padding(.bottom, 8)
+            if let open {
+                CardTitleButton(title: title, symbol: symbol, tint: tint, trailing: "arrow.right",
+                                help: "Open the Trace page — every query and a big cloud of what is searched (under Memory)",
+                                action: open)
+                    .padding(.bottom, 8)
+            } else {
+                Label(title, systemImage: symbol).font(.headline).foregroundStyle(tint).padding(.bottom, 8)
+            }
             content()
         }
         .padding(16)
@@ -182,6 +196,122 @@ public struct SettingsView: View {
             return (VectorCache.shared.count, Double(size) / 1e6)
         }.value
         cache = r
+    }
+}
+
+/// A card title that opens something: its icon and name in a pill that lights up under the pointer, so it reads as a
+/// button (Nat: "icon around this?").
+struct CardTitleButton: View {
+    let title: String
+    let symbol: String
+    let tint: Color
+    let trailing: String
+    let help: String
+    let action: () -> Void
+    @State private var hover = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 7) {
+                Label(title, systemImage: symbol).font(.headline)
+                Image(systemName: trailing).font(.caption.weight(.semibold))
+            }
+            .foregroundStyle(tint)
+            .padding(.horizontal, 9).padding(.vertical, 4)
+            .background(Capsule().fill(tint.opacity(hover ? 0.18 : 0.09)))
+            .overlay(Capsule().strokeBorder(tint.opacity(hover ? 0.55 : 0.28)))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain).handCursor().onHover { hover = $0 }.help(help)
+        .padding(.leading, -9)   // the icon stays in line with the other cards' icons
+    }
+}
+
+/// Every query asked of this app's memory — from its pages and over MCP — on its own page, under Memory in the
+/// sidebar: a big cloud of what is searched (click a word to filter), All / MCP / Page and a text filter, and every
+/// query of every launch; click one for all its top hits.
+struct TraceView: View {
+    let name: String
+    let accent: Color
+    @ObservedObject private var trace = TraceLog.shared
+    @State private var who = "all"
+    @State private var text = ""
+    @State private var word: String?
+    @State private var open: UUID?
+
+    private var filtered: [TraceLog.Entry] {
+        (trace.past + trace.entries).filter { e in
+            (who == "all" || (who == "mcp") == (e.source == "mcp"))
+                && (text.isEmpty || e.query.localizedCaseInsensitiveContains(text))
+                && (word == nil || SearchCloud.words(e.query).contains(word!))
+        }
+    }
+
+    var body: some View {
+        let list = filtered
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("TRACE").font(.caption.weight(.bold)).tracking(2.5).foregroundStyle(accent)
+                Text(name.hasSuffix("s") ? "\(name)' trace" : "\(name)'s trace").font(.custom("Avenir Next", size: 34).weight(.bold))
+                Text("Every query asked of \(name)'s memory — from its pages and over MCP — and what came back first.")
+                    .font(.callout).foregroundStyle(.secondary)
+                SearchCloud(accent: accent, who: $who, selected: $word, limit: 120, scale: 1.8, header: false, minHeight: 320, center: true)
+                HStack(spacing: 10) {
+                    Picker("", selection: $who) { Text("All").tag("all"); Text("MCP").tag("mcp"); Text("Page").tag("page") }
+                        .pickerStyle(.segmented).labelsHidden().frame(width: 200)
+                    TextField("filter queries", text: $text).textFieldStyle(.roundedBorder).frame(maxWidth: 300)
+                    if let w = word {
+                        Button { word = nil } label: { Label(w, systemImage: "xmark.circle.fill") }.buttonStyle(.bordered).controlSize(.small).handCursor()
+                    }
+                    Spacer()
+                    Text("\(grouped(list.count)) of \(grouped(trace.past.count + trace.entries.count)) queries · every launch")
+                        .font(.caption).foregroundStyle(.secondary)
+                    Button("Open the query log") { NSWorkspace.shared.open(TraceLog.file) }.controlSize(.small).buttonStyle(.borderless).handCursor()
+                        .help(TraceLog.file.path)
+                }
+            }
+            .padding(.horizontal, 28).padding(.top, 22).padding(.bottom, 12)
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 6) {
+                    if list.isEmpty {
+                        Text(trace.past.isEmpty && trace.entries.isEmpty ? "no query yet — search the Memory page, or ask over MCP" : "no query matches")
+                            .font(.callout).foregroundStyle(.secondary).padding(.top, 8)
+                    }
+                    ForEach(list.reversed()) { e in row(e) }
+                }
+                .padding(.horizontal, 28).padding(.bottom, 24)
+            }
+        }
+        .task { await trace.loadPast() }
+    }
+
+    private func row(_ e: TraceLog.Entry) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 10) {
+                Text(Calendar.current.isDateInToday(e.at) ? HubLog.clock(e.at) : e.at.formatted(.dateTime.month(.abbreviated).day().hour().minute()))
+                    .foregroundStyle(.tertiary)
+                Text(e.source.uppercased()).foregroundStyle(e.source == "mcp" ? Color.orange : accent).frame(width: 40, alignment: .leading)
+                Text("\"\(e.query)\"").lineLimit(1)
+                Text(e.filter).foregroundStyle(.secondary)
+                Spacer(minLength: 0)
+                Text(String(format: "%.0f + %.1f ms · %@ ranked", e.embedMs, e.rankMs, grouped(e.pool))).foregroundStyle(.secondary)
+            }
+            if open == e.id {
+                Text("   \(e.via) · \(e.index)").foregroundStyle(.secondary)
+                ForEach(Array(e.top.enumerated()), id: \.offset) { i, h in
+                    Text(String(format: "   %d. %.0f%%  %@", i + 1, Double(h.score) * 100, h.title)).lineLimit(1)
+                }
+            } else if let top = e.top.first {
+                Text(String(format: "   best %.0f%% · %@", Double(top.score) * 100, top.title)).foregroundStyle(.secondary).lineLimit(1)
+            }
+        }
+        .font(.system(size: 12, design: .monospaced))
+        .padding(.horizontal, 10).padding(.vertical, 7)
+        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.primary.opacity(open == e.id ? 0.08 : 0.03)))
+        .contentShape(Rectangle())
+        .onTapGesture { open = open == e.id ? nil : e.id }
+        .handCursor()
+        .help(open == e.id ? "Click to fold" : "Click for every top hit")
     }
 }
 
