@@ -74,7 +74,7 @@ if (( DEEP )); then
     local sec=$1 act=$2 re=$3 limit=$4; shift 4
     pkill -x "$N"; for i in {1..50}; do pgrep -x "$N" >/dev/null || break; sleep 0.2; done
     local n0=$(wc -l < "$LOG" 2>/dev/null || echo 0)
-    open "$A" --args -oracleSection $sec -memoryAction $act "$@"
+    local o; for o in 1 2 3; do open "$A" --args -oracleSection $sec -memoryAction $act "$@" 2>/dev/null && break; sleep 2; done   # -600 while the old copy is still quitting
     local t=0 hit=""
     while (( t < limit )); do
       sleep 5; t=$((t + 5))
@@ -86,7 +86,7 @@ if (( DEEP )); then
   Q=${(L)N}
   B=$(deep memory batch 'memory batch done' 600 -memoryQuery "$Q")
   [[ -n $B ]] && ok "Memory       ${B#* info   }" || bad "Memory       no 'memory batch done' within 10 min" "tail -30 \"$LOG\""
-  S=""; for i in {1..6}; do S=$(tail -n 400 "$LOG" | rg "search \"$Q\"" | tail -1); [[ -n $S ]] && break; sleep 5; done
+  S=""; for i in {1..6}; do S=$(tail -n 400 "$LOG" | rg "search [a-z]+ .*\"$Q\" · query embedded" | tail -1); [[ -n $S ]] && break; sleep 5; done
   [[ -n $S ]] && ok "Memory query ${S#* search }" || bad "Memory query \"$Q\" not searched" "rg -n 'search' \"$LOG\" | tail -5"
   M=$(deep map layout 'map layout: [0-9]+ docs in' 300)
   [[ -n $M ]] && ok "Map          ${M#* info   }" || bad "Map          no layout within 5 min" "rg -n 'map layout' \"$LOG\" | tail -5"
