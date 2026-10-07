@@ -24,3 +24,10 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
   // An external-scheme navigation hands the link to macOS and leaves the page where it is.
   chrome.tabs.update(tab.id, { url: `oracle-${oracle.toLowerCase()}://issue?${q}` });
 });
+
+// The Facebook content script (fb.js) asks for the same hand-off from its 🔮 Issue button.
+chrome.runtime.onMessage.addListener((msg, sender) => {
+  if (msg?.kind !== 'issue' || !sender.tab || !ORACLES.includes(msg.oracle)) return;
+  const q = new URLSearchParams({ url: msg.url || '', title: msg.title || '', text: msg.text || '' });
+  chrome.tabs.update(sender.tab.id, { url: `oracle-${msg.oracle.toLowerCase()}://issue?${q}` });
+});

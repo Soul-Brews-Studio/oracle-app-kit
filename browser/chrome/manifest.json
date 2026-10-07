@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "ARRA Oracles — New issue in",
-  "version": "26.10.7.703",
-  "description": "Right-click a page, link, image or selection: New issue in ▸ an oracle — its Mac app opens the issue draft.",
+  "version": "26.10.7.708",
+  "description": "Right-click a page, link, image or selection — or the 🔮 Issue button on a Facebook post: New issue in ▸ an oracle; its Mac app opens the draft.",
   "permissions": [
     "contextMenus",
     "activeTab"
@@ -13,5 +13,16 @@
   "icons": {
     "128": "icon128.png"
   },
-  "version_name": "v26.10.7-alpha.703"
+  "version_name": "v26.10.7-alpha.708",
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.facebook.com/*"
+      ],
+      "js": [
+        "fb.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
 }
