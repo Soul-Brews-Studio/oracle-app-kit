@@ -369,7 +369,7 @@
       const post = postOf(like);
       if (!post) continue;
       headerChip(post, () => details(post));   // checked every pass: Facebook re-renders headers
-      capturePost(post);   // every post that carries a 🔮 (header chip OR action-bar button — group posts only get the latter)
+      recheck(post); capturePost(post);   // every post that carries a 🔮 (header chip OR action-bar button — group posts only get the latter)
       if (bar.hasAttribute(MARK)) continue;
       bar.setAttribute(MARK, '1');
       bar.lastElementChild.after(barButton(() => details(post), (d) => collectThread(post, d)));   // after Share, or after Comment when there is no Share
@@ -435,7 +435,7 @@
     line.append(c);
     capturePost(root);   // Nat's goal: every post that gets our 🔮 goes to the bridge whole — REC or not
   }
-  function addHeaderChip() { headerChip(sidePanel(), pageDetails); }
+  function addHeaderChip() { const p = sidePanel(); headerChip(p, pageDetails); recheck(p); }
 
   // 🔗 inline after every comment's Reply (Nat via the right pane, 2026-10-07): sends THAT comment — its link,
   // text and the links in it. Reply lives in an <li> inside a wrapper div; the chip is that wrapper's next sibling in the same flex row.
@@ -515,11 +515,14 @@
       for (const post of document.querySelectorAll('[data-oracle-key]')) {
         if (post.dataset.oracleKey !== key) continue;
         const c = post.querySelector('[data-oracle-head]') || post.querySelector('[data-oracle-btn]'); if (!c) continue;   // group posts: the action-bar 🔮
-        c.dataset.collected = n.id || 'hash';
-        c.textContent = `🔮 ${DEFAULT} ✓`;
-        c.title = n.id ? `collected as ${n.id}\nseen ${n.seen || 1}× · first ${n.first_seen ? clock(n.first_seen) : 'now'}\nclick: new issue in ${DEFAULT} Oracle`
-          : `collected (${n.note || 'no id'})\nclick: new issue in ${DEFAULT} Oracle`;
-        c.style.boxShadow = 'inset 0 0 0 1px rgba(102,187,106,.7)';
+        // new = first time we hold it · same = nothing we did not already have · updated = it grew or changed (a new version)
+        c.dataset.collected = n.id || 'hash'; c.dataset.status = n.status || 'new';
+        const st = n.status || 'new';
+        c.textContent = st === 'updated' ? `🔮 ${DEFAULT} ↻` : `🔮 ${DEFAULT} ✓`;
+        const what = st === 'updated' ? `UPDATED → v${n.v}: ${(n.changes || []).join(', ')}` : st === 'same' ? `same as v${n.v} (held since ${n.since ? clock(n.since) : '?'}) — nothing new`
+          : `new — collected as v1`;
+        c.title = `${n.id || n.note || 'no id'}\n${what}${n.hash ? `\ncontent ${n.hash}` : ''}\nseen ${n.seen || 1}× · first ${n.first_seen ? clock(n.first_seen) : 'now'}\nclick: new issue in ${DEFAULT} Oracle`;
+        c.style.boxShadow = st === 'updated' ? 'inset 0 0 0 1px rgba(255,183,77,.9)' : st === 'same' ? 'inset 0 0 0 1px rgba(144,202,249,.6)' : 'inset 0 0 0 1px rgba(102,187,106,.7)';
       }
     }
   }
@@ -591,6 +594,17 @@
   // ── capture: the whole post as it is on screen right now, once per page view, for every post that gets a 🔮 chip ──
   // Feed post (root = the post), photo panel or reel (root = its panel). Passive like the stream: no "See more" click,
   // so a long caption is kept as far as Facebook shows it until the 🔮 itself is clicked.
+  // A cheap fingerprint of what is on screen for a post: text length, comments, media. When it moves (See more opened,
+  // comments loaded), the post is captured again and the bridge says whether that is an update.
+  // textContent (no layout) minus our own chips, whose ✓/↻ would otherwise look like a change
+  const printOf = (root) => [root.textContent.length - [...root.querySelectorAll('[data-oracle-head], [data-oracle-btn], [data-oracle-comment]')].reduce((n, c) => n + c.textContent.length, 0),
+    root.querySelectorAll('[role="article"]').length, root.querySelectorAll('a[href*="/photo"], a[href*="/videos/"], a[href*="/reel/"]').length].join('|');
+  function recheck(root) {
+    if (!root?.hasAttribute('data-oracle-captured') || !root.dataset.oraclePrint) return;
+    const r = root.getBoundingClientRect(); if (r.bottom < 0 || r.top > innerHeight) return;   // only what is on screen
+    if (Date.now() - Number(root.dataset.oracleAt || 0) < 3000 || printOf(root) === root.dataset.oraclePrint) return;
+    root.removeAttribute('data-oracle-captured'); capturePost(root);
+  }
   async function capturePost(root) {
     if (!root || root.hasAttribute('data-oracle-captured')) return;
     root.setAttribute('data-oracle-captured', '1');
@@ -611,6 +625,7 @@
     const ad = !link && !!root.querySelector('a[href*="/ads/"], a[href*="ads/about"]');   // an ad has no post of its own
     const key = link || `${ad ? 'ad:' : ''}${hash(author + text.slice(0, 120))}`;
     root.dataset.oracleKey = key;
+    root.dataset.oraclePrint = printOf(root); root.dataset.oracleAt = String(Date.now());
     const nameA = root.querySelector('[data-ad-rendering-role="profile_name"] a[href]') ||
       [...root.querySelectorAll('a[href]')].find(a => a.innerText.trim() && a.innerText.trim() === author);
     const anchors = [...root.querySelectorAll('a[href]')].filter(a => !a.closest('[role="article"]') || a.closest('[role="article"]') === root);

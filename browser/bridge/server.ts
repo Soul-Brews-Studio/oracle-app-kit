@@ -10,6 +10,7 @@ import { join } from 'node:path';
 import { Database } from 'bun:sqlite';
 import { appendFileSync } from 'node:fs';
 import { nodesOf, type N } from './nodes.ts';
+import { compare, tidy, type Snap } from './versions.ts';
 
 const PORT = Number(process.env.ORACLE_FB_PORT || 4747);
 const HOME = join(homedir(), '.oracle-fb'), DIR = join(HOME, 'threads');
@@ -68,6 +69,30 @@ setInterval(() => { for (const l of listeners) try { l(': keepalive\n\n'); } cat
 const ME = 'me:nat';
 const mainNode = (href: string) => { const ns = nodesOf(href); return ns.find(n => n.type === 'post') || ns.find(n => n.type === 'video') || ns.find(n => n.type === 'photo') || ns[0]; };
 const getNode = db.prepare('SELECT id, seen, first_seen, last_seen FROM node WHERE id = ?');
+// ── versions: each captured post is compared with what we hold — new / same / updated (append-only, never overwritten)
+db.exec(`CREATE TABLE IF NOT EXISTS version (id TEXT, v INTEGER, ts INTEGER, hash TEXT, snap TEXT, changes TEXT, PRIMARY KEY (id, v))`);
+try { db.exec('ALTER TABLE ev ADD COLUMN note TEXT'); } catch {}
+const lastVer = db.prepare('SELECT v, ts, hash, snap FROM version WHERE id = ? ORDER BY v DESC LIMIT 1');
+const insVer = db.prepare('INSERT INTO version (id, v, ts, hash, snap, changes) VALUES (?, ?, ?, ?, ?, ?)');
+const insUpd = db.prepare(`INSERT INTO ev (ts, day, browser, tab, kind, key, author, link, url, text, post, media, note)
+  VALUES ($ts, $day, $browser, $tab, 'post-update', $key, $author, $link, $url, $text, $post, $media, $note)`);
+const sha = (s: string) => new Bun.CryptoHasher('sha1').update(s).digest('hex').slice(0, 12);
+const commentKey = (link: string) => { try { const q = new URL(link).searchParams; const c = q.get('reply_comment_id') || q.get('comment_id') || ''; return /^\d+$/.test(c) ? `comment:${c}` : ''; } catch { return ''; } };
+function versionPost(e: any) {
+  const id = mainNode(e.link || '')?.id || `key:${e.key}`;
+  const cur: Snap = {
+    text: tidy(e.text),
+    comments: Object.fromEntries((e.commentList || []).map((c: any) => [commentKey(c.link || ''), tidy(c.text)]).filter(([k]: any) => k)),
+    media: [...new Set<string>((e.mediaUrls || []).map((m: string) => mainNode(m)?.id).filter(Boolean))].sort(),
+    links: [...new Set<string>((e.external || []).map((x: string) => nodesOf(x)[0]?.id).filter(Boolean))].sort(),
+  };
+  const prev = lastVer.get(id) as any;
+  const r = compare(prev ? JSON.parse(prev.snap) : null, cur);
+  if (r.status === 'same') return { id, status: 'same', v: prev.v, since: prev.ts, hash: prev.hash, changes: [] as string[] };
+  const v = (prev?.v || 0) + 1, snap = JSON.stringify(r.merged), hash = sha(snap);
+  insVer.run(id, v, Number(e.ts) || Date.now(), hash, snap, JSON.stringify(r.changes));
+  return { id, status: r.status, v, hash, changes: r.changes, since: prev?.ts };
+}
 function graph(e: any) {
   const ts = Number(e.ts) || Date.now();
   const node = (n: N | undefined, label = '', seen = 0) => { if (n) upNode.run({ $id: n.id, $type: n.type, $label: label, $url: n.url, $ts: ts, $seen: seen }); return n?.id; };
@@ -122,6 +147,15 @@ function storeEvents(list: any[]) {
         $text: String(e.text || ''), $post: String(e.post || ''), $media: Number(e.media || 0) });
       if (r.changes) { kept++; insFts.run(Number(r.lastInsertRowid), String(e.author || ''), String(e.text || '')); }
       graph(e);   // every event, deduped or not: edges count repeats
+      if (e.kind === 'post') {   // same, or does what we hold need an update?
+        e._ver = versionPost(e);
+        if (e._ver.status === 'updated') {   // an update is its own row in the stream, with what changed
+          const u = insUpd.run({ $ts: Number(e.ts) || Date.now(), $day: day, $browser: String(e.browser || ''), $tab: e.tab ?? null, $key: String(e.key || ''),
+            $author: String(e.author || ''), $link: String(e.link || ''), $url: String(e.url || ''), $text: String(e.text || ''), $post: e._ver.id,
+            $media: Number(e.media || 0), $note: `v${e._ver.v}: ${e._ver.changes.join(', ')}` });
+          insFts.run(Number(u.lastInsertRowid), String(e.author || ''), String(e.text || ''));
+        }
+      }
     }
   });
   tx(list);
@@ -168,17 +202,22 @@ Bun.serve({
       const list = await req.json() as any[];
       if (!Array.isArray(list) || list.length > 2000) return json({ error: 'bad batch' }, 400);
       const kept = storeEvents(list);
-      for (const e of list) pushLive({ ts: e.ts, kind: e.kind, author: e.author || '', text: e.text || '', link: e.link || '', key: e.key || '', post: e.post || '', media: e.media || 0, browser: e.browser, tab: e.tab });
+      for (const e of list) pushLive({ ts: e.ts, kind: e.kind, author: e.author || '', text: e.text || '', link: e.link || '', key: e.key || '', post: e.post || '', media: e.media || 0, browser: e.browser, tab: e.tab,
+        ...(e._ver ? { node: e._ver.id, status: e._ver.status, v: e._ver.v, changes: e._ver.changes } : {}) });
       // the bridge's own window shows the data as it streams in (ORACLE_FB_QUIET=1 to keep it to one line per batch)
       if (process.env.ORACLE_FB_QUIET) console.log(`${stamp()} stream +${kept}/${list.length}  ${[...new Set(list.map(e => e.kind))].join(',')}`);
       else for (const e of list) {
         const who = e.kind === 'nav' ? `→ ${String(e.text || e.key).slice(0, 80)}` : `${e.kind === 'comment-seen' ? '↳ ' : ''}${e.author || ''}`;
         const txt = e.kind === 'nav' ? '' : String(e.text || e.post || '').replace(/\s+/g, ' ').slice(0, 110);
-        console.log(`${new Date(Number(e.ts) || Date.now()).toTimeString().slice(0, 8)}  ${String(e.browser || '').padEnd(10)} ${String(e.kind).padEnd(13)} ${who}${txt ? ': ' + txt : ''}${e.media ? `  [${e.media} media]` : ''}`);
+        const ver = e._ver ? (e._ver.status === 'updated' ? `[UPDATED v${e._ver.v}: ${e._ver.changes.join(', ')}] ` : e._ver.status === 'new' ? '[NEW] ' : `[same v${e._ver.v}] `) : '';
+        console.log(`${new Date(Number(e.ts) || Date.now()).toTimeString().slice(0, 8)}  ${String(e.browser || '').padEnd(10)} ${String(e.kind).padEnd(13)} ${ver}${who}${txt ? ': ' + txt : ''}${e.media ? `  [${e.media} media]` : ''}`);
       }
       // tell the page which node each seen post became, so its 🔮 chip can show "collected" (Nat: "check uuid collected or not")
       const ids: Record<string, any> = {};
-      for (const e of list) if ((e.kind === 'seen' || e.kind === 'post') && e.key) { const n = mainNode(e.link || ''); ids[e.key] = n ? (getNode.get(n.id) || { id: n.id }) : { id: '', note: 'no link on this post (sponsored?) — kept by text hash' }; }
+      for (const e of list) if ((e.kind === 'seen' || e.kind === 'post') && e.key) {
+        const n = mainNode(e.link || ''); const base: any = n ? (getNode.get(n.id) || { id: n.id }) : { id: '', note: 'no link on this post (an ad?) — kept by text hash' };
+        ids[e.key] = e._ver ? { ...base, status: e._ver.status, v: e._ver.v, changes: e._ver.changes, since: e._ver.since, hash: e._ver.hash } : base;
+      }
       return json({ ok: true, kept, ids });
     }
     if (u.pathname === '/tree') {   // the viewer's Tree tab: the newest posts, each with everything hanging off it
@@ -203,7 +242,8 @@ Bun.serve({
           media: outs.filter(o => o.rel === 'has_media').map(o => ({ id: o.id, url: o.url, album: (outE.all(o.id) as any[]).find(x => x.rel === 'in_album')?.id || '' })),
           links: pick('links_to'), shares: pick('shares'),
           comments: ins.filter(i => i.rel === 'comment_on' && !(outE.all(i.id) as any[]).some(x => x.rel === 'reply_to')).map(c => comment(c)),   // replies hang under their comment
-          by_me: ins.filter(i => i.id === 'me:nat').map(i => i.rel) };
+          by_me: ins.filter(i => i.id === 'me:nat').map(i => i.rel),
+          versions: (db.query('SELECT v, ts, hash, changes FROM version WHERE id = ? ORDER BY v').all(r.id) as any[]).map(x => ({ ...x, changes: JSON.parse(x.changes || '[]') })) };
       }));
     }
     if (u.pathname === '/graph') {   // graph.ts: one node and its neighbours, or stats

@@ -11,6 +11,11 @@ function card(e, fresh) {
   const a = document.createElement('span'); a.className = 'a';
   a.textContent = e.kind === 'nav' ? (e.text || e.key) : (e.author || (e.post ? 'on ' + e.post.slice(0, 60) : ''));
   h.append(t, k, a); if (e.media) h.append(Object.assign(document.createElement('span'), { className: 't', textContent: `${e.media} media` }));
+  if (e.status) {   // new / same / updated: what the bridge made of this capture
+    const s = document.createElement('span'); s.className = 'st ' + e.status;
+    s.textContent = e.status === 'updated' ? `UPDATED v${e.v} · ${(e.changes || []).join(', ')}` : e.status === 'same' ? `same v${e.v}` : 'NEW';
+    s.title = e.node || ''; h.append(s);
+  }
   d.append(h);
   if (e.text && e.kind !== 'nav') d.append(Object.assign(document.createElement('div'), { className: 'x', textContent: e.text }));
   const href = e.link || (/^https?:/.test(e.key) ? e.key : '') || e.url;
