@@ -474,4 +474,30 @@
   new MutationObserver(() => { if (t) return; t = setTimeout(() => { t = 0; addButtons(); pill(); }, 300); })
     .observe(document.body, { childList: true, subtree: true });
   addButtons(); pill();
+  // Each tab knows its own id and shows it (the Gemini proxy's TAB:<id> badge): bottom-left, tiny; a click copies the
+  // fbreply flags that aim a reply at exactly this tab. Green dot = bridge connected.
+  function tabBadge() {
+    chrome.runtime?.sendMessage({ kind: 'getTabId' }, (r) => {
+      if (!r?.tabId) return;
+      document.documentElement.dataset.oracleTab = `${r.browser}:${r.tabId}`;
+      let el = document.getElementById('oracle-tab-id');
+      if (!el) {
+        el = document.createElement('div'); el.id = 'oracle-tab-id';
+        Object.assign(el.style, { position: 'fixed', left: '10px', bottom: '10px', zIndex: 2147483645, padding: '3px 9px', borderRadius: '9px',
+          background: 'rgba(36,37,38,.85)', color: '#b0b3b8', font: '600 11px ui-monospace, monospace', cursor: 'pointer', userSelect: 'none', opacity: '.75' });
+        el.onmouseenter = () => (el.style.opacity = '1'); el.onmouseleave = () => (el.style.opacity = '.75');
+        el.onclick = () => { navigator.clipboard?.writeText(`--to ${r.browser} --tab ${r.tabId}`); el.title = 'copied: --to … --tab …'; };
+        document.body.append(el);
+      }
+      el.textContent = `${r.bridge ? '●' : '○'} TAB ${r.tabId}`;
+      el.style.color = r.bridge ? '#a5d6a7' : '#ef9a9a';
+      el.title = `${r.browser} tab ${r.tabId} — bridge ${r.bridge ? 'connected' : 'NOT connected'}\nclick: copy  --to ${r.browser} --tab ${r.tabId}`;
+    });
+  }
+  tabBadge(); setInterval(() => { if (!document.hidden) tabBadge(); }, 5000);
+
+  // what the toolbar badge says, readable from the page: <html data-oracle-bridge="on:ON">
+  const bridgeState = () => chrome.runtime?.sendMessage({ kind: 'bridge-status' }, (r) => { document.documentElement.dataset.oracleBridge = r ? `${r.on ? 'on' : 'off'}:${r.badge}` : 'none'; });
+  bridgeState(); setInterval(() => { if (!document.hidden) bridgeState(); }, 5000);   // wakes the worker so it reconnects
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) bridgeState(); });
 })();

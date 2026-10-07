@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ARRA Oracles — Issue to Nexus",
-  "version": "26.10.7.823",
+  "version": "26.10.7.839",
   "description": "Right-click a page, link, image or selection — or the 🔮 Nexus button on a Facebook post: Nexus opens the issue draft.",
   "permissions": [
     "activeTab",
@@ -15,7 +15,7 @@
   "icons": {
     "128": "icon128.png"
   },
-  "version_name": "v26.10.7-alpha.823",
+  "version_name": "v26.10.7-alpha.839",
   "content_scripts": [
     {
       "matches": [
@@ -30,5 +30,12 @@
   "host_permissions": [
     "http://127.0.0.1:4747/*",
     "https://www.facebook.com/*"
-  ]
+  ],
+  "action": {
+    "default_title": "ARRA Oracles — bridge: checking…",
+    "default_icon": {
+      "128": "icon128.png"
+    },
+    "default_popup": "popup.html"
+  }
 }

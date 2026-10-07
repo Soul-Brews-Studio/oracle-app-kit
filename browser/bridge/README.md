@@ -14,8 +14,11 @@ Run it (a long job — put it in a herdr pane):
 
 Reply to a comment (ids come from the thread file / `--list`):
 
+    bun fbreply.ts --status                      # which browsers are connected or not (+ extension version)
     bun fbreply.ts --list
-    bun fbreply.ts <thread> c2 "your reply"
+    bun fbreply.ts --tabs                        # every Facebook tab, in every connected browser (id per browser)
+    bun fbreply.ts <thread> c2 "your reply"      # goes back to the tab the thread was forwarded from
+    bun fbreply.ts --to Chrome/153 --tab 123 <thread> c2 "…"   # a specific browser / tab
 
 Who may talk: the extension (Origin `chrome-extension://<id>`) on `/ws` and `/thread`; the CLI (`x-fb-token`, token in
 `~/.oracle-fb/token`) on `/reply` and `/threads`. A web page has neither. Nothing here ever submits a comment.
