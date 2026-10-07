@@ -164,6 +164,69 @@
              text: caption.slice(0, 2000) + (author ? `\n\nby ${author} on Facebook` : '') };
   }
 
+  // Click → a small box opens beside the button with the cursor already in it: type a note, Enter sends (⇧Enter =
+  // new line, Esc closes). The note goes first in the issue body. (Nat: "when click it should input box popup and
+  // active in the box, let me type and can enter using keyboard".) Facebook binds single-key shortcuts and traps
+  // focus inside its dialogs, so the box lives INSIDE the nearest dialog and swallows its own key events.
+  function compose(anchor, getDetails) {
+    document.querySelectorAll('.oracle-compose').forEach(m => m.remove());
+    const host = anchor.closest('[role="dialog"]') || document.body;
+    const box = document.createElement('div');
+    box.className = 'oracle-compose';
+    Object.assign(box.style, { position: 'fixed', zIndex: 2147483647, width: '320px', padding: '10px', borderRadius: '14px',
+      background: '#242526', color: '#e4e6eb', border: '1px solid #ab47bc', boxShadow: '0 10px 30px rgba(0,0,0,.6)',
+      font: '14px system-ui, sans-serif' });
+    let oracle = DEFAULT;
+    const head = document.createElement('div');
+    Object.assign(head.style, { display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '8px' });
+    const label = document.createElement('span'); label.textContent = 'New issue in'; label.style.opacity = '.65';
+    head.append(label);
+    const pick = {};
+    for (const o of ORACLES) {
+      const b = document.createElement('span'); b.textContent = o; pick[o] = b;
+      Object.assign(b.style, { padding: '3px 10px', borderRadius: '10px', cursor: 'pointer', font: '600 12px system-ui, sans-serif' });
+      b.onclick = (e) => { e.stopPropagation(); oracle = o; paint(); ta.focus(); };
+      head.append(b);
+    }
+    const paint = () => { for (const o of ORACLES) { pick[o].style.background = o === oracle ? '#ab47bc' : 'rgba(171,71,188,.18)'; pick[o].style.color = o === oracle ? '#fff' : '#e1bee7'; } };
+    paint();
+    const ta = document.createElement('textarea');
+    ta.placeholder = 'Add a note…  (Enter = send, ⇧Enter = new line, Esc = close)'; ta.rows = 3;
+    Object.assign(ta.style, { width: '100%', boxSizing: 'border-box', resize: 'vertical', background: '#18191a', color: '#e4e6eb',
+      border: '1px solid #3a3b3c', borderRadius: '8px', padding: '8px', font: '14px system-ui, sans-serif', outline: 'none' });
+    const foot = document.createElement('div');
+    Object.assign(foot.style, { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' });
+    const hint = document.createElement('span'); hint.style.opacity = '.55'; hint.style.fontSize = '12px'; hint.textContent = 'Enter to send';
+    const go = document.createElement('span'); go.textContent = 'Send ↵';
+    Object.assign(go.style, { padding: '6px 14px', borderRadius: '10px', background: '#ab47bc', color: '#fff', cursor: 'pointer', font: '600 13px system-ui, sans-serif' });
+    foot.append(hint, go);
+    box.append(head, ta, foot);
+    const close = () => { box.remove(); document.removeEventListener('mousedown', outside, true); };
+    const outside = (e) => { if (!box.contains(e.target) && !anchor.contains(e.target)) close(); };
+    const submit = async () => {
+      go.textContent = 'Sending…'; go.style.opacity = '.6';
+      const d = await getDetails();
+      const note = ta.value.trim();
+      send(oracle, note ? { ...d, text: `${note}\n\n---\n${d.text}` } : d);
+      close();
+    };
+    go.onclick = (e) => { e.stopPropagation(); submit(); };
+    // Facebook's own shortcuts (j/k, /, c …) and its focus trap must not see what is typed here
+    for (const type of ['keydown', 'keypress', 'keyup']) box.addEventListener(type, (e) => {
+      e.stopPropagation();
+      if (type !== 'keydown') return;
+      if (e.key === 'Escape') { e.preventDefault(); close(); }
+      else if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); submit(); }   // isComposing: Thai/CJK input
+    });
+    box.addEventListener('mousedown', (e) => e.stopPropagation());
+    host.append(box);
+    const r = anchor.getBoundingClientRect();
+    box.style.left = `${Math.max(8, Math.min(innerWidth - 328, r.left))}px`;
+    box.style.top = `${Math.min(innerHeight - box.offsetHeight - 8, r.bottom + 8)}px`;
+    setTimeout(() => document.addEventListener('mousedown', outside, true), 0);
+    ta.focus();
+  }
+
   function send(oracle, d) {
     if (window.chrome?.runtime?.sendMessage) chrome.runtime.sendMessage({ kind: 'issue', oracle, ...d });
     else console.log('[oracle] would send', oracle, d);
@@ -182,7 +245,7 @@
     btn.onclick = async (e) => {
       e.stopPropagation(); e.preventDefault();
       if (e.shiftKey) return menu(btn, null, getDetails);
-      send(DEFAULT, await getDetails());
+      compose(btn, getDetails);
     };
     return btn;
   }
@@ -235,7 +298,7 @@
     c.onclick = async (e) => {
       e.stopPropagation(); e.preventDefault();
       if (e.shiftKey) return menu(c, null, getDetails);
-      send(DEFAULT, await getDetails());
+      compose(c, getDetails);
     };
     return c;
   }
@@ -289,7 +352,7 @@
     p.onclick = async (e) => {
       e.stopPropagation(); e.preventDefault();
       if (e.shiftKey) return menu(p, null, pageDetails);
-      send(DEFAULT, await pageDetails());
+      compose(p, pageDetails);
     };
     document.body.append(p);
   }
