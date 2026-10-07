@@ -23,7 +23,8 @@ slash-skills named here (`/herdr-pr`, `/imagegen`) are conveniences with the fal
 KIT=$(ghq list -p --exact Soul-Brews-Studio/oracle-app-kit)
 [ -n "$KIT" ] || { ghq get -p Soul-Brews-Studio/oracle-app-kit; KIT=$(ghq list -p --exact Soul-Brews-Studio/oracle-app-kit); }
 SLUG=$(git remote get-url origin | sed -E 's#(\.git)?$##; s#.*github\.com[:/]##')    # the oracle's org/repo
-ORACLE=$(ghq list -p --exact "$SLUG")      # its MAIN checkout — not a worktree path: it is baked into the app
+ORACLE=$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')   # its MAIN checkout, even from a worktree:
+[ -d "$ORACLE" ] || echo "run this inside the oracle's repo"                     # this path is baked into the app
 ```
 
 Never work in `$KIT`'s main checkout. Cut a worktree:
@@ -37,7 +38,7 @@ Never work in `$KIT`'s main checkout. Cut a worktree:
 | Rust (the build finds it here too) | `PATH="/opt/homebrew/opt/rustup/bin:$HOME/.cargo/bin:$PATH" command -v cargo` | `brew install rustup && rustup-init -y` |
 | uv (draws the icon), ripgrep | `command -v uv rg` | `brew install uv ripgrep` |
 | signing team | the `OU=` of the signing certificate (below) | Xcode → Settings → Accounts → sign in |
-| Screen Recording | `zsh $K/scripts/shot.sh Finder /tmp/f.png --as-is` prints `shot …` | System Settings → Privacy & Security → Screen Recording → the terminal |
+| Screen Recording | `swift -e 'import CoreGraphics; print(CGPreflightScreenCaptureAccess())'` prints `true` | System Settings → Privacy & Security → Screen Recording → the terminal |
 | herdr / maw (Work page) | `command -v herdr maw` | optional: without them the Work page is empty, which is correct |
 
 The Team ID is the certificate's `OU`, **not** the id in parentheses that `find-identity` prints:
@@ -45,17 +46,21 @@ The Team ID is the certificate's `OU`, **not** the id in parentheses that `find-
 security find-identity -v -p codesigning                       # names, e.g. "Apple Development: Name (USERID)"
 security find-certificate -c "Apple Development: <Name> (<USERID>)" -p | openssl x509 -noout -subject   # … OU=<TEAMID> …
 ```
-One team: nothing to do (`project.yml` has it). Another or several: ask once, then `export ORACLE_APP_TEAM=<TEAMID>`.
+If that OU equals `DEVELOPMENT_TEAM` in `$K/project.yml`, nothing to do. Otherwise — or with several identities, after
+asking once which one — `export ORACLE_APP_TEAM=<TEAMID>`: the generator writes it into the App Group and
+`scripts/build.sh` signs with it. `--update` keeps an app's own team unless `--team=` is given.
 
 ## 2. `new`
 
 1. **Identity from the oracle's repo, flags only override.**
    - repo: `$SLUG`; checkout: `$ORACLE` (§0).
    - Name: a Swift type name (`Athena`, `DustBoyPhd`). Key: default = the portal's rule, repo minus `-oracle`,
-     lower-cased (`DustBoy-Phd-Oracle` → `dustboy-phd`). A different key means the portal never matches the app.
+     lower-cased, `_` and `.` made `-` (`DustBoy-Phd-Oracle` → `dustboy-phd`, `boon_v2-oracle` → `boon-v2`). A different
+     key means the portal never matches the app.
    - colour: the oracle's CLAUDE.md design colour, else ask once. symbol + tagline: from its "I am" line.
    - The generator refuses, before writing anything: an existing `Apps/<Name>`, a key / colour / MCP port another app
-     has, a port something listens on, a non-Swift Name, a bad team.
+     has, a port something else listens on, a non-Swift Name, a checkout path that is not an absolute existing folder,
+     an empty symbol, a bad team.
 2. **Icon.** `design/icons/<Name>.png` if present. `--imagegen` (or an explicit yes): `/imagegen` an emblem on the dark
    squircle in the oracle colour, saved as `design/icons/<Name>.png`. Otherwise the generator draws one. Look at it
    (open the PNG) before going on.
@@ -94,13 +99,15 @@ pages by launch argument, so they need `--relaunch` when the app runs, and they 
 
 | row | how | pass |
 |---|---|---|
-| portal key | bundle id vs the portal's rule | `co.laris.oracle.<key>` == repo minus `-oracle`, lower-cased |
+| portal key | bundle id vs the portal's rule (`HubParse.appKey`) | `co.laris.oracle.<key>` == repo minus `-oracle`, lower-cased, `_` `.` → `-` |
 | app wires | `<Name>App.swift` | BundledANE, MapLayoutEngine, `MCPServer.serve(name: "<name>-memory", port: <port>)` |
 | installed | `/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' /Applications/<Name>.app/Contents/Info.plist` | `co.laris.oracle.<key>`, display name `<Name>` |
 | CalVer | `/usr/libexec/PlistBuddy -c 'Print :ARRACalVer' …/Info.plist` | today, Bangkok time |
 | running | `pgrep -fl "<Name>.app/Contents/MacOS/<Name>"` | from `/Applications` |
 | no crash | `~/Library/Logs/DiagnosticReports/{<Name>,<Name>Widget,<Name>Share}-*` | none since launch |
 | MCP | `curl -s 127.0.0.1:<port>/health` | `"name":"<name>-memory"`, `"status":"ok"` |
+| MCP search | POST `/mcp` `tools/call memory_search` | a result, not an error |
+| Trace | `~/Library/Logs/ARRA Oracles/<Name>-queries.jsonl` | that query recorded, with its caller |
 | widget | `pluginkit -m -v -i co.laris.oracle.<key>.widget` | registered from `/Applications/<Name>.app` |
 | parity | `scripts/parity.sh` | ✓ for every app |
 | Memory (`--deep`) | `-oracleSection memory -memoryAction batch -memoryQuery <name>` | `memory batch done` / `up to date`, then the search line |
@@ -123,8 +130,8 @@ window a human is using.
 - `panel <Name> <Title>`: add to `<Name>Extras.swift`
   `ExtraSection(id: "<slug>", title: "<Title>", symbol: "square.grid.2x2") { AnyView(<Title>Panel()) }` and a
   `struct <Title>Panel: View` stub in the same file.
-- `build`: `scripts/build.sh <Schemes…> --install` (no schemes = Oracles Neo Pulse Nexus). Apps that were running
-  are relaunched; the hub always is.
+- `build`: `scripts/build.sh <Schemes…> --install` — names required with `--install`. Apps that were running are
+  relaunched; the hub always is. Without `--install`, no names = build all four (nothing installed).
 - `portal build`: `scripts/build.sh Oracles --install` — this relaunches the hub; say so to the human first.
 - `portal check` — never relaunches the hub:
   ```bash
