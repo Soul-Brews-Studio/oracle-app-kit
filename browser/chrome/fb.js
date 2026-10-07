@@ -474,4 +474,7 @@
   new MutationObserver(() => { if (t) return; t = setTimeout(() => { t = 0; addButtons(); pill(); }, 300); })
     .observe(document.body, { childList: true, subtree: true });
   addButtons(); pill();
+  // what the toolbar badge says, readable from the page: <html data-oracle-bridge="on:ON">
+  const bridgeState = () => chrome.runtime?.sendMessage({ kind: 'bridge-status' }, (r) => { document.documentElement.dataset.oracleBridge = r ? `${r.on ? 'on' : 'off'}:${r.badge}` : 'none'; });
+  bridgeState(); document.addEventListener('visibilitychange', () => { if (!document.hidden) bridgeState(); });
 })();

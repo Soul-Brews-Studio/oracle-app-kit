@@ -33,9 +33,13 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 
 // The Facebook content script (fb.js) asks for the same hand-off from its 🔮 Issue button.
 chrome.runtime.onMessage.addListener((msg, sender, reply) => {
+  if (msg?.kind === 'bridge-status') {   // also lets the page (and tests) read what the toolbar badge says
+    chrome.action.getBadgeText({}).then(badge => reply({ on: bridge?.readyState === 1, badge }));
+    return true;
+  }
   if (msg?.kind === 'thread') {   // content script → bridge (a whole thread is too big for a URL)
     fetch(`http://${BRIDGE}/thread`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(msg.thread) })
-      .then(r => r.json()).then(r => reply(r)).catch(e => reply({ ok: false, error: `bridge not running: bun ${'~'}/…/oracle-app-kit/browser/bridge/server.ts (${e})` }));
+      .then(r => r.json()).then(r => reply(r)).catch(e => { showBridge(false); reply({ ok: false, error: `bridge not running: bun ${'~'}/…/oracle-app-kit/browser/bridge/server.ts (${e})` }); });
     return true;
   }
   if (msg?.kind !== 'issue' || !sender.tab || !ORACLES.includes(msg.oracle)) return;
@@ -50,12 +54,24 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
 //          into that comment's reply box. Nothing is ever submitted — a human presses Enter.
 const BRIDGE = '127.0.0.1:4747';
 let bridge = null;
+// The toolbar icon says whether the bridge is reachable: green ON / red OFF, tooltip with the fix (Nat: "can extension
+// icon show connected or not connected to the bridge?").
+function showBridge(on) {
+  chrome.action.setBadgeText({ text: on ? 'ON' : 'OFF' });
+  chrome.action.setBadgeBackgroundColor({ color: on ? '#2e7d32' : '#c62828' });
+  chrome.action.setTitle({ title: on
+    ? 'ARRA Oracles — bridge connected (127.0.0.1:4747)'
+    : 'ARRA Oracles — bridge NOT connected. Start it:\nbun /opt/Code/github.com/Soul-Brews-Studio/oracle-app-kit/browser/bridge/server.ts\n(click this icon to retry)' });
+}
+showBridge(false);
+chrome.action.onClicked.addListener(() => { connectBridge(); });
 function connectBridge() {
   if (bridge && bridge.readyState <= 1) return;
-  try { bridge = new WebSocket(`ws://${BRIDGE}/ws`); } catch { return; }
+  try { bridge = new WebSocket(`ws://${BRIDGE}/ws`); } catch { showBridge(false); return; }
+  bridge.onopen = () => showBridge(true);
   bridge.onmessage = (e) => { try { const m = JSON.parse(e.data); if (m.type === 'reply') handleReply(m); } catch {} };
-  bridge.onclose = () => { bridge = null; };
-  bridge.onerror = () => {};
+  bridge.onclose = () => { bridge = null; showBridge(false); };
+  bridge.onerror = () => showBridge(false);
 }
 connectBridge();
 chrome.alarms.create('bridge', { periodInMinutes: 0.5 });
