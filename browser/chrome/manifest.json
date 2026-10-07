@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ARRA Oracles — Issue to Nexus",
-  "version": "26.10.7.732",
+  "version": "26.10.7.744",
   "description": "Right-click a page, link, image or selection — or the 🔮 Nexus button on a Facebook post: Nexus opens the issue draft.",
   "permissions": [
     "contextMenus",
@@ -14,7 +14,7 @@
   "icons": {
     "128": "icon128.png"
   },
-  "version_name": "v26.10.7-alpha.732",
+  "version_name": "v26.10.7-alpha.744",
   "content_scripts": [
     {
       "matches": [

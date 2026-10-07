@@ -68,12 +68,15 @@
   const SEE = /\s*…?\s*(see more|see less|ดูเพิ่มเติม|ดูน้อยลง)$/i;
   function captionIn(root, author) {
     if (!root) return '';
-    const isName = e => { const a = e.querySelector('a'); return a && a.innerText.trim() === e.innerText.trim(); };
+    const isName = e => { const a = e.querySelector('a');
+      return a && a.innerText.trim() === e.innerText.trim() && !/^https?:\/\/l\.facebook\.com\//.test(a.href) &&
+        /(^|\.)facebook\.com$/.test(new URL(a.href, location.href).hostname); };
     const inComment = e => { const a = e.closest('[role="article"]'); return a && a !== root && root.contains(a); };
     return [...root.querySelectorAll('[dir="auto"]')]
-      .filter(e => !inComment(e) && !e.closest('[role="button"], a, h1, h2, h3, h4') && !isName(e))
+      .filter(e => !inComment(e) && !e.closest('[role="button"], a, h1, h2, h3, h4') && !isName(e) &&
+        !e.querySelector('[data-oracle-btn], [data-oracle-comment]'))   // never read our own chips back as the caption
       .map(e => e.innerText.trim().replace(SEE, ''))
-      .find(t => t.length > 1 && t !== author && !/^[\d.,]+\s*[KMB]?\s+\S+$/i.test(t)) || '';
+      .find(t => /\p{L}/u.test(t) && t !== author && !/^[\d.,]+\s*[KMB]?\s+\S+$/i.test(t)) || '';
   }
 
   async function details(post) {
@@ -118,6 +121,48 @@
     setTimeout(() => document.addEventListener('click', () => m.remove(), { once: true }), 0);
   }
 
+  // photo/video pages: the author and caption sit in the right panel (role=complementary); the document title is
+  // just "Facebook", and the time links there belong to comments (measured on Nat's photo URL, 2026-10-07)
+  async function pageDetails() {
+    const side = document.querySelector('[role="complementary"]');
+    const more = side && [...side.querySelectorAll('[role="button"]')].find(b => /^(see more|ดูเพิ่มเติม)$/i.test(b.innerText.trim()));
+    if (more) { more.click(); await tick(300); }
+    const authorEl = side && [...side.querySelectorAll('h2 a, h3 a, strong a, span > a[role="link"]')]
+      .find(a => a.innerText.trim() && !/online status|^active$/i.test(a.innerText.trim()));
+    const author = (authorEl?.innerText || '').trim().split('\n')[0];
+    const caption = ((side?.querySelector('[data-ad-rendering-role="story_message"]')?.innerText) ||
+      captionIn(side, author) || (document.querySelector('[data-ad-rendering-role="story_message"]')?.innerText) ||
+      String(getSelection() || '')).trim().replace(SEE, '');
+    const first = caption.split('\n').find(l => l.trim()) || '';
+    const docTitle = document.title.replace(/^\(\d+\+?\)\s*/, '').replace(/\s*\|\s*Facebook$/, '').trim();
+    const title = author ? `${author}: ${first || 'Facebook ' + (/photo/.test(location.pathname) ? 'photo' : 'video')}` : (first || docTitle || 'Facebook');
+    return { url: clean(location.href), title: title.slice(0, 100),
+             text: caption.slice(0, 2000) + (author ? `\n\nby ${author} on Facebook` : '') };
+  }
+
+  function send(oracle, d) {
+    if (window.chrome?.runtime?.sendMessage) chrome.runtime.sendMessage({ kind: 'issue', oracle, ...d });
+    else console.log('[oracle] would send', oracle, d);
+  }
+
+  // The 🔮 every action row gets: click → DEFAULT, ⇧-click → pick the oracle.
+  function barButton(getDetails) {
+    const btn = document.createElement('div');
+    btn.setAttribute('role', 'button'); btn.tabIndex = 0;
+    btn.title = `New issue in ${DEFAULT} Oracle (⇧-click: another oracle)`;
+    btn.setAttribute('data-oracle-btn', '1');
+    btn.textContent = `🔮 ${DEFAULT}`;
+    Object.assign(btn.style, { display: 'flex', alignItems: 'center', justifyContent: 'center', flex: '1 1 0',
+      cursor: 'pointer', borderRadius: '6px', color: '#b0b3b8', font: '600 15px system-ui, sans-serif', padding: '6px 0' });
+    btn.onmouseenter = () => (btn.style.background = 'rgba(255,255,255,.06)'); btn.onmouseleave = () => (btn.style.background = '');
+    btn.onclick = async (e) => {
+      e.stopPropagation(); e.preventDefault();
+      if (e.shiftKey) return menu(btn, null, getDetails);
+      send(DEFAULT, await getDetails());
+    };
+    return btn;
+  }
+
   function addButtons() {
     for (const like of document.querySelectorAll(LIKE)) {
       const wrap = (like.closest('[role="button"]') || like).parentElement;
@@ -126,22 +171,68 @@
       const post = postOf(like);
       if (!post) continue;
       bar.setAttribute(MARK, '1');
-      const btn = document.createElement('div');
-      btn.setAttribute('role', 'button'); btn.tabIndex = 0;
-      btn.title = `New issue in ${DEFAULT} Oracle (⇧-click: another oracle)`;
-      btn.setAttribute('data-oracle-btn', '1');
-      btn.textContent = `🔮 ${DEFAULT}`;
-      Object.assign(btn.style, { display: 'flex', alignItems: 'center', justifyContent: 'center', flex: '1 1 0',
-        cursor: 'pointer', borderRadius: '6px', color: '#b0b3b8', font: '600 15px system-ui, sans-serif', padding: '6px 0' });
-      btn.onmouseenter = () => (btn.style.background = 'rgba(255,255,255,.06)'); btn.onmouseleave = () => (btn.style.background = '');
-      btn.onclick = async (e) => {
-        e.stopPropagation(); e.preventDefault();
-        if (e.shiftKey) return menu(btn, post);
-        const d = await details(post);
-        if (window.chrome?.runtime?.sendMessage) chrome.runtime.sendMessage({ kind: 'issue', oracle: DEFAULT, ...d });
-        else console.log('[oracle] would send', DEFAULT, d);
-      };
-      bar.lastElementChild.after(btn);   // at the end: after Share, or after Comment when there is no Share
+      bar.lastElementChild.after(barButton(() => details(post)));   // after Share, or after Comment when there is no Share
+    }
+    addHeaderChip();
+    addCommentButtons();
+  }
+
+  // A comment's own link is its timestamp ("23h" → permalink.php?story_fbid=…&comment_id=…); the commenter's name
+  // links to their profile. Links typed in the comment leave through l.facebook.com/l.php?u=<the real URL>.
+  async function commentDetails(art) {
+    const own = [...art.querySelectorAll('a[href]')].filter(a => a.closest('[role="article"]') === art);
+    await resolve(own);
+    const name = (own.find(a => a.innerText.trim())?.innerText || '').trim().split('\n')[0];
+    const time = own.find(a => /comment_id=/.test(a.href) && /permalink|story_fbid|\/posts\/|fbid=|\/videos\/|\/reel\//.test(a.href));
+    const out = [...new Set(own.map(a => {
+      try {
+        const u = new URL(a.href);
+        if (u.hostname === 'l.facebook.com') return u.searchParams.get('u');
+        return /(^|\.)facebook\.com$/.test(u.hostname) ? null : u.href;
+      } catch { return null; }
+    }).filter(Boolean))];
+    const text = captionIn(art, name);
+    const first = text.split('\n').find(l => l.trim()) || out[0] || 'Facebook comment';
+    return { url: clean(time ? time.href : location.href), title: (name ? name + ': ' : '') + first.slice(0, 90),
+             text: text.slice(0, 2000) + out.map(h => `\nLink: ${h}`).join('') + (name ? `\n\ncomment by ${name} on Facebook` : '') };
+  }
+
+  // A small purple chip that sits inline in Facebook's own text rows (header line, next to Reply).
+  function chip(label, title, getDetails, attr) {
+    const c = document.createElement('span');
+    c.setAttribute('role', 'button'); c.tabIndex = 0; c.setAttribute(attr, '1'); c.textContent = label; c.title = title;
+    Object.assign(c.style, { marginLeft: '6px', padding: '1px 8px', borderRadius: '10px', background: 'rgba(171,71,188,.18)',
+      color: '#e1bee7', font: '600 12px system-ui, sans-serif', cursor: 'pointer', whiteSpace: 'nowrap', alignSelf: 'center' });
+    c.onclick = async (e) => {
+      e.stopPropagation(); e.preventDefault();
+      if (e.shiftKey) return menu(c, null, getDetails);
+      send(DEFAULT, await getDetails());
+    };
+    return c;
+  }
+
+  // Photo pages: 🔮 on the header line, after "a day ago · 🌐" (Nat marked that spot, 2026-10-07). The line is the
+  // flex div around the time link (first link after the author's name) and the privacy globe.
+  function addHeaderChip() {
+    const side = document.querySelector('[role="complementary"]');
+    if (!side || side.querySelector('[data-oracle-head]')) return;
+    const links = [...side.querySelectorAll('a')].filter(a => !a.closest('[role="article"]'));
+    const name = links.find(a => a.innerText.trim() && !/online status|^active$/i.test(a.innerText.trim()));
+    let line = name && links[links.indexOf(name) + 1];
+    while (line && !(line.tagName === 'DIV' && getComputedStyle(line).display === 'flex' && line.querySelector('svg'))) line = line.parentElement;
+    if (!line || line.contains(name)) return;
+    line.append(chip(`🔮 ${DEFAULT}`, `New issue in ${DEFAULT} Oracle for this photo (⇧-click: another oracle)`, pageDetails, 'data-oracle-btn'));
+    line.firstElementChild?.setAttribute('data-oracle-head', '1'); side.setAttribute('data-oracle-head', '1');
+  }
+
+  // 🔗 inline after every comment's Reply (Nat via the right pane, 2026-10-07): sends THAT comment — its link,
+  // text and the links in it. Reply lives in an <li> inside a wrapper div; the chip is that wrapper's next sibling in the same flex row.
+  function addCommentButtons() {
+    for (const reply of document.querySelectorAll('[role="article"] [role="button"]')) {
+      if (!/^(reply|ตอบกลับ)$/i.test(reply.textContent.trim())) continue;
+      const art = reply.closest('[role="article"]'), ul = reply.closest('li')?.parentElement;   // Facebook's <li> sits in a <div>, not a <ul>
+      if (!art || !ul || !art.contains(ul) || ul.nextElementSibling?.hasAttribute('data-oracle-comment')) continue;
+      ul.after(chip(`🔗 ${DEFAULT}`, `Send this comment's link to ${DEFAULT} Oracle (⇧-click: another oracle)`, () => commentDetails(art), 'data-oracle-comment'));
     }
   }
 
@@ -159,30 +250,10 @@
     Object.assign(p.style, { position: 'fixed', right: '24px', bottom: '24px', zIndex: 2147483646, cursor: 'pointer',
       background: '#242526', color: '#e4e6eb', border: '1px solid #3a3b3c', borderRadius: '999px', padding: '10px 16px',
       font: '600 15px system-ui, sans-serif', boxShadow: '0 6px 20px rgba(0,0,0,.45)' });
-    // photo/video pages: the author and caption sit in the right panel (role=complementary); the document title is
-    // just "Facebook", and the time links there belong to comments (measured on Nat's photo URL, 2026-10-07)
-    const page = async () => {
-      const side = document.querySelector('[role="complementary"]');
-      const more = side && [...side.querySelectorAll('[role="button"]')].find(b => /^(see more|ดูเพิ่มเติม)$/i.test(b.innerText.trim()));
-      if (more) { more.click(); await tick(300); }
-      const authorEl = side && [...side.querySelectorAll('h2 a, h3 a, strong a, span > a[role="link"]')]
-        .find(a => a.innerText.trim() && !/online status|^active$/i.test(a.innerText.trim()));
-      const author = (authorEl?.innerText || '').trim().split('\n')[0];
-      const caption = ((side?.querySelector('[data-ad-rendering-role="story_message"]')?.innerText) ||
-        captionIn(side, author) || (document.querySelector('[data-ad-rendering-role="story_message"]')?.innerText) ||
-        String(getSelection() || '')).trim().replace(SEE, '');
-      const first = caption.split('\n').find(l => l.trim()) || '';
-      const docTitle = document.title.replace(/^\(\d+\+?\)\s*/, '').replace(/\s*\|\s*Facebook$/, '').trim();
-      const title = author ? `${author}: ${first || 'Facebook ' + (/photo/.test(location.pathname) ? 'photo' : 'video')}` : (first || docTitle || 'Facebook');
-      return { url: clean(location.href), title: title.slice(0, 100),
-               text: caption.slice(0, 2000) + (author ? `\n\nby ${author} on Facebook` : '') };
-    };
     p.onclick = async (e) => {
       e.stopPropagation(); e.preventDefault();
-      if (e.shiftKey) return menu(p, document.body, page);
-      const d = await page();
-      if (window.chrome?.runtime?.sendMessage) chrome.runtime.sendMessage({ kind: 'issue', oracle: DEFAULT, ...d });
-      else console.log('[oracle] would send', DEFAULT, d);
+      if (e.shiftKey) return menu(p, null, pageDetails);
+      send(DEFAULT, await pageDetails());
     };
     document.body.append(p);
   }
