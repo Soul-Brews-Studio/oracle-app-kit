@@ -40,7 +40,7 @@ REGEN="zsh $K/scripts/new-oracle-app.sh ${(q)N} ${(q)SLUG} ${(q)LP} ${(q)HEX} ${
 [[ $KEY == $RULE ]] && ok "portal key   co.laris.oracle.$KEY ($SLUG)" || bad "portal key   co.laris.oracle.$KEY, but the portal looks for $RULE ($SLUG)" "$REGEN --key=$RULE"
 
 # the engines the generator must have written
-for want in 'BundledANE.installLazily()' 'MapLayoutEngine.install()' "MCPServer.serve(name: \"${(L)N}-memory\", port: $PORT)"; do
+for want in 'BundledANE.installLazily()' 'MapLayoutEngine.install()' "MCPServer.serve(name: \"${(L)N}-memory\", port: $PORT)" "CompanionServer.serve(name: \"$N\", mcpPort: $PORT)"; do
   rg -qF "$want" $D/${N}App.swift && ok "app wires    $want" || bad "app lacks    $want" "$REGEN"
 done
 

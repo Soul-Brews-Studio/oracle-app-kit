@@ -1,7 +1,8 @@
 #!/usr/bin/env zsh
 # new-oracle-app.sh <Name> <org/repo> <mac checkout path> <#hex> <sf-symbol> ["<tagline>"]
 #                   [--update] [--key=<key>] [--port=<n>] [--team=<id>] [--no-regen]     (also "--key <key>" …)
-# Creates Apps/<Name>/: the identity (shared with the widget), the app (Memory engine, Map layout, MCP server),
+# Creates Apps/<Name>/: the identity (shared with the widget), the app (Memory engine, Map layout, MCP server, the
+# iPhone/iPad companion server),
 # its Extras, a WidgetKit status widget, a Share extension, entitlements (App Group), icon and xcodegen targets —
 # then regenerates the project. The output matches Neo / Pulse / Nexus; scripts/parity.sh proves it.
 #   <Name>   a Swift identifier (struct <Name>App); its lower-case form is OracleConfig.<name> and the widget kind
@@ -171,6 +172,7 @@ struct ${N}App: App {
         BundledANE.installLazily()   // Memory page: EmbeddingGemma 2 in-process, loaded when the page first opens
         MapLayoutEngine.install()   // Map page: UMAP in-process (Apple's Rust crate)
         MCPServer.serve(name: "${low}-memory", port: $PORT) { GHIndex.history(OracleConfig.${low}.repoSlug) }   // agents search ${N}'s memory
+        CompanionServer.serve(name: "$N", mcpPort: $PORT) { GHIndex.history(OracleConfig.${low}.repoSlug) }   // its iPhone/iPad app reads this Mac (Settings → Companion)
         #endif
     }
     @AppStorage("oracle.menuBar") private var menuBar = false      // the oracle's tray: off until switched on
@@ -295,6 +297,15 @@ targets:
         CFBundleShortVersionString: \$(MARKETING_VERSION)
         CFBundleVersion: \$(CURRENT_PROJECT_VERSION)
         UILaunchScreen: {}
+        # #46, iPhone/iPad: the pairing code is scanned with the camera; the Mac is reached over the mesh, plain HTTP to its
+        # NetBird address, which WireGuard encrypts (only loopback and 100.64.0.0/10 answer, with a bearer token). ATS lets no
+        # 100.x address through, not even with NSAllowsLocalNetworking (measured: "requires the use of a secure connection"),
+        # and NSAllowsArbitraryLoads is ignored when NSAllowsLocalNetworking is set — so it stands alone
+        NSCameraUsageDescription: Scan the pairing code that the $N app on your Mac shows in Settings → Companion.
+        NSLocalNetworkUsageDescription: Reach the $N app on your Mac over your private mesh (NetBird).
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+        UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationPortrait, UIInterfaceOrientationPortraitUpsideDown, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
         CFBundleURLTypes:            # widget taps open oracle-<name>://open — the app must own the scheme
           - CFBundleURLName: co.laris.oracle.$KEY
             CFBundleURLSchemes: [oracle-$KEY]
