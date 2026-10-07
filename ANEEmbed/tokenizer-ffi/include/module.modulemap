@@ -1,0 +1,5 @@
+module CTokenizerFFI {
+    header "tokenizer_ffi.h"
+    link "tokenizer_ffi"
+    export *
+}

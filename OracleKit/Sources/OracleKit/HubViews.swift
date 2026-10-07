@@ -35,7 +35,7 @@ struct HubRootView: View {
     @ObservedObject var store: HubStore
     @Binding var menuBar: Bool
     @State private var pick: HubPick = UserDefaults.standard.string(forKey: "hubPage") == "search" ? .search : .all   // -hubPage search
-    @StateObject private var index = GHIndex()
+    @ObservedObject private var index = GHIndex.shared
     @State private var focusTick = 0
     var body: some View {
         NavigationSplitView {
@@ -56,8 +56,8 @@ struct HubRootView: View {
         .task {   // keep the ANE index fresh in the background: on launch when it is missing or older than 6 h
             for _ in 0..<20 where store.oracles.isEmpty { try? await Task.sleep(for: .milliseconds(500)) }
             let slugs = Array(Set(store.oracles.compactMap { $0.checkout.flatMap(GHIndex.slug(fromCheckout:)) })).sorted()
-            if !slugs.isEmpty, index.docs.isEmpty || (index.built.map { Date().timeIntervalSince($0) > 6 * 3600 } ?? true) {
-                await index.index(repos: slugs)
+            if !slugs.isEmpty, let why = index.staleReason {
+                await index.index(repos: slugs, why: "automatic at launch — \(why)")
             }
         }
     }
@@ -464,8 +464,11 @@ struct HubMenu: View {
 // MARK: - Search issues & PRs by meaning — embedded on the ANE (EmbeddingGemma 2 via Chippy :11435)
 
 struct IndexSearchView: View {
+    private static var launchQueryDone = false   // launch arguments last the whole process: apply -hubQuery once
+    private static var launchActionDone = false
     @ObservedObject var store: HubStore
     @ObservedObject var index: GHIndex
+    @ObservedObject private var load = ModelLoad.shared
     var focusTick = 0
     @State private var query = ""
     @State private var kind = "all"
@@ -487,20 +490,36 @@ struct IndexSearchView: View {
                         .frame(width: 230)
                     VStack(alignment: .leading, spacing: 0) {
                         Label("Vector engine", systemImage: "cpu").font(.headline).foregroundStyle(HubStyle.accent).padding(.bottom, 8)
-                        EngineRow(name: "Engine", value: index.engine.map { $0.ok ? "\($0.kind) · 127.0.0.1:11435 · \($0.workers) workers" : "not answering" } ?? "checking…")
+                        EngineRow(name: "Engine", value: index.engine.map { $0.ok ? ($0.kind.hasPrefix("bundled") ? $0.kind : "\($0.kind) · 127.0.0.1:11435 · \($0.workers) workers") : "not answering" } ?? "checking…")
+                        if load.loading || load.failed != nil || load.absent { ModelLoadRow(load: load, fallback: index.engine?.ok == true && index.engine?.kind.hasPrefix("bundled") == false) }
+                        if index.engine?.kind.hasPrefix("bundled") == true { NeuralEngineRow() }
                         EngineRow(name: "Model", value: GHIndex.model)
-                        EngineRow(name: "Model check", value: index.engine.map { $0.ok && $0.models.contains(GHIndex.model) ? "✓ served" : "✗ not served — open the ANEEmbed app (ane-oracle)" } ?? "—",
+                        EngineRow(name: "Model check", value: index.engine.map { $0.ok && $0.models.contains(GHIndex.model) ? "✓ served" : "✗ not served — nothing embeds this model yet: see the debug log" } ?? "—",
                                   good: index.engine.map { $0.ok && $0.models.contains(GHIndex.model) })
                         EngineRow(name: "Vector space", value: index.engine.map { String($0.space.prefix(36)) + ($0.space.count > 36 ? "…" : "") } ?? "—")
                         EngineRow(name: "Index", value: "\(index.docs.count) items · \(Set(index.docs.map(\.repo)).count) repos" + (index.built.map { " · built \($0.formatted(date: .omitted, time: .shortened))" } ?? ""))
                         Divider().padding(.vertical, 10)
                         Label("Batch controls", systemImage: "square.stack.3d.up").font(.headline).foregroundStyle(Color.orange).padding(.bottom, 8)
                         HStack(spacing: 10) {
-                            Button { Task { await index.index(repos: slugs) } } label: {
-                                Label(index.running ? "Embedding…" : "Run batch", systemImage: "play.fill").frame(maxWidth: .infinity)
+                            if index.running {
+                                Button { index.stop() } label: {
+                                    Label(index.stopping ? "Stopping…" : "Stop", systemImage: "stop.fill").frame(maxWidth: .infinity)
+                                }
+                                .buttonStyle(.borderedProminent).tint(.red).controlSize(.large).disabled(index.stopping).handCursor()
+                                .keyboardShortcut(".", modifiers: .command)
+                                .help("Stop the batch (⌘.) — reading: the index stays as it was; embedding: what is done is kept, the rest keeps its old vectors")
+                            } else {
+                                Button { Task { await index.index(repos: slugs, why: "Run batch button") } } label: {
+                                    Label("Run batch", systemImage: "play.fill").frame(maxWidth: .infinity)
+                                }
+                                .buttonStyle(.borderedProminent).tint(.orange).controlSize(.large).disabled(slugs.isEmpty || index.cooldown).handCursor()
+                                .help("Read issues + PRs of \(slugs.count) oracle repos with gh; embed only what is new or changed")
                             }
-                            .buttonStyle(.borderedProminent).tint(.orange).controlSize(.large).disabled(index.running || slugs.isEmpty).handCursor()
-                            .help("Read issues + PRs of \(slugs.count) oracle repos with gh; embed only what is new or changed")
+                            Button { Task { await index.reembedAll(repos: slugs) } } label: {
+                                Label("Re-embed all", systemImage: "bolt.fill").frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.bordered).tint(.cyan).controlSize(.large).disabled(index.running || index.cooldown || index.docs.isEmpty).handCursor()
+                            .help("Embed all \(index.docs.count) items again — in-process on this Mac's Neural Engine once the bundled model has loaded. Watch the speed and the debug log.")
                             Button { Task { await index.checkEngine() } } label: { Label("Refresh", systemImage: "arrow.clockwise").frame(maxWidth: .infinity) }
                                 .buttonStyle(.bordered).controlSize(.large).handCursor()
                         }
@@ -516,6 +535,7 @@ struct IndexSearchView: View {
                     .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.primary.opacity(0.045)))
                     .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color.primary.opacity(0.08)))
                 }
+                DebugLogView()
                 HStack(spacing: 10) {
                     Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
                     TextField("Ask by meaning — flood sensors, ontology of the fleet, ANE speed…   ⌘K", text: $query)
@@ -555,16 +575,29 @@ struct IndexSearchView: View {
         }
         .onChange(of: focusTick) { fieldFocused = true }
         .onAppear { if focusTick > 0 { fieldFocused = true } }
+        .onChange(of: load.finished) { Task { await index.checkEngine() } }   // the bundled model is ready: show it
+        .task {   // -hubAction reembed | batch: once the bundled model is up, Re-embed all or Run batch (to time the ANE, test Stop)
+            let action = UserDefaults.standard.string(forKey: "hubAction") ?? ""   // -hubAction reembed | batch
+            guard !Self.launchActionDone, action == "reembed" || action == "batch" else { return }
+            Self.launchActionDone = true   // launch arguments last the whole process: run it once
+            for _ in 0..<1200 where ModelLoad.shared.loading || store.oracles.isEmpty {   // 10 min at most
+                do { try await Task.sleep(for: .milliseconds(500)) } catch { return }   // the page went away
+            }
+            let stopAfter = UserDefaults.standard.double(forKey: "hubStopAfter")   // -hubStopAfter 15: press Stop 15 s in (tests Stop)
+            if stopAfter > 0 { Task { try? await Task.sleep(for: .seconds(stopAfter)); index.stop() } }
+            if action == "batch" { await index.index(repos: slugs, why: "-hubAction batch (test)") } else { await index.reembedAll(repos: slugs) }
+        }
         .task {
             await index.checkEngine()
-            if let q = UserDefaults.standard.string(forKey: "hubQuery"), !q.isEmpty, query.isEmpty {   // -hubQuery "…"
+            if !Self.launchQueryDone, let q = UserDefaults.standard.string(forKey: "hubQuery"), !q.isEmpty, query.isEmpty {   // -hubQuery "…", once
+                Self.launchQueryDone = true
                 query = q; await index.search(q)
             }
         }
         .task {   // first visit, or older than 6 h: refresh the index in the background
-            if !index.running, index.docs.isEmpty || (index.built.map { Date().timeIntervalSince($0) > 6 * 3600 } ?? true) {
+            if !index.running, let why = index.staleReason {
                 if store.oracles.isEmpty { await store.refresh() }
-                await index.index(repos: slugs)
+                await index.index(repos: slugs, why: "automatic on opening Search — \(why)")
             }
         }
     }
@@ -675,7 +708,14 @@ struct LiveTelemetry: View {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(index.rateHistory.last.map { "\(Int($0))" } ?? "—").font(.system(size: 26, weight: .heavy, design: .rounded)).monospacedDigit()
                     .foregroundStyle(Color.cyan).contentTransition(.numericText())
-                Text("texts/s on the ANE").font(.caption).foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(index.via.isEmpty ? "texts/s" : "texts/s · \(index.via)").font(.caption).foregroundStyle(.secondary)
+                    if let c = index.lastCall {
+                        Text(c.tokens > 0 ? "last call \(c.texts) texts · \(grouped(c.tokens)) tok · \(Int(c.ms)) ms · \(short(Double(c.tokens) * 1000 / max(c.ms, 1))) tok/s"
+                                          : "last call \(c.texts) texts · \(Int(c.ms)) ms")
+                            .font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
+                    }
+                }
                 Spacer()
                 if index.phase == "reading" {
                     Text("repo \(index.repoDone + 1)/\(index.repoTotal) · \(index.currentRepo)").font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
@@ -716,5 +756,162 @@ struct EngineRow: View {
             Spacer(minLength: 0)
         }
         .font(.callout).padding(.vertical, 3)
+    }
+}
+
+/// The bundled model loading: which part loads now, compiled or from the cache, elapsed, time left, and why the
+/// first launch takes minutes.
+struct ModelLoadRow: View {
+    @ObservedObject var load: ModelLoad
+    var fallback = false
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { ctx in
+            VStack(alignment: .leading, spacing: 5) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text("Bundled model").foregroundStyle(.secondary).frame(width: 110, alignment: .leading)
+                    if let f = load.failed {
+                        Text("did not load — \(f)").foregroundStyle(.orange).lineLimit(2).textSelection(.enabled)
+                        if let retry = load.retry { Button("Retry") { retry() }.controlSize(.small).handCursor() }
+                    } else if load.absent {
+                        Text("not in this build — embedding goes through 127.0.0.1:11435").foregroundStyle(.secondary).lineLimit(2)
+                    } else {
+                        let secs = Int(ctx.date.timeIntervalSince(load.started ?? ctx.date))
+                        let now = load.next.map { "worker \($0.worker + 1) · bucket \($0.bucket)" } ?? "warm-up"
+                        let left = load.eta.map { eta -> String in   // counts down between parts
+                            let m = max(0, eta - ctx.date.timeIntervalSince(load.lastStepAt ?? ctx.date))
+                            return m >= 90 ? " · ~\(Int(m / 60 + 0.5)) min left" : " · ~\(Int(m)) s left"
+                        } ?? ""
+                        Text("part \(min(load.done + 1, max(load.total, 1)))/\(max(load.total, 1)) · \(now) · \(secs / 60)m \(String(format: "%02d", secs % 60))s\(left)")
+                            .monospacedDigit().foregroundStyle(Color.cyan).lineLimit(1)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .font(.callout)
+                if load.loading {
+                    ProgressView(value: Double(load.done), total: Double(max(load.total, 1))).tint(.cyan)
+                    Text((load.steps.contains { $0.seconds >= 2 }
+                          ? "First launch: the Neural Engine compiles each bucket once for this app (~30 s each), then caches it — later launches take seconds. "
+                          : "Loading from the Neural Engine cache. ") +
+                         (fallback ? "Meanwhile search goes through the ANE service on 127.0.0.1:11435." : "Search and batches wait for it."))
+                        .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .padding(.vertical, 4)
+        }
+    }
+}
+
+/// The in-process Neural Engine, live — the "power up" you can watch: one light per worker, lit while its model runs,
+/// texts/s and tokens/s over the last 10 s, the last call; under it the ANE itself, for the whole Mac (IOReport).
+struct NeuralEngineRow: View {
+    @ObservedObject private var meter = ANEMeter.shared
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 0.25)) { _ in
+            let a = GHIndex.loaded?.activity() ?? EmbedActivity()
+            let live = a.textsPerSecond > 0 || a.busy.contains(true)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .center, spacing: 10) {
+                    Text("Neural Engine").foregroundStyle(.secondary).frame(width: 110, alignment: .leading)
+                    HStack(spacing: 4) {
+                        ForEach(Array(a.busy.enumerated()), id: \.offset) { i, on in
+                            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                                .fill(on ? Color.cyan : Color.primary.opacity(0.12))
+                                .frame(width: 18, height: 13)
+                                .overlay(Text("\(i + 1)").font(.system(size: 8, weight: .bold, design: .rounded)).foregroundStyle(on ? Color.black : .secondary))
+                                .shadow(color: on ? Color.cyan : .clear, radius: on ? 6 : 0)
+                        }
+                    }
+                    .help("ANE workers in this app: lit while that worker's model runs")
+                    if live {
+                        Text("\(short(a.textsPerSecond)) texts/s · \(short(a.tokensPerSecond)) tok/s").monospacedDigit().foregroundStyle(Color.cyan)
+                    } else {
+                        Text("idle").foregroundStyle(.secondary)
+                    }
+                    if let c = a.last.first {
+                        Text("· last \(c.texts) texts in \(Int(c.ms)) ms").monospacedDigit().foregroundStyle(.secondary).lineLimit(1)
+                    }
+                    Spacer(minLength: 0)
+                    Text("\(grouped(a.texts)) texts").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                        .help("embedded in this app since launch")
+                }
+                if let u = meter.utilization, let g = meter.gbs {
+                    HStack(spacing: 10) {
+                        Spacer().frame(width: 110)
+                        Text(String(format: "ANE %.0f%% · %.1f GB/s", u, g)).font(.caption.monospacedDigit())
+                            .foregroundStyle(g > 1 ? Color.cyan : .secondary)
+                        Sparkline(values: meter.history).frame(width: 110, height: 14)
+                        Text("whole Mac").font(.caption2).foregroundStyle(.tertiary)
+                        Spacer(minLength: 0)
+                    }
+                    .help("The Neural Engine itself, read from IOReport once a second: time out of its idle state, and memory bandwidth. Counts every app using it.")
+                }
+            }
+            .font(.callout).padding(.vertical, 3)
+        }
+        .onAppear { meter.watch() }
+        .onDisappear { meter.unwatch() }
+    }
+}
+
+/// The debug log, like a console: every model part, repo read, embed call and search, with its speed.
+/// Also written to ~/Library/Logs/ARRA Oracles/embed.log.
+struct DebugLogView: View {
+    @ObservedObject private var log = HubLog.shared
+    @AppStorage("hub.debugLog") private var open = true
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 10) {
+                Button { withAnimation(.easeOut(duration: 0.2)) { open.toggle() } } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "chevron.right").rotationEffect(.degrees(open ? 90 : 0)).font(.caption.weight(.bold))
+                        Label("Debug log", systemImage: "terminal").font(.headline)
+                    }
+                    .foregroundStyle(Color.cyan)
+                }
+                .buttonStyle(.plain).handCursor()
+                Text("\(log.lines.count) lines").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                Spacer()
+                Button("Copy") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(log.text, forType: .string) }
+                    .buttonStyle(.borderless).handCursor()
+                Button { NSWorkspace.shared.open(HubLog.file) } label: { Image(systemName: "doc.text.magnifyingglass") }
+                    .buttonStyle(.borderless).handCursor().help(HubLog.file.path)
+            }
+            if open {
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 2) {
+                            ForEach(log.lines) { l in
+                                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                    Text(HubLog.clock(l.at)).foregroundStyle(.tertiary)
+                                    Text(l.kind.rawValue.uppercased()).foregroundStyle(Self.color(l.kind)).frame(width: 50, alignment: .leading)
+                                    Text(l.text).foregroundStyle(l.kind == .error ? Color.orange : Color.primary.opacity(0.85))
+                                        .textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+                                }
+                                .font(.system(size: 11, design: .monospaced)).id(l.id)
+                            }
+                            if log.lines.isEmpty { Text("nothing yet").font(.caption.monospaced()).foregroundStyle(.secondary) }
+                        }
+                        .padding(10)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .frame(height: 150)
+                    .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.black.opacity(0.35)))
+                    .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color.cyan.opacity(0.15)))
+                    .onAppear { if let id = log.lines.last?.id { proxy.scrollTo(id, anchor: .bottom) } }
+                    .onChange(of: log.lines.last?.id) { if let id = log.lines.last?.id { withAnimation(.easeOut(duration: 0.15)) { proxy.scrollTo(id, anchor: .bottom) } } }
+                }
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+    }
+    static func color(_ k: HubLog.Kind) -> Color {
+        switch k {
+        case .load: return .cyan
+        case .read: return .secondary
+        case .embed: return .green
+        case .search: return HubStyle.accent
+        case .info: return .secondary
+        case .error: return .orange
+        }
     }
 }

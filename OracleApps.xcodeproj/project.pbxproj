@@ -13,6 +13,7 @@
 		1219A0F40327E57A5C962C60 /* NexusConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = E596680FCB92D58641782D23 /* NexusConfig.swift */; };
 		135BC6904B6A6EF518DD7C74 /* NeoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA7B638D3B556C915C153B1E /* NeoApp.swift */; };
 		183930EB9CC6C46A392574DD /* NeoShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 47078A7D50C0767AD1B9544E /* NeoShare.appex */; platformFilters = (macos, ); settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		18A40EF73FAC44370B9EF22D /* BundledANE.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC4237A1CBEA46825D3B456C /* BundledANE.swift */; };
 		2314A1BB992922AD62B2E477 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E220E57022CA2B7EB0FD203 /* WidgetKit.framework */; };
 		2668904C7E52D602BD0C6ABF /* NexusConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = E596680FCB92D58641782D23 /* NexusConfig.swift */; };
 		2B9BC0A1DF0BE48BE8AFCF81 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97CF4DEE1C0D84FB0133816A /* Assets.xcassets */; };
@@ -45,6 +46,7 @@
 		A008A67DBBD278DCF0CBD7BC /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E220E57022CA2B7EB0FD203 /* WidgetKit.framework */; };
 		A92220ACB1EEA09648D09C9F /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = D8034BE3BE3303D05E137A02 /* OracleKit */; };
 		AA2DD123CEF605C9E6C787A3 /* NeoWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 5EDFE877D27D8F8E8ECC5030 /* NeoWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		AA516104F3FF540DCB538557 /* ANEEmbedCore in Frameworks */ = {isa = PBXBuildFile; productRef = E21624C123AE7BFF0CA6252F /* ANEEmbedCore */; };
 		C4E0BD8D0B45870B893A2D5D /* NeoConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C722827C1DFF0CDB6F2F247 /* NeoConfig.swift */; };
 		CF7B1BE232CD2BB414E927AF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 907F6BD4CB49E2095191A779 /* Assets.xcassets */; };
 		D60C5A99551B4457FF12EE32 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 468221B2146BCBCC791C3B0B /* SwiftUI.framework */; };
@@ -168,12 +170,14 @@
 		935A69762DBD19A005AFE22F /* PulseWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PulseWidget.swift; sourceTree = "<group>"; };
 		9747F85F8B3132BD641525AE /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		97CF4DEE1C0D84FB0133816A /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		AB9292953362D8EFB6FE8DE2 /* ANEEmbed */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ANEEmbed; path = ANEEmbed; sourceTree = SOURCE_ROOT; };
 		B137A3369CF3DC8269C32453 /* PulseConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PulseConfig.swift; sourceTree = "<group>"; };
 		B530CFD74615840D1FD21D61 /* Pulse.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Pulse.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B55D288BD45D60C57EC1FD16 /* NexusWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusWidget.swift; sourceTree = "<group>"; };
 		B7C941E4DEF8A26B4C94E87F /* PulseShare.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = PulseShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		BD99D3EB0C88FD1452416FB0 /* NeoWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NeoWidget.swift; sourceTree = "<group>"; };
 		BE742AC8F1D736B0152CD64B /* PulseWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = PulseWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		CC4237A1CBEA46825D3B456C /* BundledANE.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BundledANE.swift; sourceTree = "<group>"; };
 		D4532687283B94E464FAF092 /* Nexus.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Nexus.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DB009D7260C21CFEE11FBF5D /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		E596680FCB92D58641782D23 /* NexusConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusConfig.swift; sourceTree = "<group>"; };
@@ -205,6 +209,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				EDC954BB53A1938A2913FFC4 /* OracleKit in Frameworks */,
+				AA516104F3FF540DCB538557 /* ANEEmbedCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -316,6 +321,7 @@
 		1A856B3A3480E3528CFF4233 /* Packages */ = {
 			isa = PBXGroup;
 			children = (
+				AB9292953362D8EFB6FE8DE2 /* ANEEmbed */,
 				E6B04B136F929B594FC6EF73 /* OracleKit */,
 			);
 			name = Packages;
@@ -394,6 +400,7 @@
 			isa = PBXGroup;
 			children = (
 				464E48710AE91C739C8B1105 /* Assets.xcassets */,
+				CC4237A1CBEA46825D3B456C /* BundledANE.swift */,
 				1FC24FF95F7988B14813C430 /* HubApp.swift */,
 			);
 			name = Hub;
@@ -495,9 +502,11 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 25B61C78DECE11D0BE24B0D3 /* Build configuration list for PBXNativeTarget "Oracles" */;
 			buildPhases = (
+				13A1B5C59AD33A216AEDD380 /* Build the tokenizer (Rust) */,
 				FCE075EFF97A8FADBDF224A3 /* Sources */,
 				0A91573CCB3A7F4520702A90 /* Resources */,
 				9370EBE1B3AD068CFB2E98E0 /* Frameworks */,
+				81AA95EB6E06BB803C0045AA /* Bundle the ANE model */,
 			);
 			buildRules = (
 			);
@@ -506,6 +515,7 @@
 			name = Oracles;
 			packageProductDependencies = (
 				84774326CBC858F01F5A8C1F /* OracleKit */,
+				E21624C123AE7BFF0CA6252F /* ANEEmbedCore */,
 			);
 			productName = Oracles;
 			productReference = 3D0E66039AC6C174A076DB9F /* Oracles.app */;
@@ -699,6 +709,7 @@
 			mainGroup = 3F531203EF9C81FB862684E9;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				1CB57D1B9DF86679A25DB009 /* XCLocalSwiftPackageReference "ANEEmbed" */,
 				294EE4DEF81BAF52228E424F /* XCLocalSwiftPackageReference "OracleKit" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -778,6 +789,47 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		13A1B5C59AD33A216AEDD380 /* Build the tokenizer (Rust) */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Build the tokenizer (Rust)";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "export PATH=\"$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH\"\nif ! command -v cargo >/dev/null; then\n  echo \"error: cargo not found: the hub's in-process ANE embedder builds its tokenizer with Rust. Install it, then build again:\"\n  echo \"error:   brew install rustup && rustup-init -y && . ~/.cargo/env\"\n  exit 1\nfi\n# Every build: a no-op when current, and an edit to the Rust code is never skipped.\n# From the crate's folder, so .cargo/config.toml (MACOSX_DEPLOYMENT_TARGET = 14.0) applies.\ncd \"$SRCROOT/ANEEmbed/tokenizer-ffi\" && cargo build --release --locked\n";
+		};
+		81AA95EB6E06BB803C0045AA /* Bundle the ANE model */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Bundle the ANE model";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Only a complete export: what the app loads at run time (it never compiles inside its own bundle).\nSRC=\"$HOME/Library/Application Support/ANEEmbed/embeddinggemma2-w16\"\nDST=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/ANEModel/embeddinggemma2-w16\"\nmissing=\"\"\nfor f in manifest.json embed_scaled.f16 tokenizer; do [ -e \"$SRC/$f\" ] || missing=\"$missing $f\"; done\nif [ -f \"$SRC/manifest.json\" ]; then\n  for b in $(plutil -extract buckets json -o - \"$SRC/manifest.json\" | tr -d '[] ' | tr ',' ' '); do\n    [ -d \"$SRC/compiled/$b.mlmodelc\" ] || missing=\"$missing compiled/$b.mlmodelc\"\n  done\nfi\nif [ -z \"$missing\" ]; then\n  mkdir -p \"$DST\"\n  rsync -a --delete --exclude packages \"$SRC/\" \"$DST/\"\n  echo \"bundled the ANE model: $(plutil -extract vector_space_identity raw -o - \"$SRC/manifest.json\")\"\nelse\n  rm -rf \"$DST\"\n  echo \"warning: no complete ANE model in $SRC (missing:$missing): the hub runs without it and embeds through the HTTP service on 127.0.0.1:11435\"\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		198D1CFD92F8BB0B1BE14374 /* Sources */ = {
@@ -868,6 +920,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				18A40EF73FAC44370B9EF22D /* BundledANE.swift in Sources */,
 				3EAC39F660472701B2B3CAAC /* HubApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1004,10 +1057,12 @@
 		1E4827325B81AF1DB129A051 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = arm64;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				COMBINE_HIDPI_IMAGES = YES;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				INFOPLIST_FILE = Apps/Hub/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "ARRA Oracles";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1504,10 +1559,12 @@
 		E813AFBB65F57E0459E46336 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = arm64;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				COMBINE_HIDPI_IMAGES = YES;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				INFOPLIST_FILE = Apps/Hub/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "ARRA Oracles";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1629,6 +1686,10 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
+		1CB57D1B9DF86679A25DB009 /* XCLocalSwiftPackageReference "ANEEmbed" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ANEEmbed;
+		};
 		294EE4DEF81BAF52228E424F /* XCLocalSwiftPackageReference "OracleKit" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = OracleKit;
@@ -1671,6 +1732,10 @@
 		D8034BE3BE3303D05E137A02 /* OracleKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = OracleKit;
+		};
+		E21624C123AE7BFF0CA6252F /* ANEEmbedCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ANEEmbedCore;
 		};
 		FECEC892500CEA279D83D81D /* OracleKit */ = {
 			isa = XCSwiftPackageProductDependency;
