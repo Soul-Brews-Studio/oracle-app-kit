@@ -79,6 +79,18 @@
       .find(t => /\p{L}/u.test(t) && t !== author && !/^(facebook|reels?|follow|public)$/i.test(t) && !/^[\d.,]+\s*[KMB]?\s+\S+$/i.test(t)) || '';
   }
 
+  // What the post SHOWS besides words: each photo/video links to its own page; the alt text is Facebook's description.
+  function mediaLines(root) {
+    const seen = new Set(), lines = [];
+    for (const a of root.querySelectorAll('a[href*="/photo"], a[href*="/videos/"], a[href*="/reel/"]')) {
+      if (a.closest('[role="article"]') && a.closest('[role="article"]') !== root) continue;   // not a comment's
+      const h = clean(a.href); if (!POSTLINK.test(h) || seen.has(h)) continue; seen.add(h);
+      const alt = a.querySelector('img[alt]')?.getAttribute('alt') || '';
+      lines.push(`- ${/photo/.test(h) ? 'photo' : 'video'}: <${h}>${alt && !/^no photo description/i.test(alt) ? ` — ${alt.slice(0, 160)}` : ''}`);
+    }
+    return lines.length ? `\n\nMedia (${lines.length}):\n${lines.slice(0, 12).join('\n')}` : '';
+  }
+
   async function details(post) {
     const message = post.querySelector('[data-ad-rendering-role="story_message"]');
     const more = [...(message?.querySelectorAll('[role="button"]') || [])].find(b => /^(see more|ดูเพิ่มเติม)$/i.test(b.innerText.trim()));
@@ -88,9 +100,10 @@
       captionIn(post, author);
     const first = text.split('\n').find(l => l.trim()) || 'Facebook post';
     const { own, shared } = await links(post);
+    const media = mediaLines(post);
     return { url: own || shared[0] || '', title: (author ? author + ': ' : '') + first.slice(0, 90),
-             text: text.slice(0, 2000) + (author ? `\n\nby ${author} on Facebook` : '') +
-                   shared.map(h => `\nShared post: ${h}`).join('') };
+             text: text.slice(0, 20000) + (author ? `\n\nby ${author} on Facebook` : '') +
+                   shared.map(h => `\nShared post: ${h}`).join('') + media };
   }
 
   function menu(anchor, post, getDetails) {
@@ -183,9 +196,10 @@
     await expandThread(root);
     const arts = [...root.querySelectorAll('[role="article"]')].filter(a => a !== root && COMMENT_LABEL.test(a.getAttribute('aria-label') || ''));
     const comments = [];
+    const owned = new Map(arts.map(art => [art, [...art.querySelectorAll('a[href]')].filter(a => a.closest('[role="article"]') === art)]));
+    await resolve([...owned.values()].flat());
     for (const art of arts) {
-      const own = [...art.querySelectorAll('a[href]')].filter(a => a.closest('[role="article"]') === art);
-      await resolve(own);
+      const own = owned.get(art);
       const time = own.find(a => /comment_id=/.test(a.href) && /permalink|story_fbid|\/posts\/|fbid=|\/videos\/|\/reel\//.test(a.href));
       const id = time ? (time.href.match(/reply_comment_id=(\d+)/) || time.href.match(/comment_id=(\d+)/) || [])[1] || '' : '';
       const author = (own.find(a => a.innerText.trim())?.innerText || '').trim().split('\n')[0];
@@ -201,6 +215,17 @@
     const res = await new Promise(r => chrome.runtime.sendMessage({ kind: 'thread', thread: { id, url: d.url, title: d.title, md,
       comments: comments.map(({ key, id: cid, author, level, link }) => ({ key, id: cid, author, level, link })) } }, r));
     return { ...(res || { ok: false, error: 'no answer from the extension' }), id, md, count: comments.length };
+  }
+
+  // The 🔗 chip sends ONE comment. It still gets a reply path: a one-comment thread keyed by the comment's own link,
+  // so `fbreply <id> c1 "text"` types into that comment's box (issue #16 had no way back before this).
+  async function registerComment(d) {
+    const cid = (d.url.match(/reply_comment_id=(\d+)/) || d.url.match(/comment_id=(\d+)/) || [])[1] || '';
+    const id = hash(d.url);
+    const md = `# ${d.title}\n\nComment: ${d.url}\n\n${d.text.split('\n').map(l => `> ${l}`).join('\n')}`;
+    const res = await new Promise(r => chrome.runtime.sendMessage({ kind: 'thread', thread: { id, url: d.url, title: d.title, md,
+      comments: [{ key: 'c1', id: cid, author: d.author || '', level: 0, link: d.url }] } }, r));
+    return { ...(res || { ok: false, error: 'no answer from the extension' }), id, md, count: 1 };
   }
 
   // ── bridge → page: type a reply into one comment's box, never submit ──────────────────────────────────────────
@@ -243,7 +268,7 @@
   // new line, Esc closes). The note goes first in the issue body. (Nat: "when click it should input box popup and
   // active in the box, let me type and can enter using keyboard".) Facebook binds single-key shortcuts and traps
   // focus inside its dialogs, so the box lives INSIDE the nearest dialog and swallows its own key events.
-  function compose(anchor, getDetails, getThread) {
+  function compose(anchor, getDetails, getThread, inclLabel = 'Include every comment (each with its own link)') {
     document.querySelectorAll('.oracle-compose').forEach(m => m.remove());
     const host = anchor.closest('[role="dialog"]') || document.body;
     const box = document.createElement('div');
@@ -272,7 +297,7 @@
     const incl = document.createElement('label');
     Object.assign(incl.style, { display: getThread ? 'flex' : 'none', gap: '6px', alignItems: 'center', margin: '8px 0 0', cursor: 'pointer', fontSize: '13px' });
     const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = true;
-    incl.append(cb, document.createTextNode('Include every comment (each with its own link)'));
+    incl.append(cb, document.createTextNode(inclLabel));
     const foot = document.createElement('div');
     Object.assign(foot.style, { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' });
     const hint = document.createElement('span'); hint.style.opacity = '.55'; hint.style.fontSize = '12px'; hint.textContent = 'Enter to send';
@@ -290,7 +315,7 @@
       if (note) d = { ...d, text: `${note}\n\n---\n${d.text}` };
       if (getThread && cb.checked) {
         const t = await getThread(base);
-        if (t.ok) d = { ...d, thread: t.id };
+        if (t.ok) d = { url: d.url, title: d.title, text: note, thread: t.id };   // the thread file already holds the whole post
         else d = { ...d, text: `${d.text}\n\n(thread not forwarded: ${t.error || 'bridge down'} — start it: bun /opt/Code/github.com/Soul-Brews-Studio/oracle-app-kit/browser/bridge/server.ts)` };
       }
       send(oracle, d);
@@ -368,12 +393,12 @@
     }).filter(Boolean))];
     const text = captionIn(art, name);
     const first = text.split('\n').find(l => l.trim()) || out[0] || 'Facebook comment';
-    return { url: clean(time ? time.href : location.href), title: (name ? name + ': ' : '') + first.slice(0, 90),
+    return { author: name, url: clean(time ? time.href : location.href), title: (name ? name + ': ' : '') + first.slice(0, 90),
              text: text.slice(0, 2000) + out.map(h => `\nLink: ${h}`).join('') + (name ? `\n\ncomment by ${name} on Facebook` : '') };
   }
 
   // A small purple chip that sits inline in Facebook's own text rows (header line, next to Reply).
-  function chip(label, title, getDetails, attr, getThread) {
+  function chip(label, title, getDetails, attr, getThread, inclLabel) {
     const c = document.createElement('span');
     c.setAttribute('role', 'button'); c.tabIndex = 0; c.setAttribute(attr, '1'); c.textContent = label; c.title = title;
     // a big hand-cursor target (Nat: "make hand mouse click region larger"): generous padding, pulled back with
@@ -384,7 +409,7 @@
     c.onclick = async (e) => {
       e.stopPropagation(); e.preventDefault();
       if (e.shiftKey) return menu(c, null, getDetails);
-      compose(c, getDetails, getThread);
+      compose(c, getDetails, getThread, inclLabel);
     };
     return c;
   }
@@ -417,7 +442,7 @@
       if (!/^(reply|ตอบกลับ)$/i.test(reply.textContent.trim())) continue;
       const art = reply.closest('[role="article"]'), ul = reply.closest('li')?.parentElement;   // Facebook's <li> sits in a <div>, not a <ul>
       if (!art || !ul || !art.contains(ul) || ul.nextElementSibling?.hasAttribute('data-oracle-comment')) continue;
-      ul.after(chip(`🔗 ${DEFAULT}`, `Send this comment's link to ${DEFAULT} Oracle (⇧-click: another oracle)`, () => commentDetails(art), 'data-oracle-comment'));
+      ul.after(chip(`🔗 ${DEFAULT}`, `Send this comment's link to ${DEFAULT} Oracle (⇧-click: another oracle)`, () => commentDetails(art), 'data-oracle-comment', (d) => registerComment(d), 'Add a reply path (an agent can answer this comment)'));
     }
   }
 
@@ -443,8 +468,10 @@
     document.body.append(p);
   }
 
-  let t;
-  new MutationObserver(() => { clearTimeout(t); t = setTimeout(() => { addButtons(); pill(); }, 400); })
+  let t = 0;
+  // A throttle, not a debounce: Facebook's feed never goes quiet (autoplay, live counters), and a timer that resets on
+  // every mutation never fires — the chips lagged or never came (Nat, 2026-10-07). Reproduced in Ego: 0 chips in 6 s.
+  new MutationObserver(() => { if (t) return; t = setTimeout(() => { t = 0; addButtons(); pill(); }, 300); })
     .observe(document.body, { childList: true, subtree: true });
   addButtons(); pill();
 })();

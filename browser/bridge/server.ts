@@ -20,7 +20,7 @@ const fromCli = (req: Request) => req.headers.get('x-fb-token') === TOKEN;
 const json = (o: unknown, status = 200) => new Response(JSON.stringify(o), { status, headers: { 'content-type': 'application/json' } });
 const safeId = (s: string) => /^[a-z0-9]{4,16}$/.test(s) ? s : '';
 
-let ext: any = null;                       // the connected extension socket
+const exts = new Set<any>();                // every connected extension (Chrome, Ego …); a reply goes to the newest
 const waiting = new Map<string, (r: any) => void>();
 
 Bun.serve({
@@ -29,7 +29,7 @@ Bun.serve({
     const u = new URL(req.url);
     if (u.pathname === '/ws') {
       if (!fromExtension(req)) return json({ error: 'extension only' }, 403);
-      return server.upgrade(req) ? undefined : json({ error: 'upgrade failed' }, 400);
+      return server.upgrade(req, { data: { ua: req.headers.get('user-agent') || '', at: Date.now() } }) ? undefined : json({ error: 'upgrade failed' }, 400);
     }
     if (u.pathname === '/thread' && req.method === 'POST') {
       if (!fromExtension(req)) return json({ error: 'extension only' }, 403);
@@ -55,22 +55,23 @@ Bun.serve({
       const t = JSON.parse(readFileSync(file, 'utf8'));
       const c = t.comments.find((x: any) => x.key === comment || String(x.id) === String(comment));
       if (!c) return json({ error: `no comment ${comment} in ${id}`, have: t.comments.map((x: any) => x.key) }, 404);
+      const ext = [...exts].sort((a, b) => b.data.at - a.data.at)[0];
       if (!ext) return json({ error: 'extension not connected', fix: 'open chrome://extensions/?id=' + EXT_ID + ' and click reload; check the bridge log for "extension connected"' }, 503);
       const rid = crypto.randomUUID();
       const done = new Promise<any>(res => { waiting.set(rid, res); setTimeout(() => res({ ok: false, note: 'timeout 60s — is the Facebook tab open?' }), 60_000); });
       ext.send(JSON.stringify({ type: 'reply', rid, url: t.url, comment: c.id, who: c.author, text: String(text || '') }));
-      return json(await done);
+      return json({ ...(await done), via: String(ext.data.ua).replace(/.*\)\s*/, '').slice(0, 60) });
     }
-    if (u.pathname === '/health') return json({ ok: true, extension: !!ext });
+    if (u.pathname === '/health') return json({ ok: true, extensions: [...exts].map(e => String(e.data.ua).slice(-40)) });
     return json({ error: 'not found' }, 404);
   },
   websocket: {
-    open(ws) { ext = ws; console.log('extension connected'); },
-    close(ws) { if (ext === ws) ext = null; console.log('extension gone'); },
+    open(ws) { exts.add(ws); console.log(`extension connected (${exts.size})`); },
+    close(ws) { exts.delete(ws); console.log(`extension gone (${exts.size})`); },
     message(_ws, m) {
       try { const r = JSON.parse(String(m)); if (r.type === 'result') { waiting.get(r.rid)?.(r); waiting.delete(r.rid); } } catch {}
     },
   },
 });
-setInterval(() => { try { ext?.send('{"type":"ping"}'); } catch {} }, 20_000);   // keeps the service worker's socket alive
+setInterval(() => { for (const e of exts) try { e.send('{"type":"ping"}'); } catch {} }, 20_000);   // keeps the service worker's socket alive
 console.log(`oracle-fb bridge on http://127.0.0.1:${PORT}   extension ${EXT_ID}   threads ${DIR}`);
