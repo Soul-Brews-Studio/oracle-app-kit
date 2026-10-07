@@ -209,6 +209,14 @@ public final class HubStore: ObservableObject {
     public func openSession(_ name: String) {
         Task.detached { await WezTerm.show(session: name) }
     }
+
+    /// Stop a whole session: its server and every pane in it end. Worktrees and transcripts stay on disk,
+    /// so its oracles come back as resumable. nil when it stopped; otherwise the error with the command to run.
+    public func stopSession(_ name: String) async -> String? {
+        let out = await Shell.run("herdr", ["session", "stop", name], timeout: 20)
+        await refresh()
+        return out != nil ? nil : "herdr could not stop \(name) — run it in a terminal to see why:  herdr session stop \(name)"
+    }
     #endif
 }
 

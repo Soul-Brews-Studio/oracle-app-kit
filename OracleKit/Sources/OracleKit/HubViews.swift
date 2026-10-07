@@ -372,6 +372,9 @@ struct RestingRow: View {
 struct SessionSpaces: View {
     @ObservedObject var store: HubStore
     let session: String
+    @State private var confirmStop = false
+    @State private var stopping = false
+    @State private var stopError: String?
     var body: some View {
         let s = store.sessions.first { $0.name == session }
         let spaces = store.spaces.filter { $0.session == session }.sorted { $0.number < $1.number }
@@ -381,7 +384,15 @@ struct SessionSpaces: View {
                     Text(session).font(.system(size: 30, weight: .bold, design: .rounded))
                     Text(s?.running == true ? "running · \(spaces.count) spaces" : "stopped").font(.callout).foregroundStyle(.secondary)
                     Spacer()
-                    if s?.running == true { Button("Open in WezTerm") { store.openSession(session) }.controlSize(.small) }
+                    if s?.running == true {
+                        Button(stopping ? "Stopping…" : "Stop session", role: .destructive) { confirmStop = true }
+                            .controlSize(.small).disabled(stopping).handCursor()
+                            .help("herdr session stop \(session) — ends every pane in it")
+                        Button("Open in WezTerm") { store.openSession(session) }.controlSize(.small)
+                    }
+                }
+                if let e = stopError {
+                    Text(e).font(.callout).foregroundStyle(.orange).textSelection(.enabled)
                 }
                 if s?.running != true {
                     VStack(alignment: .leading, spacing: 8) {
@@ -404,6 +415,27 @@ struct SessionSpaces: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .navigationTitle(session)
+        .confirmationDialog("Stop \(session)?", isPresented: $confirmStop, titleVisibility: .visible) {
+            Button("Stop \(session)", role: .destructive) {
+                stopping = true; stopError = nil
+                Task { stopError = await store.stopSession(session); stopping = false }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(stopWarning)
+        }
+        .onChange(of: session) { _, _ in stopError = nil }
+    }
+
+    /// What stopping ends, counted from the live spaces — busy agents named first.
+    private var stopWarning: String {
+        let spaces = store.spaces.filter { $0.session == session }
+        let agents = spaces.reduce(0) { $0 + $1.agents }, panes = spaces.reduce(0) { $0 + $1.panes }
+        let busy = spaces.filter { ["working", "done", "blocked"].contains($0.status) }
+            .map { "\($0.label) (\(HubParse.word($0.status)))" }
+        var t = "Ends \(spaces.count) spaces, \(panes) panes and \(agents) agents."
+        if !busy.isEmpty { t += "\nStill active: " + busy.joined(separator: ", ") + "." }
+        return t + "\nWorktrees and transcripts stay; the oracles come back as resumable."
     }
 }
 
