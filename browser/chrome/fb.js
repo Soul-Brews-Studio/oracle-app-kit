@@ -369,6 +369,7 @@
       const post = postOf(like);
       if (!post) continue;
       headerChip(post, () => details(post));   // checked every pass: Facebook re-renders headers
+      capturePost(post);   // every post that carries a 🔮 (header chip OR action-bar button — group posts only get the latter)
       if (bar.hasAttribute(MARK)) continue;
       bar.setAttribute(MARK, '1');
       bar.lastElementChild.after(barButton(() => details(post), (d) => collectThread(post, d)));   // after Share, or after Comment when there is no Share
@@ -432,6 +433,7 @@
     const c = chip(`🔮 ${DEFAULT}`, `New issue in ${DEFAULT} Oracle for this post (⇧-click: another oracle)`, getDetails, 'data-oracle-btn', (d) => collectThread(root, d));
     c.setAttribute('data-oracle-head', '1');
     line.append(c);
+    capturePost(root);   // Nat's goal: every post that gets our 🔮 goes to the bridge whole — REC or not
   }
   function addHeaderChip() { headerChip(sidePanel(), pageDetails); }
 
@@ -512,7 +514,7 @@
     for (const [key, n] of Object.entries(ids)) {
       for (const post of document.querySelectorAll('[data-oracle-key]')) {
         if (post.dataset.oracleKey !== key) continue;
-        const c = post.querySelector('[data-oracle-head]'); if (!c) continue;
+        const c = post.querySelector('[data-oracle-head]') || post.querySelector('[data-oracle-btn]'); if (!c) continue;   // group posts: the action-bar 🔮
         c.dataset.collected = n.id || 'hash';
         c.textContent = `🔮 ${DEFAULT} ✓`;
         c.title = n.id ? `collected as ${n.id}\nseen ${n.seen || 1}× · first ${n.first_seen ? clock(n.first_seen) : 'now'}\nclick: new issue in ${DEFAULT} Oracle`
@@ -584,6 +586,52 @@
     if (!recOn() || location.href === lastUrl) return;
     lastUrl = location.href;
     emit({ kind: 'nav', key: clean(location.href), text: document.title });
+  }
+
+  // ── capture: the whole post as it is on screen right now, once per page view, for every post that gets a 🔮 chip ──
+  // Feed post (root = the post), photo panel or reel (root = its panel). Passive like the stream: no "See more" click,
+  // so a long caption is kept as far as Facebook shows it until the 🔮 itself is clicked.
+  async function capturePost(root) {
+    if (!root || root.hasAttribute('data-oracle-captured')) return;
+    root.setAttribute('data-oracle-captured', '1');
+    await tick(600);   // let Facebook finish drawing the post
+    const isPanel = !root.querySelector('[data-ad-rendering-role="profile_name"]');
+    const named = [...root.querySelectorAll('[aria-label]')].map(e => e.getAttribute('aria-label'))
+      .map(l => /^Comment on (.+?)['’]s (post|photo|video|reel)/i.exec(l) || /^React with Like to (.+)$/i.exec(l)).find(Boolean);
+    const author = ((root.querySelector('[data-ad-rendering-role="profile_name"]')?.innerText) || named?.[1] ||
+      (root.innerText || '').split('\n').find(l => l.trim() && !/online status|^active$/i.test(l.trim())) || '').replace(/['’]s (post|photo|video|reel)$/i, '').split('\n')[0].trim();
+    const text = ((root.querySelector('[data-ad-rendering-role="story_message"]')?.innerText) || captionIn(root, author) || '').trim();
+    const { own, shared } = await links(root);
+    let link = own || (isPanel ? clean(location.href) : '');
+    const mine = [...root.querySelectorAll('a[href]')].filter(a => !a.closest('[role="article"]') || a.closest('[role="article"]') === root);
+    if (!link) {   // group posts and some layouts: the post's link is elsewhere in it ("29 comments", the time) — any post-shaped link
+      await resolve(mine);
+      link = clean(mine.map(a => a.href).find(h => /\/groups\/[^/]+\/(posts|permalink)\/\d+|\/[^/]+\/posts\/(pfbid|\d)|permalink\.php|story\.php|\/reel\/\d|\/videos\/\d/.test(h)) || '');
+    }
+    const ad = !link && !!root.querySelector('a[href*="/ads/"], a[href*="ads/about"]');   // an ad has no post of its own
+    const key = link || `${ad ? 'ad:' : ''}${hash(author + text.slice(0, 120))}`;
+    root.dataset.oracleKey = key;
+    const nameA = root.querySelector('[data-ad-rendering-role="profile_name"] a[href]') ||
+      [...root.querySelectorAll('a[href]')].find(a => a.innerText.trim() && a.innerText.trim() === author);
+    const anchors = [...root.querySelectorAll('a[href]')].filter(a => !a.closest('[role="article"]') || a.closest('[role="article"]') === root);
+    const mediaUrls = [...new Set(anchors.map(a => a.href).filter(h => /\/photo|\/videos\/|\/reel\/|\/watch/.test(h)).map(clean))].slice(0, 30);
+    const group = anchors.map(a => a.href).find(h => /\/groups\/[^/?]+/.test(h)) || '';
+    const external = [...new Set(anchors.map(a => { try { const u = new URL(a.href); return u.hostname === 'l.facebook.com' ? u.searchParams.get('u') : null; } catch { return null; } }).filter(Boolean))].slice(0, 20);
+    // the comments that are on screen with it (the feed shows one or two; a photo or post page shows the thread)
+    const arts = [...root.querySelectorAll('[role="article"]')].filter(a => a !== root && /^(comment|reply) (by|to)\b/i.test(a.getAttribute('aria-label') || ''));
+    const owned = new Map(arts.map(a => [a, [...a.querySelectorAll('a[href]')].filter(x => x.closest('[role="article"]') === a)]));
+    await resolve([...owned.values()].flat());
+    const commentList = arts.slice(0, 60).map(a => {
+      const own2 = owned.get(a);
+      const time = own2.find(x => /comment_id=/.test(x.href) && !/\/user\/|^https:\/\/www\.facebook\.com\/[^/]+\/?\?comment_id/.test(x.href)) || own2.find(x => /comment_id=/.test(x.href));
+      const who = own2.find(x => x.innerText.trim() && !/online status/i.test(x.innerText));
+      const name = (who?.innerText || '').trim().split('\n')[0];
+      return { author: name, authorUrl: who ? clean(who.href) : '', link: time ? clean(time.href) : '', text: captionIn(a, name).slice(0, 4000),
+        reply: /^reply/i.test(a.getAttribute('aria-label') || '') };
+    });
+    const comments = commentList.length;
+    queue.push({ ts: Date.now(), url: clean(location.href), kind: 'post', key, author, authorUrl: nameA ? clean(nameA.href) : '', link, text: text.slice(0, 20000),
+      media: mediaUrls.length, mediaUrls, shared, group: group ? clean(group) : '', external, comments, commentList, ad });
   }
 
   // Each tab knows its own id and shows it (the Gemini proxy's TAB:<id> badge): bottom-left, tiny; a click copies the

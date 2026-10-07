@@ -25,6 +25,13 @@ Who may talk: the extension (Origin `chrome-extension://<id>`) on `/ws` and `/th
 
 Env: `ORACLE_FB_PORT` (4747), `ORACLE_FB_EXT` (extension id).
 
+## Every post that gets a 🔮 is captured — open http://127.0.0.1:4747/
+
+The bridge serves its own page: **Live** (each item as it arrives) and **Tree (graph)** (each post as a node id with its
+author, group, media, links and the comment tree under it). Any post that carries a 🔮 (header chip or the action-bar
+button) is sent whole as it is on screen — REC or not — and its 🔮 turns **🔮 Nexus ✓** with the node id in the tooltip.
+Posts with no link of their own (ads) are kept under a text hash (`ad:…`).
+
 ## The surrogate stream (REC) — what you see, as text
 
 Off by default. The bottom-left badge on a Facebook tab has **REC off** — click it to record THAT tab (it stays on for

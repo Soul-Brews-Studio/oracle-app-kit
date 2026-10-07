@@ -21,6 +21,8 @@ if (!TOKEN) { console.error(`✗ no token\n  (umask 077; openssl rand -hex 24 > 
 
 const fromExtension = (req: Request) => req.headers.get('origin') === `chrome-extension://${EXT_ID}`;
 const fromCli = (req: Request) => req.headers.get('x-fb-token') === TOKEN;
+// the bridge's own viewer page (http://127.0.0.1:4747/) — the browser sends this Origin on its POSTs; other sites send theirs
+const fromSelf = (req: Request) => [`http://127.0.0.1:${PORT}`, `http://localhost:${PORT}`].includes(req.headers.get('origin') || '');
 const json = (o: unknown, status = 200) => new Response(JSON.stringify(o), { status, headers: { 'content-type': 'application/json' } });
 const safeId = (s: string) => /^[a-z0-9]{4,16}$/.test(s) ? s : '';
 
@@ -43,6 +45,7 @@ db.exec(`PRAGMA journal_mode = WAL;
     author TEXT, link TEXT, url TEXT, text TEXT, post TEXT, media INTEGER);
   CREATE UNIQUE INDEX IF NOT EXISTS ev_once ON ev(day, kind, key) WHERE kind IN ('seen', 'comment-seen');   -- seen once a day
   CREATE INDEX IF NOT EXISTS ev_day ON ev(day, ts);
+  CREATE UNIQUE INDEX IF NOT EXISTS ev_post ON ev(day, kind, key) WHERE kind = 'post';   -- a captured post: once a day per key
   CREATE VIRTUAL TABLE IF NOT EXISTS ev_fts USING fts5(author, text, content='ev', content_rowid='id', tokenize='trigram');`);   // trigram: Thai substrings work
 // ── the graph: Facebook is nodes + edges. Ids come from the URLs (parsed HERE, so a rebuild from the JSONL gives the
 //    same graph). Node ids: user:<name|num>  post:<pfbid|num>  comment:<num>  photo:<fbid>  video:<num>  album:<num>
@@ -50,6 +53,8 @@ db.exec(`PRAGMA journal_mode = WAL;
 db.exec(`CREATE TABLE IF NOT EXISTS node (id TEXT PRIMARY KEY, type TEXT, label TEXT, url TEXT, first_seen INTEGER, last_seen INTEGER, seen INTEGER DEFAULT 0);
   CREATE TABLE IF NOT EXISTS edge (src TEXT, rel TEXT, dst TEXT, first_seen INTEGER, last_seen INTEGER, n INTEGER DEFAULT 1, PRIMARY KEY (src, rel, dst));
   CREATE INDEX IF NOT EXISTS edge_dst ON edge(dst, rel);`);
+try { db.exec('ALTER TABLE node ADD COLUMN text TEXT'); } catch {}   // the full content (label is the first 120 characters)
+const setText = db.prepare("UPDATE node SET text = ? WHERE id = ? AND (text IS NULL OR length(text) < length(?))");   // keep the longest seen
 const upNode = db.prepare(`INSERT INTO node (id, type, label, url, first_seen, last_seen, seen) VALUES ($id, $type, $label, $url, $ts, $ts, $seen)
   ON CONFLICT(id) DO UPDATE SET label = CASE WHEN excluded.label <> '' THEN excluded.label ELSE node.label END,
     url = CASE WHEN node.url = '' THEN excluded.url ELSE node.url END, last_seen = max(node.last_seen, excluded.last_seen), seen = node.seen + excluded.seen`);
@@ -70,8 +75,19 @@ function graph(e: any) {
   const first = (href: string, type: string) => nodesOf(href).find(n => n.type === type);
   const main = (href: string) => { const ns = nodesOf(href); return ns.find(n => n.type === 'post') || ns.find(n => n.type === 'video') || ns.find(n => n.type === 'photo') || ns[0]; };
   node({ id: ME, type: 'me', url: '' }, 'Nat Weerawan');
-  if (e.kind === 'seen') {
+  if (e.kind === 'seen' || e.kind === 'post') {
     const P = node(main(e.link), String(e.text || '').replace(/\s+/g, ' ').slice(0, 120), 1);
+    if (P && e.text) setText.run(String(e.text), P, String(e.text));
+    for (const c of e.commentList || []) {   // comments captured with the post
+      const ns = nodesOf(c.link || ''), q = (() => { try { return new URL(c.link).searchParams; } catch { return new URLSearchParams(); } })();
+      const cid = q.get('reply_comment_id') || q.get('comment_id');
+      if (!cid || !/^\d+$/.test(cid)) continue;
+      const C = node(ns.find(n => n.id === `comment:${cid}`), String(c.text || '').replace(/\s+/g, ' ').slice(0, 120), 1);
+      if (C && c.text) setText.run(String(c.text), C, String(c.text));
+      if (q.get('reply_comment_id') && q.get('comment_id')) edge(C, 'reply_to', node(ns.find(n => n.id === `comment:${q.get('comment_id')}`)));
+      edge(C, 'comment_on', P);
+      edge(node(nodesOf(c.authorUrl || '').find(n => n.type === 'user'), c.author), 'wrote', C);
+    }
     const A = node(first(e.authorUrl, 'user') || first(e.authorUrl, 'group'), e.author);
     edge(A, 'authored', P); edge(ME, 'saw', P);
     edge(P, 'in_group', node(first(e.group, 'group')));
@@ -81,6 +97,7 @@ function graph(e: any) {
   } else if (e.kind === 'comment-seen') {
     const ns = nodesOf(e.link), q = (() => { try { return new URL(e.link).searchParams; } catch { return new URLSearchParams(); } })();
     const C = node(ns.find(n => n.id === `comment:${q.get('reply_comment_id') || q.get('comment_id')}`), String(e.text || '').replace(/\s+/g, ' ').slice(0, 120), 1);
+    if (C && e.text) setText.run(String(e.text), C, String(e.text));
     if (q.get('reply_comment_id') && q.get('comment_id')) edge(C, 'reply_to', node(ns.find(n => n.id === `comment:${q.get('comment_id')}`)));
     edge(C, 'comment_on', node(ns.find(n => n.type === 'post') || ns.find(n => n.type === 'video') || ns.find(n => n.type === 'photo')));
     edge(node(first(e.authorUrl, 'user'), e.author), 'wrote', C); edge(ME, 'saw', C);
@@ -161,8 +178,33 @@ Bun.serve({
       }
       // tell the page which node each seen post became, so its 🔮 chip can show "collected" (Nat: "check uuid collected or not")
       const ids: Record<string, any> = {};
-      for (const e of list) if (e.kind === 'seen' && e.key) { const n = mainNode(e.link || ''); ids[e.key] = n ? (getNode.get(n.id) || { id: n.id }) : { id: '', note: 'no link on this post (sponsored?) — kept by text hash' }; }
+      for (const e of list) if ((e.kind === 'seen' || e.kind === 'post') && e.key) { const n = mainNode(e.link || ''); ids[e.key] = n ? (getNode.get(n.id) || { id: n.id }) : { id: '', note: 'no link on this post (sponsored?) — kept by text hash' }; }
       return json({ ok: true, kept, ids });
+    }
+    if (u.pathname === '/tree') {   // the viewer's Tree tab: the newest posts, each with everything hanging off it
+      if (!fromCli(req) && !fromExtension(req) && !fromSelf(req)) return json({ error: 'token' }, 403);
+      const p = req.method === 'POST' ? await req.json().catch(() => ({})) as any : Object.fromEntries(u.searchParams);
+      const limit = Math.min(Number(p.limit || 25), 200);
+      const roots = db.query(`SELECT * FROM node WHERE type IN ('post', 'video', 'photo')
+        AND id NOT IN (SELECT dst FROM edge WHERE rel = 'has_media')          -- a photo inside a post hangs under that post
+        ORDER BY last_seen DESC LIMIT ?`).all(limit) as any[];
+      const outE = db.prepare('SELECT e.rel, x.id, x.type, x.label, x.text, x.url FROM edge e JOIN node x ON x.id = e.dst WHERE e.src = ?');
+      const inE = db.prepare('SELECT e.rel, x.id, x.type, x.label, x.text, x.url, x.last_seen FROM edge e JOIN node x ON x.id = e.src WHERE e.dst = ?');
+      const comment = (c: any, depth = 0): any => {
+        const ins = inE.all(c.id) as any[];
+        return { id: c.id, text: c.text || c.label, url: c.url, author: ins.find(i => i.rel === 'wrote') || null,
+          replies: depth < 3 ? ins.filter(i => i.rel === 'reply_to').map(r => comment(r, depth + 1)) : [] };
+      };
+      return json(roots.map(r => {
+        const outs = outE.all(r.id) as any[], ins = inE.all(r.id) as any[];
+        const pick = (rel: string) => outs.filter(o => o.rel === rel).map(o => ({ id: o.id, url: o.url, label: o.label }));
+        return { id: r.id, type: r.type, text: r.text || r.label, url: r.url, seen: r.seen, first_seen: r.first_seen, last_seen: r.last_seen,
+          author: ins.find(i => i.rel === 'authored') || null, group: pick('in_group')[0] || null,
+          media: outs.filter(o => o.rel === 'has_media').map(o => ({ id: o.id, url: o.url, album: (outE.all(o.id) as any[]).find(x => x.rel === 'in_album')?.id || '' })),
+          links: pick('links_to'), shares: pick('shares'),
+          comments: ins.filter(i => i.rel === 'comment_on' && !(outE.all(i.id) as any[]).some(x => x.rel === 'reply_to')).map(c => comment(c)),   // replies hang under their comment
+          by_me: ins.filter(i => i.id === 'me:nat').map(i => i.rel) };
+      }));
     }
     if (u.pathname === '/graph') {   // graph.ts: one node and its neighbours, or stats
       if (!fromCli(req)) return json({ error: 'token' }, 403);
@@ -177,8 +219,9 @@ Bun.serve({
       const inn = db.query('SELECT e.rel, e.n, x.* FROM edge e JOIN node x ON x.id = e.src WHERE e.dst = ? ORDER BY e.rel').all(id);
       return json({ node: n, out, in: inn });
     }
+    if (u.pathname === '/' || u.pathname === '/ui') return new Response(Bun.file(join(import.meta.dir, 'ui.html')), { headers: { 'content-type': 'text/html; charset=utf-8' } });
     if (u.pathname === '/live') {   // curl -N -H "x-fb-token: …" 127.0.0.1:4747/live   ·   the extension's stream.html (POST, for its Origin)
-      if (!fromCli(req) && !fromExtension(req)) return json({ error: 'token' }, 403);
+      if (!fromCli(req) && !fromExtension(req) && !fromSelf(req)) return json({ error: 'token' }, 403);
       server.timeout(req, 0);   // a live stream must outlive the 120 s idle limit
       let send: (c: string) => void;
       const body = new ReadableStream({
@@ -189,7 +232,7 @@ Bun.serve({
       return new Response(body, { headers: { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' } });
     }
     if (u.pathname === '/stream') {   // seen.ts and the extension's stream.html: search / list / stats (read-only)
-      if (!fromCli(req) && !fromExtension(req)) return json({ error: 'token' }, 403);
+      if (!fromCli(req) && !fromExtension(req) && !fromSelf(req)) return json({ error: 'token' }, 403);
       // the extension page asks by POST: Chrome sends no Origin on its GETs, so a GET from it cannot be told from anyone's
       if (req.method === 'POST') for (const [k, v] of Object.entries(await req.json().catch(() => ({})) as any)) u.searchParams.set(k, String(v));
       const q = u.searchParams.get('q') || '', day = u.searchParams.get('day') || '', kind = u.searchParams.get('kind') || '';

@@ -7,13 +7,21 @@ export type N = { id: string; type: string; url: string };
 export function nodesOf(href: string): N[] {   // one URL can name several nodes (a reply link names the reply, its parent and the post)
   if (!href) return [];
   let u: URL; try { u = new URL(href); } catch { return []; }
-  if (!/(^|\.)facebook\.com$/.test(u.hostname)) return [{ id: `url:${u.origin}${u.pathname}${u.search}`, type: 'link', url: u.href }];
+  if (!/(^|\.)facebook\.com$/.test(u.hostname)) {   // an outside link: drop Facebook's click ids and utm_* so one page is one node
+    for (const k of [...u.searchParams.keys()]) if (k === 'fbclid' || k.startsWith('utm_') || k === '__cft__' || k === '__tn__') u.searchParams.delete(k);
+    return [{ id: `url:${u.origin}${u.pathname}${u.search}`, type: 'link', url: u.href }];
+  }
   const p = u.pathname.split('/').filter(Boolean), q = u.searchParams, out: N[] = [];
   const add = (type: string, id: string) => { if (id) out.push({ id: `${type}:${id}`, type, url: u.href }); };
   const reply = q.get('reply_comment_id'), comment = q.get('comment_id');
   if (reply) add('comment', reply);
   if (comment && /^\d+$/.test(comment)) add('comment', comment);
-  if (p[0] === 'groups' && p[1]) { add('group', p[1]); if (p[2] === 'posts' || p[2] === 'permalink') add('post', p[3]); if (q.get('multi_permalinks')) add('post', q.get('multi_permalinks')!); }
+  if (p[0] === 'groups' && p[1]) {
+    add('group', p[1]);
+    if (p[2] === 'posts' || p[2] === 'permalink') add('post', p[3]);
+    if (p[2] === 'user' && p[3]) add('user', p[3]);   // a member, as linked inside the group
+    if (q.get('multi_permalinks')) add('post', q.get('multi_permalinks')!);
+  }
   else if (p[1] === 'posts' && p[2]) { add('post', p[2]); add('user', p[0]); }
   else if (/^(permalink|story)\.php$/.test(p[0] || '')) { add('post', q.get('story_fbid') || ''); add('user', q.get('id') || ''); }
   else if (p[0] === 'photo' || p[0] === 'photo.php') {
