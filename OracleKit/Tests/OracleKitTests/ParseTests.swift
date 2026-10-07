@@ -43,7 +43,7 @@ final class HumanAskTests: XCTestCase {
                        "/impeccable styling do /oracle-prism")
         XCTAssertEqual(OracleStore.humanAsk("merge all to main"), "merge all to main")
         XCTAssertNil(OracleStore.humanAsk("Another Claude session sent a message:\n<agent-message>…"))
-        XCTAssertNil(OracleStore.humanAsk("Base directory for this skill: /Users/beta/.claude/skills/impeccable\n\nThis skill…"))
+        XCTAssertNil(OracleStore.humanAsk("Base directory for this skill: /Users/me/.claude/skills/impeccable\n\nThis skill…"))
     }
 }
 
@@ -124,7 +124,7 @@ final class HubParseTests: XCTestCase {
 final class WezTermTests: XCTestCase {
     func testHerdrClientSession() {
         XCTAssertEqual(WezTerm.herdrSession(of: "herdr --session laris-co"), "laris-co")
-        XCTAssertEqual(WezTerm.herdrSession(of: "/Users/beta/.local/bin/herdr"), "default")
+        XCTAssertEqual(WezTerm.herdrSession(of: "/Users/me/.local/bin/herdr"), "default")
         XCTAssertNil(WezTerm.herdrSession(of: "herdr --remote nat@white --session infra-team"))
         XCTAssertNil(WezTerm.herdrSession(of: "herdr --session ccdc agent list"))   // a one-shot CLI call, not a client
         XCTAssertNil(WezTerm.herdrSession(of: "-zsh"))

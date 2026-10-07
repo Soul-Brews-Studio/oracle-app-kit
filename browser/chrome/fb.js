@@ -44,7 +44,7 @@
     lazy.forEach(a => a.dispatchEvent(new FocusEvent('focusout', { bubbles: true })));
   }
 
-  // The post's own link is in its header — between the author and the message ("Sira Ekabut · 4 days ago" in a
+  // The post's own link is in its header — between the author and the message ("<author> · 4 days ago" in a
   // group post: Nat's XPath, 2026-10-07). Links after the message belong to a SHARED post; they go in the body.
   async function links(post) {
     const author = post.querySelector('[data-ad-rendering-role="profile_name"]');
@@ -64,7 +64,7 @@
 
   // Photo and video pages have no story_message: the caption is the first span/div[dir=auto] that is not a name,
   // a button, a link, a heading, a count ("22K views") or inside a comment (role=article) — measured 2026-10-07 on
-  // Nat's photo URL (side panel) and the Sira Ekabut video (post container).
+  // a photo page (side panel) and a video page (post container).
   const SEE = /\s*…?\s*(see more|see less|ดูเพิ่มเติม|ดูน้อยลง)$/i;
   function captionIn(root, author) {
     if (!root) return '';
@@ -316,7 +316,7 @@
       if (getThread && cb.checked) {
         const t = await getThread(base);
         if (t.ok) d = { url: d.url, title: d.title, text: note, thread: t.id };   // the thread file already holds the whole post
-        else d = { ...d, text: `${d.text}\n\n(thread not forwarded: ${t.error || 'bridge down'} — start it: bun /opt/Code/github.com/Soul-Brews-Studio/oracle-app-kit/browser/bridge/server.ts)` };
+        else d = { ...d, text: `${d.text}\n\n(thread not forwarded: ${t.error || 'bridge down'} — start it: bun browser/bridge/server.ts  (from your oracle-app-kit checkout))` };
       }
       send(oracle, d);
       close();
