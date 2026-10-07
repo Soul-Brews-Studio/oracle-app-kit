@@ -25,6 +25,7 @@ public struct HubSpace: Identifiable, Hashable, Sendable {
     public let linked: Bool
     public let panes: Int
     public let agents: Int
+    public var branch: String? = nil    // the checkout's git branch, as herdr's sidebar shows under the name
 }
 
 /// One repo herdr knows about: its live spaces, its worktrees by state, the way back in.
@@ -84,12 +85,17 @@ public enum HubParse {
     /// `maw herdr ls --json` → every space, and one oracle per repo with its spaces and worktree counts.
     public static func parse(ls: Data) -> (spaces: [HubSpace], oracles: [HubOracle]) {
         guard let d = try? JSONSerialization.jsonObject(with: ls) as? [String: Any] else { return ([], []) }
+        var branchOf: [String: String] = [:]   // checkout path -> branch, from the worktree rows
+        for t in d["worktrees"] as? [[String: Any]] ?? [] {
+            if let p = t["path"] as? String, let b = t["branch"] as? String { branchOf[p] = b }
+        }
         let spaces: [HubSpace] = (d["workspaces"] as? [[String: Any]] ?? []).compactMap { w in
             guard let s = w["session"] as? String, let id = w["id"] as? String else { return nil }
             return HubSpace(session: s, spaceId: id, label: w["label"] as? String ?? id, number: w["number"] as? Int ?? 0,
                             status: w["status"] as? String ?? "unknown", repo: w["repo"] as? String,
                             checkout: w["checkout"] as? String, linked: w["linked"] as? Bool ?? false,
-                            panes: w["panes"] as? Int ?? 0, agents: w["agents"] as? Int ?? 0)
+                            panes: w["panes"] as? Int ?? 0, agents: w["agents"] as? Int ?? 0,
+                            branch: (w["checkout"] as? String).flatMap { branchOf[$0] })
         }
         var byRepo: [String: [[String: Any]]] = [:]
         for t in d["worktrees"] as? [[String: Any]] ?? [] {
@@ -208,6 +214,46 @@ public final class HubStore: ObservableObject {
     /// A whole session: its WezTerm client, or a new one — which also starts a stopped session.
     public func openSession(_ name: String) {
         Task.detached { await WezTerm.show(session: name) }
+    }
+
+    /// Start a stopped session in the background: a detached `herdr --session S server`, no window, focus
+    /// untouched. herdr relaunches each recorded agent resumed; Show in herdr / Open in WezTerm attach later.
+    /// nil once the server answers (≤10 s); otherwise the command to run.
+    public func startSession(_ name: String) async -> String? {
+        let cmd = "herdr --session \(name) server"
+        guard let herdr = Shell.which("herdr") else { return "herdr not found — run:  \(cmd)" }
+        let q = { (s: String) in "'" + s.replacingOccurrences(of: "'", with: "'\\''") + "'" }
+        _ = await Shell.run("sh", ["-c", "nohup \(q(herdr)) --session \(q(name)) server >/dev/null 2>&1 &"])
+        for _ in 0..<20 {
+            if await Shell.run("herdr", ["--session", name, "pane", "list"]) != nil { await refresh(); return nil }
+            try? await Task.sleep(for: .milliseconds(500))
+        }
+        await refresh()
+        return "\(name) did not answer within 10 s — run:  \(cmd)"
+    }
+
+    /// Which agents a reopen brings back. herdr (0.9.1) saves each pane's `agent_session` when the session stops
+    /// and relaunches that agent resumed on reopen — claude and codex alike; a pane whose agent never reported
+    /// a session id comes back as a bare shell. Read live from `herdr --session S agent list`.
+    public func resumeCheck(_ name: String) async -> (resumes: [String: Int], lost: [String])? {
+        guard let out = await Shell.run("herdr", ["--session", name, "agent", "list"]),
+              let d = try? JSONSerialization.jsonObject(with: Data(out.utf8)) as? [String: Any],
+              let agents = (d["result"] as? [String: Any])?["agents"] as? [[String: Any]] else { return nil }
+        var resumes: [String: Int] = [:], lost: [String] = []
+        for a in agents {
+            let kind = a["agent"] as? String ?? "agent"
+            if (a["agent_session"] as? [String: Any])?["value"] is String { resumes[kind, default: 0] += 1 }
+            else { lost.append("\(a["name"] as? String ?? a["pane_id"] as? String ?? "?") (\(kind))") }
+        }
+        return (resumes, lost)
+    }
+
+    /// Stop a whole session: its server and every pane in it end. herdr resumes each recorded agent on reopen
+    /// (see `resumeCheck`). nil when it stopped; otherwise the error with the command to run.
+    public func stopSession(_ name: String) async -> String? {
+        let out = await Shell.run("herdr", ["session", "stop", name], timeout: 20)
+        await refresh()
+        return out != nil ? nil : "herdr could not stop \(name) — run it in a terminal to see why:  herdr session stop \(name)"
     }
     #endif
 }
