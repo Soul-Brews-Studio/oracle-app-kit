@@ -205,7 +205,7 @@ struct NavRow: View {
                 .fill(on ? accent.opacity(0.16) : (hover ? Color.primary.opacity(0.06) : Color.clear)))
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.plain).handCursor()
         .onHover { hover = $0 }
     }
 }
@@ -221,7 +221,7 @@ struct SidebarIconButton: View {
                 .foregroundStyle(hover ? Color.primary : Color.secondary)
                 .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(hover ? Color.primary.opacity(0.08) : Color.clear))
         }
-        .buttonStyle(.plain).help(help)
+        .buttonStyle(.plain).handCursor().help(help)
         .onHover { hover = $0 }
     }
 }
@@ -265,7 +265,7 @@ struct WorkView: View {
                             ForEach(allResumable ? resumable : Array(resumable.prefix(6))) { TreeRow(item: $0, config: c, copied: $copied) }
                         }
                         if resumable.count > 6 {
-                            Button(allResumable ? "show less" : "\(resumable.count - 6) more") { allResumable.toggle() }
+                            Button(allResumable ? "show less" : "\(resumable.count - 6) more") { allResumable.toggle() }.handCursor()
                                 .buttonStyle(.link).padding(.leading, 4)
                         }
                     }
@@ -279,10 +279,10 @@ struct WorkView: View {
                                     Image(systemName: showCold ? "chevron.down" : "chevron.right")
                                         .font(.caption2.bold()).foregroundStyle(.secondary)
                                 }.contentShape(Rectangle())
-                            }.buttonStyle(.plain)
+                            }.buttonStyle(.plain).handCursor()
                             // the plan only: maw herdr clean lists what it would remove; nothing changes without --go
                             let plan = WorkFormat.cleanCommand(cold.map(\.path))
-                            Button(copiedPlan ? "plan copied" : "copy cleanup plan") { WorkFormat.copy(plan); copiedPlan = true }
+                            Button(copiedPlan ? "plan copied" : "copy cleanup plan") { WorkFormat.copy(plan); copiedPlan = true }.handCursor()
                                 .buttonStyle(.link).font(.caption).help(plan)
                         }
                         if showCold {
@@ -358,7 +358,7 @@ struct LiveCard: View {
                 Text(item.state.label).font(.caption).foregroundStyle(.secondary)
                 #if os(macOS)
                 // its WezTerm window, moved to the main display and focused — Window Arranger's ⌘⏎ "ย้ายมา"
-                Button("bring here", action: bring).buttonStyle(.borderless).font(.caption.weight(.medium))
+                Button("bring here", action: bring).buttonStyle(.borderless).font(.caption.weight(.medium)).handCursor()
                     .help("Bring this worktree's WezTerm window to the main display and focus it")
                 #endif
             }
@@ -384,7 +384,7 @@ struct LiveCard: View {
         .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.primary.opacity(0.08)))
         .contextMenu {
             #if os(macOS)
-            Button("Bring WezTerm here", action: bring)
+            Button("Bring WezTerm here", action: bring).handCursor()
             Divider()
             #endif
             WorkMenu(item: item, repo: config.repoSlug, copied: $copied)
@@ -404,12 +404,12 @@ struct TreeRow: View {
             Text(item.born.map(WorkFormat.ago) ?? "").font(.callout.monospacedDigit()).foregroundStyle(.secondary)
                 .frame(width: 44, alignment: .trailing)
             if let cmd = item.resumeCommand {
-                Button(copied == item.id ? "copied" : "resume") { WorkFormat.copy(cmd); copied = item.id }
+                Button(copied == item.id ? "copied" : "resume") { WorkFormat.copy(cmd); copied = item.id }.handCursor()
                     .buttonStyle(.borderless).help(cmd)
                     .frame(width: 64, alignment: .trailing)
             } else {
                 let clean = WorkFormat.cleanCommand([item.path])
-                Button(copied == item.id ? "copied" : "clean up") { WorkFormat.copy(clean); copied = item.id }
+                Button(copied == item.id ? "copied" : "clean up") { WorkFormat.copy(clean); copied = item.id }.handCursor()
                     .buttonStyle(.borderless).foregroundStyle(.secondary).help(clean)
                     .frame(width: 64, alignment: .trailing)
             }
@@ -433,6 +433,7 @@ struct NextBox: View {
                     if let pr = n.pr { WorkChip(text: "PR #\(pr.number)") { if let u = pr.url { WorkFormat.open(u) } } }
                 }
                 .contentShape(Rectangle())
+                .handCursor()
                 .onTapGesture { if let u = n.issue.url { WorkFormat.open(u) } }
                 .contextMenu {
                     if let u = n.issue.url { Button("Open issue #\(n.issue.number)") { WorkFormat.open(u) } }
@@ -518,12 +519,18 @@ struct IssueDraftSheet: View {
             HStack {
                 Text("Posts to GitHub. It shows up in Work → NEXT for /herdr-wt.").font(.caption).foregroundStyle(.secondary)
                 Spacer()
-                Button("Cancel", role: .cancel) { onDone() }.keyboardShortcut(.cancelAction)
+                Button("Cancel", role: .cancel) { onDone() }.keyboardShortcut(.cancelAction).handCursor()
                 Button(sending ? "Creating…" : "Create issue") {
                     sending = true
-                    Task { _ = await store.createIssue(title: title, body: text); onDone() }
+                    Task {
+                        let url = await store.createIssue(title: title, body: text)
+                        #if os(macOS)
+                        if let url, let u = URL(string: url) { NSWorkspace.shared.open(u) }   // Nat: "when issue created, open the gh issue link"
+                        #endif
+                        onDone()
+                    }
                 }
-                .buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction)
+                .buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction).handCursor()
                 .disabled(sending || title.trimmingCharacters(in: .whitespaces).isEmpty)
             }
         }
@@ -550,7 +557,7 @@ struct WorkChip: View {
         Button(action: action) {
             Text(text).font(.caption.monospacedDigit()).padding(.horizontal, 6).padding(.vertical, 2)
                 .background(Capsule().fill(Color.primary.opacity(0.07)))
-        }.buttonStyle(.plain)
+        }.buttonStyle(.plain).handCursor()
     }
 }
 
@@ -670,7 +677,7 @@ struct InboxList: View {
                     }
                 }
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.plain).handCursor()
             .contextMenu {
                 if unread { Button("Mark as read") { store.markRead(i) } }
                 else { Button("Mark as unread") { store.markUnread(i) } }
@@ -790,11 +797,11 @@ struct GHCard: View {
             .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.primary.opacity(0.06)))
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.plain).handCursor()
         .onHover { hover = $0 }
         .help(item.url?.absoluteString ?? "")
         .contextMenu {
-            if let onSend { Button("Send to agent…", action: onSend) }
+            if let onSend { Button("Send to agent…", action: onSend).handCursor() }
             if let u = item.url { Button("Open on GitHub") { openURL(u) } }
         }
     }
@@ -899,8 +906,12 @@ public final class OracleAppDelegate: NSObject, NSApplicationDelegate {
 
     /// The browser's version of the three Services: same draft sheet, inbox landing and message box.
     @MainActor private func deliverLink(_ u: URL) {
-        let q = URLComponents(url: u, resolvingAgainstBaseURL: false)?.queryItems ?? []
-        func item(_ k: String) -> String { (q.first { $0.name == k }?.value ?? "").trimmingCharacters(in: .whitespacesAndNewlines) }
+        // older extension builds wrote spaces as "+" (URLSearchParams); a real plus always arrives as %2B
+        let q = URLComponents(url: u, resolvingAgainstBaseURL: false)?.percentEncodedQueryItems ?? []
+        func item(_ k: String) -> String {
+            let raw = (q.first { $0.name == k }?.value ?? "").replacingOccurrences(of: "+", with: "%20")
+            return (raw.removingPercentEncoding ?? raw).trimmingCharacters(in: .whitespacesAndNewlines)
+        }
         let link = URL(string: item("url")).flatMap { $0.scheme == nil ? nil : $0 }
         let title = item("title"), text = item("text")
         switch u.host {
@@ -1030,7 +1041,7 @@ struct HeyComposer: View {
                     Image(systemName: sending ? "ellipsis.circle.fill" : "arrow.up.circle.fill")
                         .font(.system(size: 24)).foregroundStyle(canSend(chosen) ? c.color : Color.secondary.opacity(0.4))
                 }
-                .buttonStyle(.plain).disabled(!canSend(chosen))
+                .buttonStyle(.plain).handCursor().disabled(!canSend(chosen))
                 .keyboardShortcut(.return, modifiers: .command)
                 .help("Send (⌘↩)")
             }
