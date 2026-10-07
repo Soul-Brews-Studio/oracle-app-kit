@@ -786,18 +786,23 @@ public final class GHIndex: ObservableObject {
             problem = refusal ?? noEmbedderProblem(); return nil
         }
         let t1 = Date()
-        let pool = docs.filter { (kind == nil || $0.kind == kind) && (kinds == nil || kinds!.contains($0.kind))
-            && (!openOnly || $0.state == "OPEN") && (state == nil || $0.state == state) }
-        let found = Array(pool.map { d in IndexHit(doc: d, score: d.vec.count == v.count ? vDSP.dot(d.vec, v) : -1) }   // unit vectors: dot = cosine
-            .sorted { $0.score > $1.score }.prefix(limit))
+        // Ranked off the main actor: on Neo's 48,950 docs this took 30–370 ms, and the main actor also runs the UI, the MCP
+        // server and the companion's listener. `docs` is read once here; the copy is shared, not duplicated.
+        let snapshot = docs
+        let (found, poolCount) = await Task.detached(priority: .userInitiated) { () -> ([IndexHit], Int) in
+            let pool = snapshot.filter { (kind == nil || $0.kind == kind) && (kinds == nil || kinds!.contains($0.kind))
+                && (!openOnly || $0.state == "OPEN") && (state == nil || $0.state == state) }
+            let hits = pool.map { d in IndexHit(doc: d, score: d.vec.count == v.count ? vDSP.dot(d.vec, v) : -1) }   // unit vectors: dot = cosine
+            return (Array(hits.sorted { $0.score > $1.score }.prefix(limit)), pool.count)
+        }.value
         let embedMs = t1.timeIntervalSince(t0) * 1000, rankMs = Date().timeIntervalSince(t1) * 1000
         let filter = [kind.map { "kind=\($0)" }, kinds.map { "kinds=\($0.sorted().joined(separator: ","))" }, state.map { "who=\($0)" },
                       openOnly ? "open" : nil].compactMap { $0 }.joined(separator: " ")
         HubLog.shared.add(.search, String(format: "%@%@ \"%@\" · query embedded in %.0f ms (%@) · ranked %@ in %.1f ms · best %.0f%%",
-                                          source, caller.map { " (\($0))" } ?? "", q, embedMs, via, grouped(pool.count), rankMs,
+                                          source, caller.map { " (\($0))" } ?? "", q, embedMs, via, grouped(poolCount), rankMs,
                                           Double(found.first?.score ?? 0) * 100))
         let entry = TraceLog.Entry(at: Date(), source: source, index: name, query: q, filter: filter.isEmpty ? "all" : filter,
-                                   embedMs: embedMs, rankMs: rankMs, pool: pool.count, via: via,
+                                   embedMs: embedMs, rankMs: rankMs, pool: poolCount, via: via,
                                    top: found.prefix(5).map { .init(id: $0.doc.id, title: $0.doc.title, score: $0.score) }, caller: caller)
         TraceLog.shared.add(entry)
         if !memoryOnly { QueryBroadcast.post(index: name, source: source, trace: entry.id) }   // #37: the fleet map fires (it reads the entry)
