@@ -33,6 +33,13 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 
 // The Facebook content script (fb.js) asks for the same hand-off from its 🔮 Issue button.
 chrome.runtime.onMessage.addListener((msg, sender, reply) => {
+  if (msg?.kind === 'events') {   // the surrogate stream: tag with browser + tab, hand to the bridge
+    const browser = (navigator.userAgent.match(/Chrome\/\d+/) || ['browser'])[0];
+    const events = msg.events.map(e => ({ ...e, browser, tab: sender.tab?.id ?? null }));
+    fetch(`http://${BRIDGE}/events`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(events) })
+      .then(r => r.json()).then(r => reply(r)).catch(() => { showBridge(false); reply({ ok: false }); });
+    return true;
+  }
   if (msg?.kind === 'getTabId') {   // the page asks for its own tab id (the Gemini proxy's pattern: content.js → sender.tab.id)
     reply({ tabId: sender.tab?.id ?? null, windowId: sender.tab?.windowId ?? null, browser: (navigator.userAgent.match(/Chrome\/\d+/) || ['browser'])[0], bridge: bridge?.readyState === 1 });
     return;

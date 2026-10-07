@@ -308,7 +308,7 @@
     const close = () => { box.remove(); document.removeEventListener('mousedown', outside, true); };
     const outside = (e) => { if (!box.contains(e.target) && !anchor.contains(e.target)) close(); };
     const submit = async () => {
-      go.textContent = 'Sending…'; go.style.opacity = '.6';
+      go.innerHTML = '<span class="oracle-spin">⟳</span> Sending…'; go.style.opacity = '.7';
       const base = await getDetails();   // the post as a human sees it — the note is NOT part of the thread file
       let d = base;
       const note = ta.value.trim();
@@ -471,9 +471,121 @@
   let t = 0;
   // A throttle, not a debounce: Facebook's feed never goes quiet (autoplay, live counters), and a timer that resets on
   // every mutation never fires — the chips lagged or never came (Nat, 2026-10-07). Reproduced in Ego: 0 chips in 6 s.
-  new MutationObserver(() => { if (t) return; t = setTimeout(() => { t = 0; addButtons(); pill(); }, 300); })
+  new MutationObserver(() => { if (t) return; t = setTimeout(() => { t = 0; addButtons(); pill(); watchSeen(); watchNav(); }, 300); })
     .observe(document.body, { childList: true, subtree: true });
   addButtons(); pill();
+  // ── the surrogate stream: what Nat SEES and DOES on Facebook, recorded locally ─────────────────────────────────
+  // OFF by default, per tab (sessionStorage survives reloads of that tab only). On: posts/comments that stay ≥50 %
+  // visible for 1 s become "seen", clicks on Like/Comment/Share/media/our chips become actions, page changes become
+  // "nav". Batched every 3 s to the bridge (127.0.0.1 only) → ~/.oracle-fb/stream/<day>.jsonl + stream.db.
+  // Passive: it never clicks anything to read (no "See more"), so what it stores is what was on screen.
+  const recOn = () => sessionStorage.getItem('oracleRec') === '1';
+  if (!document.getElementById('oracle-style')) {   // the loading animation (Nat: "show some icon for animation loading")
+    const st = document.createElement('style'); st.id = 'oracle-style';
+    st.textContent = '@keyframes oracle-spin{to{transform:rotate(360deg)}} .oracle-spin{display:inline-block;animation:oracle-spin .8s linear infinite} @keyframes oracle-pulse{50%{opacity:.35}} .oracle-pulse{animation:oracle-pulse 1s ease-in-out infinite}';
+    document.documentElement.append(st);
+  }
+  let flight = 0, sent = 0, lastKinds = '', lastErr = '';
+  const paintFlight = () => {
+    const rec = document.getElementById('oracle-rec'); if (!rec || !recOn()) return;
+    rec.innerHTML = flight ? '<span class="oracle-spin">⟳</span> sending…' : `<span class="${lastErr ? '' : 'oracle-pulse'}">●</span> REC ${sent ? `· ${sent} sent` : ''}${lastErr ? ' ⚠' : ''}`;
+    rec.title = lastErr ? `last send failed: ${lastErr}` : `recording this tab (local only). sent ${sent}${lastKinds ? ` · last batch: ${lastKinds}` : ''}\nclick to stop`;
+  };
+  const queue = [];
+  const emit = (ev) => { if (recOn()) queue.push({ ts: Date.now(), url: clean(location.href), ...ev }); };
+  setInterval(() => {
+    if (!queue.length) return;
+    const batch = queue.splice(0, queue.length);
+    flight++; paintFlight();
+    const t0 = Date.now();
+    chrome.runtime?.sendMessage({ kind: 'events', events: batch }, (r) => setTimeout(() => {   // keep the spinner up ≥ 700 ms: a 20 ms send is otherwise invisible
+      flight--;
+      if (r?.ok) { sent += batch.length; lastErr = ''; lastKinds = [...new Set(batch.map(e => e.kind))].join(','); markCollected(r.ids || {}); }
+      else { lastErr = 'bridge not reachable — kept the newest 200'; queue.unshift(...batch.slice(-200)); }   // bridge down: keep the newest 200
+      paintFlight();
+    }, Math.max(0, 700 - (Date.now() - t0))));
+  }, 3000);
+
+  // The post's 🔮 header chip shows whether the bridge holds it: "🔮 Nexus ✓" + the node id in the tooltip.
+  const clock = (ms) => new Date(ms).toLocaleTimeString('en-GB');
+  function markCollected(ids) {
+    for (const [key, n] of Object.entries(ids)) {
+      for (const post of document.querySelectorAll('[data-oracle-key]')) {
+        if (post.dataset.oracleKey !== key) continue;
+        const c = post.querySelector('[data-oracle-head]'); if (!c) continue;
+        c.dataset.collected = n.id || 'hash';
+        c.textContent = `🔮 ${DEFAULT} ✓`;
+        c.title = n.id ? `collected as ${n.id}\nseen ${n.seen || 1}× · first ${n.first_seen ? clock(n.first_seen) : 'now'}\nclick: new issue in ${DEFAULT} Oracle`
+          : `collected (${n.note || 'no id'})\nclick: new issue in ${DEFAULT} Oracle`;
+        c.style.boxShadow = 'inset 0 0 0 1px rgba(102,187,106,.7)';
+      }
+    }
+  }
+  const seenKeys = new Set(), timers = new Map();
+  const io = new IntersectionObserver((entries) => {
+    for (const en of entries) {
+      const el = en.target;
+      if (en.isIntersecting && en.intersectionRatio >= 0.5) {
+        if (!timers.has(el)) timers.set(el, setTimeout(() => { timers.delete(el); sawIt(el); }, 1000));
+      } else { clearTimeout(timers.get(el)); timers.delete(el); }
+    }
+  }, { threshold: [0, 0.5] });
+  async function sawIt(el) {
+    if (!recOn() || !el.isConnected) return;
+    if (el.getAttribute('role') === 'article') {   // a comment
+      const own = [...el.querySelectorAll('a[href]')].filter(a => a.closest('[role="article"]') === el);
+      await resolve(own);
+      const time = own.find(a => /comment_id=/.test(a.href));
+      const author = (own.find(a => a.innerText.trim())?.innerText || '').trim().split('\n')[0];
+      const key = time ? clean(time.href) : hash(author + el.innerText.slice(0, 80));
+      if (seenKeys.has(key)) return; seenKeys.add(key);
+      const authorUrl = own.find(a => a.innerText.trim())?.href || '';
+      const external = own.map(a => { try { const u = new URL(a.href); return u.hostname === 'l.facebook.com' ? u.searchParams.get('u') : null; } catch { return null; } }).filter(Boolean);
+      return emit({ kind: 'comment-seen', key, author, authorUrl: clean(authorUrl), link: time ? clean(time.href) : '', text: captionIn(el, author).slice(0, 4000), external });
+    }
+    const author = (el.querySelector('[data-ad-rendering-role="profile_name"]')?.innerText || '').split('\n')[0].trim();
+    const text = (el.querySelector('[data-ad-rendering-role="story_message"]')?.innerText || captionIn(el, author)).trim();
+    const { own, shared } = await links(el);
+    const key = own || hash(author + text.slice(0, 120));
+    el.dataset.oracleKey = key;
+    if (seenKeys.has(key)) return; seenKeys.add(key);
+    const nameA = el.querySelector('[data-ad-rendering-role="profile_name"] a[href]');
+    const anchors = [...el.querySelectorAll('a[href]')].filter(a => !a.closest('[role="article"]') || a.closest('[role="article"]') === el);
+    const media = [...new Set(anchors.map(a => a.href).filter(h => /\/photo|\/videos\/|\/reel\/|\/watch/.test(h)).map(clean))].slice(0, 30);
+    const group = anchors.map(a => a.href).find(h => /\/groups\/[^/?]+/.test(h)) || '';
+    const external = [...new Set(anchors.map(a => { try { const u = new URL(a.href); return u.hostname === 'l.facebook.com' ? u.searchParams.get('u') : null; } catch { return null; } }).filter(Boolean))].slice(0, 20);
+    emit({ kind: 'seen', key, author, authorUrl: nameA ? clean(nameA.href) : '', link: own, text: text.slice(0, 8000), media: media.length,
+      mediaUrls: media, shared, group: group ? clean(group) : '', external });
+  }
+  function watchSeen() {
+    if (!recOn()) return;
+    for (const like of document.querySelectorAll(LIKE)) { const p = postOf(like); if (p && !p.hasAttribute('data-oracle-watch')) { p.setAttribute('data-oracle-watch', '1'); io.observe(p); } }
+    for (const a of document.querySelectorAll('[role="article"]')) {
+      if (!a.hasAttribute('data-oracle-watch') && /^(comment|reply) (by|to)\b/i.test(a.getAttribute('aria-label') || '')) { a.setAttribute('data-oracle-watch', '1'); io.observe(a); }
+    }
+  }
+  // what Nat DOES: one capture listener, classified by Facebook's own markers
+  document.addEventListener('click', (e) => {
+    if (!recOn()) return;
+    const t = e.target instanceof Element ? e.target : null; if (!t) return;
+    const post = t.closest('[data-oracle-key]')?.dataset.oracleKey || '';
+    const role = t.closest('[data-ad-rendering-role]')?.getAttribute('data-ad-rendering-role') || '';
+    const btn = t.closest('[role="button"], a[href]');
+    if (t.closest('[data-oracle-btn], [data-oracle-comment], #oracle-nexus-pill')) return emit({ kind: 'oracle', post, text: t.textContent.trim().slice(0, 40) });
+    if (role === 'like_button') return emit({ kind: 'react', post });
+    if (role === 'comment_button') return emit({ kind: 'open-comments', post });
+    if (role === 'share_button') return emit({ kind: 'share', post });
+    const a = t.closest('a[href]');
+    if (a && /\/photo|\/videos\/|\/reel\//.test(a.href)) return emit({ kind: 'open-media', post, link: clean(a.href) });
+    if (btn && /^(reply|ตอบกลับ)$/i.test(btn.textContent.trim())) return emit({ kind: 'reply-open', post, text: btn.closest('[role="article"]')?.getAttribute('aria-label') || '' });
+  }, true);
+  let lastUrl = '';
+  function watchNav() {
+    if (!recOn() || location.href === lastUrl) return;
+    lastUrl = location.href;
+    emit({ kind: 'nav', key: clean(location.href), text: document.title });
+  }
+
   // Each tab knows its own id and shows it (the Gemini proxy's TAB:<id> badge): bottom-left, tiny; a click copies the
   // fbreply flags that aim a reply at exactly this tab. Green dot = bridge connected.
   function tabBadge() {
@@ -486,13 +598,24 @@
         Object.assign(el.style, { position: 'fixed', left: '10px', bottom: '10px', zIndex: 2147483645, padding: '3px 9px', borderRadius: '9px',
           background: 'rgba(36,37,38,.85)', color: '#b0b3b8', font: '600 11px ui-monospace, monospace', cursor: 'pointer', userSelect: 'none', opacity: '.75' });
         el.onmouseenter = () => (el.style.opacity = '1'); el.onmouseleave = () => (el.style.opacity = '.75');
-        el.onclick = () => { navigator.clipboard?.writeText(`--to ${r.browser} --tab ${r.tabId}`); el.title = 'copied: --to … --tab …'; };
+        el.append(Object.assign(document.createElement('span'), { id: 'oracle-tab-label' }), Object.assign(document.createElement('span'), { id: 'oracle-rec' }));
+        el.querySelector('#oracle-tab-label').onclick = () => { navigator.clipboard?.writeText(`--to ${r.browser} --tab ${r.tabId}`); el.title = 'copied: --to … --tab …'; };
+        const rec = el.querySelector('#oracle-rec');
+        Object.assign(rec.style, { marginLeft: '8px', padding: '0 6px', borderRadius: '6px' });
+        rec.onclick = (e) => { e.stopPropagation(); sessionStorage.setItem('oracleRec', recOn() ? '0' : '1'); paintRec(); if (recOn()) { emit({ kind: 'rec-on' }); watchSeen(); watchNav(); } };
         document.body.append(el);
       }
-      el.textContent = `${r.bridge ? '●' : '○'} TAB ${r.tabId}`;
+      el.querySelector('#oracle-tab-label').textContent = `${r.bridge ? '●' : '○'} TAB ${r.tabId}`;
+      paintRec();
       el.style.color = r.bridge ? '#a5d6a7' : '#ef9a9a';
       el.title = `${r.browser} tab ${r.tabId} — bridge ${r.bridge ? 'connected' : 'NOT connected'}\nclick: copy  --to ${r.browser} --tab ${r.tabId}`;
     });
+  }
+  function paintRec() {
+    const rec = document.getElementById('oracle-rec'); if (!rec) return;
+    if (recOn()) paintFlight(); else rec.textContent = 'REC off';
+    Object.assign(rec.style, recOn() ? { background: '#c62828', color: '#fff' } : { background: 'transparent', color: '#8a8d91' });
+    if (!recOn()) rec.title = 'click to record what you see in this tab (local only, stays on this Mac)';
   }
   tabBadge(); setInterval(() => { if (!document.hidden) tabBadge(); }, 5000);
 
