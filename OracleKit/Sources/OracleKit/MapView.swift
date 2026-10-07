@@ -100,21 +100,37 @@ public struct MapView: View {
 
     /// What the page reacts to: the layout and the groups changing, every traced or heard query, the switches.
     private func handlers<V: View>(_ v: V) -> some View {
+        switches(events(v))
+            .animation(.easeOut(duration: 0.18), value: scene.selectedRow)
+            .animation(.easeOut(duration: 0.18), value: showGroups)
+            .onAppear { installEsc() }
+            .onDisappear { if let m = escMonitor { NSEvent.removeMonitor(m); escMonitor = nil } }
+    }
+
+    /// The layout, the groups and every traced or heard query.
+    private func events<V: View>(_ v: V) -> some View {
         v.onChange(of: layout.xyz.count) { scene.needsRebuild = true }
-        .onChange(of: clusters.revision) { scene.setGroups(clusters.labels, leaves: clusters.leafLabels, ids: clusters.layoutIds); placeOracles() }
+        // a fit that ends while the page is open (the fleet map fits in the background): the groups follow the new rows
+        .onChange(of: layout.meta?.built) { Task { await clusters.refresh(layout: layout, docs: index.docs) } }
+        .onChange(of: clusters.revision) { regroupScene() }
+        .onChange(of: scene.built) { regroupScene() }
         // #36: every query asked of this memory — a page, the map, another oracle over MCP — fires its hits
         .onChange(of: trace.entries.count) { _, _ in fireTraced() }
         // #37: a query another oracle app answered
         .onChange(of: heard.last?.id) { _, _ in fireHeard() }
+    }
+
+    /// The page's own switches: kinds, 2D, colour by oracle or kind, the legend's counts.
+    private func switches<V: View>(_ v: V) -> some View {
+        v.onChange(of: who) { scene.show(kinds: who) }
+        .onChange(of: flat) { scene.flatten(flat) }
         .onChange(of: byKind) { scene.recolor(byKind: byKind) }
         .onChange(of: index.docs.count, initial: true) { count() }
-        .onChange(of: scene.built) { scene.setGroups(clusters.labels, leaves: clusters.leafLabels, ids: clusters.layoutIds) }
-        .animation(.easeOut(duration: 0.18), value: scene.selectedRow)
-        .animation(.easeOut(duration: 0.18), value: showGroups)
-        .onAppear { installEsc() }
-        .onDisappear { if let m = escMonitor { NSEvent.removeMonitor(m); escMonitor = nil } }
-        .onChange(of: who) { scene.show(kinds: who) }
-        .onChange(of: flat) { scene.flatten(flat) }
+    }
+
+    private func regroupScene() {
+        scene.setGroups(clusters.labels, leaves: clusters.leafLabels, ids: clusters.layoutIds)
+        placeOracles()
     }
 
     /// esc: clear the selection, then the lit hits.
@@ -161,6 +177,10 @@ public struct MapView: View {
         scene.setGroups(clusters.labels, leaves: clusters.leafLabels, ids: clusters.layoutIds)
         placeOracles()
         if UserDefaults.standard.bool(forKey: "mapGroups") { showGroups = true }   // -mapGroups YES (tests)
+        if let id = UserDefaults.standard.string(forKey: "mapSelect") {   // -mapSelect <doc id> (tests: one point's panel)
+            for _ in 0..<300 where scene.built == 0 { try? await Task.sleep(for: .milliseconds(100)) }
+            if let r = layout.row(of: id) { scene.select(r) } else { HubLog.shared.add(.error, "map: -mapSelect \(id) is not on the map") }
+        }
         if !Self.actionDone, let q = UserDefaults.standard.string(forKey: "mapQuery"), !q.isEmpty {   // -mapQuery <text> (tests)
             Self.actionDone = true
             for _ in 0..<600 where layout.xyz.isEmpty || scene.built == 0 || ModelLoad.shared.loading { try? await Task.sleep(for: .milliseconds(100)) }
@@ -541,7 +561,7 @@ final class MapScene: ObservableObject {
         let frameEntity = ModelEntity(mesh: .generateSphere(radius: max(0.05, r80)), materials: [clear])
         root.addChild(frameEntity)
         content.cameraTarget = frameEntity
-        if #available(macOS 27, *) {
+        if #available(macOS 27, *), UserDefaults.standard.object(forKey: "mapBloom") as? Bool ?? true {   // -mapBloom NO (tests: its memory)
             root.components.set(BloomComponent(scope: .unbounded))
             var o = BloomOptionsComponent(); o.strength = 1.2; o.threshold = 1.0; o.blurRadius = 10
             root.components.set(o)

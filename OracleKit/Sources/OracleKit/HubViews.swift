@@ -48,8 +48,7 @@ struct HubRootView: View {
             case .search: IndexSearchView(store: store, index: index, focusTick: focusTick)
             case .trace: TraceView(name: "ARRA Oracles", accent: HubStyle.accent)
             case .map: FleetMapPage(accent: HubStyle.accent)
-            case .settings: SettingsView(title: "ARRA Oracles", accent: HubStyle.accent,
-                                         indexes: [index] + (FleetMap.shared.index.docs.isEmpty ? [] : [FleetMap.shared.index])) { pick = .trace }
+            case .settings: SettingsView(title: "ARRA Oracles", accent: HubStyle.accent, indexes: [index, FleetMap.shared.index]) { pick = .trace }
             case .session(let name): SessionSpaces(store: store, session: name)
             }
         }
