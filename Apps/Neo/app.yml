@@ -44,7 +44,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: co.laris.oracle.neo
         PRODUCT_NAME: Neo
-        INFOPLIST_KEY_CFBundleDisplayName: Neo
+        INFOPLIST_KEY_CFBundleDisplayName: Neo Oracle
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: "1,2"
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
@@ -57,7 +57,7 @@ targets:
       path: Apps/Neo/Info.plist
       properties:
         CFBundleName: Neo
-        CFBundleDisplayName: Neo
+        CFBundleDisplayName: Neo Oracle
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen: {}

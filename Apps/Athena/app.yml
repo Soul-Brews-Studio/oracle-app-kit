@@ -44,7 +44,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: co.laris.oracle.athena
         PRODUCT_NAME: Athena
-        INFOPLIST_KEY_CFBundleDisplayName: Athena
+        INFOPLIST_KEY_CFBundleDisplayName: Athena Oracle
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: "1,2"
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
@@ -57,7 +57,7 @@ targets:
       path: Apps/Athena/Info.plist
       properties:
         CFBundleName: Athena
-        CFBundleDisplayName: Athena
+        CFBundleDisplayName: Athena Oracle
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen: {}

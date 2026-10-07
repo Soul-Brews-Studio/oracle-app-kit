@@ -2082,7 +2082,7 @@
 				ENABLE_HARDENED_RUNTIME = NO;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				INFOPLIST_FILE = Apps/Pulse/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Pulse;
+				INFOPLIST_KEY_CFBundleDisplayName = "Pulse Oracle";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -2159,7 +2159,7 @@
 				ENABLE_HARDENED_RUNTIME = NO;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				INFOPLIST_FILE = Apps/Pulse/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Pulse;
+				INFOPLIST_KEY_CFBundleDisplayName = "Pulse Oracle";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -2335,7 +2335,7 @@
 				ENABLE_HARDENED_RUNTIME = NO;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				INFOPLIST_FILE = Apps/Athena/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Athena;
+				INFOPLIST_KEY_CFBundleDisplayName = "Athena Oracle";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -2364,7 +2364,7 @@
 				ENABLE_HARDENED_RUNTIME = NO;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				INFOPLIST_FILE = Apps/Nexus/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Nexus;
+				INFOPLIST_KEY_CFBundleDisplayName = "Nexus Oracle";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -2460,7 +2460,7 @@
 				ENABLE_HARDENED_RUNTIME = NO;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				INFOPLIST_FILE = Apps/Neo/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Neo;
+				INFOPLIST_KEY_CFBundleDisplayName = "Neo Oracle";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -2533,7 +2533,7 @@
 				ENABLE_HARDENED_RUNTIME = NO;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				INFOPLIST_FILE = Apps/Nexus/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Nexus;
+				INFOPLIST_KEY_CFBundleDisplayName = "Nexus Oracle";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -2562,7 +2562,7 @@
 				ENABLE_HARDENED_RUNTIME = NO;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				INFOPLIST_FILE = Apps/Neo/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Neo;
+				INFOPLIST_KEY_CFBundleDisplayName = "Neo Oracle";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -2614,7 +2614,7 @@
 				ENABLE_HARDENED_RUNTIME = NO;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				INFOPLIST_FILE = Apps/Athena/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Athena;
+				INFOPLIST_KEY_CFBundleDisplayName = "Athena Oracle";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

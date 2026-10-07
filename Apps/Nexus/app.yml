@@ -44,7 +44,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: co.laris.oracle.nexus
         PRODUCT_NAME: Nexus
-        INFOPLIST_KEY_CFBundleDisplayName: Nexus
+        INFOPLIST_KEY_CFBundleDisplayName: Nexus Oracle
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: "1,2"
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
@@ -57,7 +57,7 @@ targets:
       path: Apps/Nexus/Info.plist
       properties:
         CFBundleName: Nexus
-        CFBundleDisplayName: Nexus
+        CFBundleDisplayName: Nexus Oracle
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen: {}
