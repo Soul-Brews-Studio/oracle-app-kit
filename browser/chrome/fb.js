@@ -127,9 +127,13 @@
     const side = document.querySelector('[role="complementary"]');
     const more = side && [...side.querySelectorAll('[role="button"]')].find(b => /^(see more|ดูเพิ่มเติม)$/i.test(b.innerText.trim()));
     if (more) { more.click(); await tick(300); }
+    // the right column also holds the top bar (messenger, notifications, YOUR account link), so the first link is not
+    // the author (issue #14 said "Nat Weerawan:"); the Like/Comment buttons name the author in their aria-label
+    const named = side && [...side.querySelectorAll('[aria-label]')].map(e => e.getAttribute('aria-label'))
+      .map(l => /^Comment on (.+?)['’]s (post|photo|video|reel)/i.exec(l) || /^React with Like to (.+)$/i.exec(l)).find(Boolean);
     const authorEl = side && [...side.querySelectorAll('h2 a, h3 a, strong a, span > a[role="link"]')]
-      .find(a => a.innerText.trim() && !/online status|^active$/i.test(a.innerText.trim()));
-    const author = (authorEl?.innerText || '').trim().split('\n')[0];
+      .find(a => a.innerText.trim() && !/online status|^active$/i.test(a.innerText.trim()) && !a.closest('[role="banner"], [role="navigation"]'));
+    const author = (named?.[1] || authorEl?.innerText || '').trim().split('\n')[0];
     const caption = ((side?.querySelector('[data-ad-rendering-role="story_message"]')?.innerText) ||
       captionIn(side, author) || (document.querySelector('[data-ad-rendering-role="story_message"]')?.innerText) ||
       String(getSelection() || '')).trim().replace(SEE, '');
@@ -266,16 +270,13 @@
     document.body.append(p);
   }
 
-  // Hover a photo or video → a big 🔮 button on its corner; one click sends the post (Nat: "if the image can hover
-  // and show big icon to Nexus, let me click"). Facebook lays transparent divs over media, so the media is found
-  // by the pointer position (elementsFromPoint), not by the event target.
-  const HOVER_ID = 'oracle-hover', HOVER_BG = 'rgba(70,30,85,.82)';   // the chip's purple, opaque enough to read over a photo
-  let hoverMedia = null, hoverTimer = 0, lastMove = 0;
-  function mediaAt(x, y) {
-    return document.elementsFromPoint(x, y).find(e => {
-      if (e.tagName !== 'IMG' && e.tagName !== 'VIDEO') return false;
+  // A 🔮 on every photo/video, always visible, middle of its right edge (Nat: "make middle right on the image, show
+  // always, no need to hover"). One button per visible media; they follow scroll, resize and Facebook's re-renders.
+  const BTN_BG = 'rgba(70,30,85,.82)';   // the header chip's purple, opaque enough to read over a photo
+  function bigMedia() {
+    return [...document.querySelectorAll('img, video')].filter(e => {
       const r = e.getBoundingClientRect();
-      return r.width >= 200 && r.height >= 160 && !e.closest('#' + HOVER_ID);
+      return r.width >= 200 && r.height >= 160 && r.bottom > 60 && r.top < innerHeight && r.right > 0 && r.left < innerWidth;
     });
   }
   function postOfMedia(m) {
@@ -286,44 +287,47 @@
     }
     return null;
   }
-  function hoverButton() {
-    let b = document.getElementById(HOVER_ID);
-    if (b) return b;
-    b = document.createElement('div');
-    b.id = HOVER_ID; b.setAttribute('role', 'button'); b.textContent = `🔮 ${DEFAULT}`;
+  function mediaButton(m) {
+    const b = document.createElement('div');
+    b.className = 'oracle-media-btn'; b.setAttribute('role', 'button'); b.textContent = `🔮 ${DEFAULT}`;
     b.title = `New issue in ${DEFAULT} Oracle from this post (⇧-click: another oracle)`;
-    Object.assign(b.style, { position: 'fixed', zIndex: 2147483646, display: 'none', cursor: 'pointer', userSelect: 'none',
-      padding: '10px 18px', borderRadius: '16px', background: HOVER_BG, color: '#e1bee7',   // the header chip's look (Nat: "make it like this button")
+    Object.assign(b.style, { position: 'fixed', zIndex: 2147483646, cursor: 'pointer', userSelect: 'none',
+      padding: '10px 18px', borderRadius: '16px', background: BTN_BG, color: '#e1bee7',   // the header chip's look
       font: '600 14px system-ui, sans-serif', backdropFilter: 'blur(6px)', boxShadow: '0 4px 14px rgba(0,0,0,.45)' });
-    b.onmouseenter = () => { clearTimeout(hoverTimer); b.style.background = 'rgba(171,71,188,.85)'; b.style.color = '#fff'; };
-    b.onmouseleave = () => { b.style.background = HOVER_BG; b.style.color = '#e1bee7'; hoverTimer = setTimeout(() => (b.style.display = 'none'), 350); };
+    b.onmouseenter = () => { b.style.background = 'rgba(171,71,188,.85)'; b.style.color = '#fff'; };
+    b.onmouseleave = () => { b.style.background = BTN_BG; b.style.color = '#e1bee7'; };
     b.onclick = async (e) => {
       e.stopPropagation(); e.preventDefault();
-      const m = hoverMedia, post = m && postOfMedia(m);
-      const get = () => post ? details(post) : pageDetails();
+      const post = postOfMedia(m), get = () => post ? details(post) : pageDetails();
       if (e.shiftKey) return menu(b, null, get);
-      b.style.display = 'none';
       send(DEFAULT, await get());
     };
     document.body.append(b);
     return b;
   }
-  document.addEventListener('mousemove', (e) => {
-    const now = performance.now(); if (now - lastMove < 80) return; lastMove = now;
-    const m = mediaAt(e.clientX, e.clientY), b = document.getElementById(HOVER_ID);
-    if (!m) { if (b && b.style.display !== 'none' && !b.matches(':hover')) { clearTimeout(hoverTimer); hoverTimer = setTimeout(() => (b.style.display = 'none'), 350); } return; }
-    // only where there is something to send: inside a post, or on a single-post page
-    if (!postOfMedia(m) && !SINGLE.test(location.href)) return;
-    clearTimeout(hoverTimer);
-    hoverMedia = m;
-    const btn = hoverButton(), r = m.getBoundingClientRect();
-    btn.style.display = 'block';
-    btn.style.left = `${Math.max(8, Math.min(innerWidth - btn.offsetWidth - 8, r.right - btn.offsetWidth - 14))}px`;
-    btn.style.top = `${Math.max(64, r.top + 14)}px`;
-  }, { passive: true });
+  let placing = 0;
+  function placeMediaButtons() {
+    placing = 0;
+    const live = new Set();
+    for (const m of bigMedia()) {
+      // only where there is something to send: inside a post, or on a single-post page
+      if (!postOfMedia(m) && !SINGLE.test(location.href)) continue;
+      const b = m.__oracleBtn?.isConnected ? m.__oracleBtn : (m.__oracleBtn = mediaButton(m));
+      live.add(b);
+      const r = m.getBoundingClientRect();
+      const top = Math.max(r.top, 60), bottom = Math.min(r.bottom, innerHeight);   // the visible part of tall media
+      b.style.display = 'block';
+      b.style.left = `${Math.max(8, Math.min(innerWidth - b.offsetWidth - 8, r.right - b.offsetWidth - 14))}px`;
+      b.style.top = `${Math.round((top + bottom) / 2 - b.offsetHeight / 2)}px`;
+    }
+    document.querySelectorAll('.oracle-media-btn').forEach(b => { if (!live.has(b)) b.remove(); });
+  }
+  const schedulePlace = () => { if (!placing) placing = requestAnimationFrame(placeMediaButtons); };
+  addEventListener('scroll', schedulePlace, { capture: true, passive: true });
+  addEventListener('resize', schedulePlace);
 
   let t;
-  new MutationObserver(() => { clearTimeout(t); t = setTimeout(() => { addButtons(); pill(); }, 400); })
+  new MutationObserver(() => { clearTimeout(t); t = setTimeout(() => { addButtons(); pill(); schedulePlace(); }, 400); })
     .observe(document.body, { childList: true, subtree: true });
-  addButtons(); pill();
+  addButtons(); pill(); schedulePlace();
 })();
