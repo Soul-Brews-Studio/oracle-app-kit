@@ -19,6 +19,9 @@ public struct ClosedSpace: Codable, Identifiable, Hashable, Sendable {
     public let cwd: String
     public let closedAt: Date
     public let agents: [ClosedAgent]
+    public var repo: String? = nil       // the space's repo, as maw names it
+    public var linked: Bool? = nil       // a worktree space hanging under its repo's main space
+    public var group: UUID? = nil        // closed together with its main space (`workspace close --group`)
 }
 
 public enum ClosedSpaces {
@@ -38,6 +41,31 @@ public enum ClosedSpaces {
     static func save(_ list: [ClosedSpace]) {
         let enc = JSONEncoder(); enc.dateEncodingStrategy = .iso8601; enc.outputFormatting = [.prettyPrinted, .sortedKeys]
         try? enc.encode(list).write(to: url, options: .atomic)
+    }
+
+    /// Run herdr and keep its JSON either way: on failure herdr prints `{"error":{"code","message"}}`, which
+    /// `Shell.run` drops. ok = exit 0.
+    static func herdr(_ args: [String], timeout: TimeInterval = 20) async -> (ok: Bool, json: [String: Any]?) {
+        guard let path = Shell.which("herdr") else { return (false, ["error": ["message": "herdr not found on PATH"]]) }
+        return await withCheckedContinuation { cont in
+            DispatchQueue.global().async {
+                let p = Process(); let out = Pipe()
+                p.executableURL = URL(fileURLWithPath: path); p.arguments = args
+                p.standardOutput = out; p.standardError = out
+                do { try p.run() } catch { cont.resume(returning: (false, nil)); return }
+                let deadline = DispatchTime.now() + timeout
+                DispatchQueue.global().asyncAfter(deadline: deadline) { if p.isRunning { p.terminate() } }
+                let data = out.fileHandleForReading.readDataToEndOfFile()
+                p.waitUntilExit()
+                let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+                cont.resume(returning: (p.terminationStatus == 0, json))
+            }
+        }
+    }
+
+    /// herdr's own words for a failed call.
+    static func reason(_ json: [String: Any]?) -> String {
+        ((json?["error"] as? [String: Any])?["message"] as? String) ?? "no answer from herdr"
     }
 
     /// The command that resumes one agent, as herdr's agent start takes it (nil: no resume for this kind).
@@ -64,27 +92,43 @@ extension HubStore {
         }
     }
 
-    /// Save the space, then close it. The record is written first, so a failed close leaves nothing lost.
-    /// nil when closed; otherwise the error with the command to run.
-    public func closeSpace(_ s: HubSpace, agents: [ClosedAgent]) async -> String? {
-        let cwd = await firstPane(session: s.session, workspace: s.spaceId)?.cwd ?? s.checkout ?? NSHomeDirectory()
-        var list = ClosedSpaces.load()
-        let rec = ClosedSpace(id: UUID(), session: s.session, label: s.label, cwd: cwd, closedAt: Date(), agents: agents)
-        list.insert(rec, at: 0)
-        ClosedSpaces.save(list)
-        let ok = await Shell.run("herdr", ["--session", s.session, "workspace", "close", s.spaceId]) != nil
-        if !ok { ClosedSpaces.save(list.filter { $0.id != rec.id }) }
+    /// Save the space (and, for a repo's main space, every worktree space under it), then close it — with
+    /// `--group` when children hang under it, since herdr refuses a plain close then. Records are written
+    /// first, so a failed close leaves nothing lost. nil when closed; otherwise herdr's reason and the command.
+    public func closeSpace(_ s: HubSpace, children: [HubSpace], agents: [String: [ClosedAgent]]) async -> String? {
+        let group = children.isEmpty ? nil : UUID()
+        var recs: [ClosedSpace] = []
+        for sp in [s] + children {
+            let cwd = await firstPane(session: sp.session, workspace: sp.spaceId)?.cwd ?? sp.checkout ?? NSHomeDirectory()
+            recs.append(ClosedSpace(id: UUID(), session: sp.session, label: sp.label, cwd: cwd, closedAt: Date(),
+                                    agents: agents[sp.id] ?? [], repo: sp.repo, linked: sp.linked, group: group))
+        }
+        let before = ClosedSpaces.load()
+        ClosedSpaces.save(recs + before)
+        var args = ["--session", s.session, "workspace", "close", s.spaceId]
+        if !children.isEmpty { args.append("--group") }
+        let r = await ClosedSpaces.herdr(args)
+        if !r.ok { ClosedSpaces.save(before) }
         await refresh()
-        return ok ? nil : "herdr could not close \(s.label) — run:  herdr --session \(s.session) workspace close \(s.spaceId)"
+        return r.ok ? nil : "herdr: \(ClosedSpaces.reason(r.json)) — run:  herdr " + args.joined(separator: " ")
     }
 
     /// Recreate the space at its cwd, one pane per agent, each agent started resumed. The record is dropped only
     /// when every resumable agent came back. nil when done; otherwise what failed and the command to run.
     public func reopen(_ c: ClosedSpace) async -> String? {
-        guard let out = await Shell.run("herdr", ["--session", c.session, "workspace", "create", "--cwd", c.cwd, "--label", c.label, "--no-focus"]),
-              let d = try? JSONSerialization.jsonObject(with: Data(out.utf8)) as? [String: Any],
-              let ws = ((d["result"] as? [String: Any])?["workspace"] as? [String: Any])?["workspace_id"] as? String
-        else { return "herdr could not open \(c.cwd) in \(c.session) — is the session running?  herdr --session \(c.session) workspace create --cwd '\(c.cwd)'" }
+        // A worktree space goes back under its repo's main space; anything else is a plain space at its cwd.
+        var args = ["--session", c.session, "workspace", "create", "--cwd", c.cwd, "--label", c.label, "--no-focus"]
+        if c.linked == true {
+            guard let parent = spaces.first(where: { $0.session == c.session && !$0.linked && $0.repo != nil && $0.repo == c.repo }) else {
+                return "reopen the main space of \(c.repo ?? "its repo") first — \(c.label) is a worktree under it"
+            }
+            args = ["--session", c.session, "worktree", "open", "--workspace", parent.spaceId, "--path", c.cwd, "--label", c.label, "--no-focus"]
+        }
+        let r = await ClosedSpaces.herdr(args)
+        let result = r.json?["result"] as? [String: Any]
+        guard r.ok, let ws = (result?["workspace"] as? [String: Any])?["workspace_id"] as? String else {
+            return "herdr: \(ClosedSpaces.reason(r.json)) — run:  herdr " + args.map { $0.contains(" ") ? "'\($0)'" : $0 }.joined(separator: " ")
+        }
         var pane = await firstPane(session: c.session, workspace: ws)?.id
         var failed: [String] = []
         for (i, a) in c.agents.enumerated() {

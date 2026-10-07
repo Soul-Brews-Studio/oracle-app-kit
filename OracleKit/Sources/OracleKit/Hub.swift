@@ -210,6 +210,22 @@ public final class HubStore: ObservableObject {
         Task.detached { await WezTerm.show(session: name) }
     }
 
+    /// Start a stopped session in the background: a detached `herdr --session S server`, no window, focus
+    /// untouched. herdr relaunches each recorded agent resumed; Show in herdr / Open in WezTerm attach later.
+    /// nil once the server answers (≤10 s); otherwise the command to run.
+    public func startSession(_ name: String) async -> String? {
+        let cmd = "herdr --session \(name) server"
+        guard let herdr = Shell.which("herdr") else { return "herdr not found — run:  \(cmd)" }
+        let q = { (s: String) in "'" + s.replacingOccurrences(of: "'", with: "'\\''") + "'" }
+        _ = await Shell.run("sh", ["-c", "nohup \(q(herdr)) --session \(q(name)) server >/dev/null 2>&1 &"])
+        for _ in 0..<20 {
+            if await Shell.run("herdr", ["--session", name, "pane", "list"]) != nil { await refresh(); return nil }
+            try? await Task.sleep(for: .milliseconds(500))
+        }
+        await refresh()
+        return "\(name) did not answer within 10 s — run:  \(cmd)"
+    }
+
     /// Which agents a reopen brings back. herdr (0.9.1) saves each pane's `agent_session` when the session stops
     /// and relaunches that agent resumed on reopen — claude and codex alike; a pane whose agent never reported
     /// a session id comes back as a bare shell. Read live from `herdr --session S agent list`.
