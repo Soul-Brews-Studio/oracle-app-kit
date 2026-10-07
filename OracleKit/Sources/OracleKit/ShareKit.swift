@@ -41,7 +41,7 @@ open class OracleShareViewController: NSViewController {
 
     private func send(_ action: String) {
         var c = URLComponents()
-        c.scheme = "oracle-" + config.name.lowercased(); c.host = action
+        c.scheme = config.scheme; c.host = action
         c.queryItems = [URLQueryItem(name: "url", value: model.url?.absoluteString ?? ""),
                         URLQueryItem(name: "title", value: model.title),
                         URLQueryItem(name: "text", value: model.text)]

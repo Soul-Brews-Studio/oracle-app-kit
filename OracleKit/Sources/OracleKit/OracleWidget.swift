@@ -51,7 +51,7 @@ public struct OracleWidgetView: View {
                             size: family == .systemSmall ? .small : family == .systemLarge ? .large : .medium,
                             tinted: mode != .fullColor, now: e.date, stale: e.stale, emblem: Self.bundledEmblem)
             .containerBackground(for: .widget) { OracleWidgetContent.background }
-            .widgetURL(URL(string: "oracle-\(e.snap.name.lowercased())://open"))
+            .widgetURL(URL(string: "oracle-\(OracleConfig.bundleKey ?? e.snap.name.lowercased())://open"))   // the extension's own key
     }
     /// "Emblem" in the widget's own asset catalog (the Codex icon), when the template put one there.
     static var bundledEmblem: Image? {

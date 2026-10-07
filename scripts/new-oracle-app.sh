@@ -37,6 +37,7 @@ if [ -z "$PORT" ]; then
   if [ -z "$PORT" ]; then PORT=4791; while [[ $used == *" $PORT "* ]]; do PORT=$((PORT + 1)); done; fi
 fi
 GROUP="$TEAM.co.laris.oracle.$KEY"
+KEYARG=""; [ "$KEY" != "$low" ] && KEYARG=", key: \"$KEY\""   # Neo/Pulse/Nexus: key == name, no argument
 [ -e $D ] && [ $UPDATE = 0 ] && { echo "Apps/$N exists — use --update to regenerate (keeps Extras + icon)"; exit 2; }
 mkdir -p $D/Widget $D/Share $D/Assets.xcassets
 [ -f $D/Assets.xcassets/Contents.json ] || print -r -- '{"info":{"version":1,"author":"xcode"}}' > $D/Assets.xcassets/Contents.json
@@ -49,7 +50,7 @@ extension OracleConfig {
     static let ${low} = OracleConfig(
         name: "$N", tagline: "$TAG", repoSlug: "$SLUG",
         localPath: OracleConfig.mac("$LP"),
-        colorHex: "$HEX", symbol: "$SYM")
+        colorHex: "$HEX", symbol: "$SYM"$KEYARG)
 }
 SWIFT
 cat > $D/${N}App.swift <<SWIFT
