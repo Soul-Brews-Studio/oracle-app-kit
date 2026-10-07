@@ -18,6 +18,8 @@ public struct OracleRootView: View {
     @State private var heyText = ""
     @State private var openPane: String?      // a LIVE pane clicked in Work: its terminal shows in a 3rd column until ×
     @AppStorage("oracle.drawerWidth") private var drawerWidth: Double = 560   // dragged wider or narrower, remembered
+    // how much the drawer has grown the window — macOS saves the window frame on quit, so growth must be undone on launch
+    @AppStorage("oracle.drawerGrown") private var drawerGrown: Double = 0
     #if os(iOS)
     @State private var showSettings = false
     #endif
@@ -39,7 +41,7 @@ public struct OracleRootView: View {
                 #if os(macOS)
                 // the 3rd column exists only while a pane is open (Nat: 3 columns all the time was "too nested")
                 if let place = openPane, section == .status {
-                    DrawerHandle(width: $drawerWidth)
+                    DrawerHandle(width: $drawerWidth, grown: $drawerGrown)
                     TerminalColumn(store: store, place: place) { openPane = nil }
                         .frame(width: drawerWidth)
                         .transition(.move(edge: .trailing).combined(with: .opacity))
@@ -49,10 +51,14 @@ public struct OracleRootView: View {
             #if os(macOS)
             // a right DRAWER: the window grows by the drawer's width so Work keeps its size (Nat: "not resize the current")
             .onChange(of: openPane) { old, new in
-                if old == nil, new != nil { Drawer.grow(by: drawerWidth + DrawerHandle.width) }
-                if old != nil, new == nil { Drawer.grow(by: -(drawerWidth + DrawerHandle.width)) }
+                if old == nil, new != nil { let dx = drawerWidth + DrawerHandle.width; Drawer.grow(by: dx); drawerGrown += dx }
+                if old != nil, new == nil { Drawer.grow(by: -drawerGrown); drawerGrown = 0 }   // give back exactly what it took
             }
             .onChange(of: section) { _, s in if s != .status { openPane = nil } }
+            .onAppear {   // quit with the drawer open: the saved frame still holds the drawer's width — take it back
+                guard drawerGrown > 0 else { return }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { Drawer.grow(by: -drawerGrown, animate: false); drawerGrown = 0 }
+            }
             #endif
                 .toolbar {
                     #if os(iOS)
@@ -1156,9 +1162,10 @@ struct TerminalColumn: View {
             .padding(.horizontal, 14).padding(.vertical, 11)
             Divider()
             ScrollViewReader { proxy in
-                ScrollView {
+                ScrollView([.vertical, .horizontal]) {
                     Text(failed && text.isEmpty ? "can't read \(place) — is herdr running?\n  herdr pane list" : text)
                         .font(.system(size: 12, design: .monospaced)).foregroundStyle(Color(white: 0.86))
+                        .fixedSize(horizontal: true, vertical: false)   // never re-wrap: tables and boxes keep their shape
                         .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading).padding(12)
                     Color.clear.frame(height: 1).id("end")
                 }
@@ -1176,8 +1183,8 @@ struct TerminalColumn: View {
         .task(id: place) {
             text = ""; failed = false
             let parts = place.split(separator: ":", maxSplits: 1).map(String.init)
-            let args = parts.count == 2 ? ["--session", parts[0], "pane", "read", parts[1], "--source", "recent-unwrapped", "--lines", "400"]
-                                        : ["pane", "read", place, "--source", "recent-unwrapped", "--lines", "400"]
+            let args = parts.count == 2 ? ["--session", parts[0], "pane", "read", parts[1], "--source", "recent", "--lines", "400"]   // the rows as the terminal draws them
+                                        : ["pane", "read", place, "--source", "recent", "--lines", "400"]   // the rows as the terminal draws them
             while !Task.isCancelled {
                 if let out = await Shell.run("herdr", args, timeout: 4) {
                     let clean = out.replacingOccurrences(of: "\\s+$", with: "", options: .regularExpression)
@@ -1215,6 +1222,7 @@ struct TerminalColumn: View {
 struct DrawerHandle: View {
     static let width: CGFloat = 7
     @Binding var width: Double
+    @Binding var grown: Double
     @State private var start: Double?
     @State private var inside = false
     var body: some View {
@@ -1235,7 +1243,7 @@ struct DrawerHandle: View {
                 let base = start ?? width; if start == nil { start = width }
                 let next = min(1200, max(360, base - g.translation.width))
                 let dx = next - width
-                if abs(dx) >= 1 { Drawer.grow(by: dx, leftward: true, animate: false); width = next }
+                if abs(dx) >= 1 { Drawer.grow(by: dx, leftward: true, animate: false); width = next; grown += dx }
             }
             .onEnded { _ in start = nil })
         .help("Drag to make the terminal wider or narrower")
