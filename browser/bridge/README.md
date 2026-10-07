@@ -10,7 +10,7 @@ Facebook thread ↔ oracle, through the Chrome extension. 127.0.0.1 only.
 
 Run it (a long job — put it in a herdr pane):
 
-    bun /opt/Code/github.com/Soul-Brews-Studio/oracle-app-kit/browser/bridge/server.ts
+    bun browser/bridge/server.ts            # from your oracle-app-kit checkout
 
 Reply to a comment (ids come from the thread file / `--list`):
 
@@ -62,4 +62,4 @@ Every URL names nodes (`nodes.ts`, tested in `nodes.test.ts`):
 ```
 
     bun graph.ts --stats
-    bun graph.ts post:pfbid0U569…        or a Facebook URL, or words from the text
+    bun graph.ts post:pfbid…        or a Facebook URL, or words from the text

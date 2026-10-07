@@ -10,7 +10,7 @@ function paint(r) {
   const line = (n, s, cls) => { const d = document.createElement('div'); d.className = 'row'; const a = document.createElement('span'); a.className = 'n ' + (cls || ''); a.textContent = n; const b = document.createElement('span'); b.className = 's'; b.textContent = s; d.append(a, b); body.append(d); return d; };
   if (!r.connected) {
     const p = document.createElement('div'); p.className = 'muted'; p.textContent = `Nothing is answering on ${r.bridge}. Start it (in a herdr pane):`; body.append(p);
-    const c = document.createElement('code'); c.textContent = 'bun /opt/Code/github.com/Soul-Brews-Studio/oracle-app-kit/browser/bridge/server.ts'; body.append(c);
+    const c = document.createElement('code'); c.textContent = 'bun browser/bridge/server.ts  (from your oracle-app-kit checkout)'; body.append(c);
     return;
   }
   const i = r.info;

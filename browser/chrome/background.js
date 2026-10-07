@@ -81,7 +81,7 @@ function showBridge(on, info) {
   chrome.action.setBadgeBackgroundColor({ color: on ? '#2e7d32' : '#c62828' });
   chrome.action.setTitle({ title: on
     ? `ARRA Oracles — bridge connected (127.0.0.1:4747)${info ? ` · ${info.browsers.filter(x => x.connected).length} browser(s)` : ''}`
-    : 'ARRA Oracles — bridge NOT connected. Start it:\nbun /opt/Code/github.com/Soul-Brews-Studio/oracle-app-kit/browser/bridge/server.ts\n(click this icon to see why / retry)' });
+    : 'ARRA Oracles — bridge NOT connected. Start it:\nbun browser/bridge/server.ts  (from your oracle-app-kit checkout)\n(click this icon to see why / retry)' });
 }
 showBridge(false);
 let bridgeInfo = null;   // what the bridge last told us: who is connected (pushed on every change)
