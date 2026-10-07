@@ -1,0 +1,152 @@
+targets:
+  Athena:
+    type: application
+    supportedDestinations: [macOS, iOS]
+    sources:
+      - path: Apps/Athena
+        excludes: ["app.yml", "Info.plist", "Widget/**", "Share/**", "*.entitlements"]
+      - path: Apps/Shared
+    preBuildScripts:
+      - name: Build the tokenizer + UMAP (Rust)
+        basedOnDependencyAnalysis: false
+        script: |
+          [ "$PLATFORM_NAME" = macosx ] || exit 0
+          export PATH="/opt/homebrew/opt/rustup/bin:$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+          if ! command -v cargo >/dev/null; then
+            echo "error: cargo not found: the Memory page's embedder builds its tokenizer with Rust. Install it, then build again:"
+            echo "error:   brew install rustup && /opt/homebrew/opt/rustup/bin/rustup default stable"
+            exit 1
+          fi
+          cd "$SRCROOT/ANEEmbed/tokenizer-ffi" && cargo build --release --locked
+    postBuildScripts:
+      - name: Stamp CalVer
+        basedOnDependencyAnalysis: false
+        inputFiles:                           # after ProcessInfoPlistFile, which would overwrite the stamp
+          - $(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)
+        script: sh "$SRCROOT/scripts/calver-stamp.sh"
+    dependencies:
+      - package: OracleKit
+      - package: ANEEmbed           # the Memory page's in-process embedder (Mac only)
+        product: ANEEmbedCore
+        destinationFilters: [macOS]
+      - package: ANEEmbed
+        product: MapLayoutUMAP
+        destinationFilters: [macOS]
+      - target: AthenaWidget
+      - target: AthenaShare
+        destinationFilters: [macOS]
+    entitlements:
+      path: Apps/Athena/Athena.entitlements
+      properties:          # xcodegen WRITES this file from here — a path alone becomes an empty <dict/>
+        com.apple.security.application-groups: [6K28WEXX78.co.laris.oracle.athena]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: co.laris.oracle.athena
+        PRODUCT_NAME: Athena
+        INFOPLIST_KEY_CFBundleDisplayName: Athena
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        TARGETED_DEVICE_FAMILY: "1,2"
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        ENABLE_APP_SANDBOX: NO
+        ENABLE_HARDENED_RUNTIME: NO
+        ENABLE_USER_SCRIPT_SANDBOXING: NO     # the tokenizer is built with cargo
+        "ARCHS[sdk=macosx*]": arm64           # the Neural Engine and the Float16 code exist only on Apple silicon
+    info:
+      path: Apps/Athena/Info.plist
+      properties:
+        CFBundleName: Athena
+        CFBundleDisplayName: Athena
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen: {}
+        CFBundleURLTypes:            # widget taps open oracle-<name>://open — the app must own the scheme
+          - CFBundleURLName: co.laris.oracle.athena
+            CFBundleURLSchemes: [oracle-athena]
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: Anything for Athena
+            CFBundleTypeRole: Viewer
+            LSHandlerRank: Alternate
+            LSItemContentTypes: [public.item, public.content, public.folder, public.url, public.data]
+        NSServices:                  # right-click → Services, anywhere: selected text, links, Finder files
+          - NSMenuItem: { default: "New Athena Oracle issue" }
+            NSMessage: newIssue
+            NSPortName: Athena
+            NSSendTypes: [public.utf8-plain-text, public.plain-text, public.url, public.file-url]
+            NSSendFileTypes: [public.item]
+            NSRequiredContext: {}       # enabled by default — without it macOS hides the service until switched on
+          - NSMenuItem: { default: "Send to Athena Oracle inbox" }
+            NSMessage: sendToInbox
+            NSPortName: Athena
+            NSSendTypes: [public.utf8-plain-text, public.plain-text, public.url, public.file-url]
+            NSSendFileTypes: [public.item]
+            NSRequiredContext: {}
+          - NSMenuItem: { default: "Message Athena Oracle" }
+            NSMessage: messageOracle
+            NSPortName: Athena
+            NSSendTypes: [public.utf8-plain-text, public.plain-text, public.url, public.file-url]
+            NSSendFileTypes: [public.item]
+            NSRequiredContext: {}
+  AthenaWidget:
+    type: app-extension
+    supportedDestinations: [macOS, iOS]
+    sources:
+      - path: Apps/Athena/Widget
+        excludes: ["*.entitlements", "Info.plist"]
+      - path: Apps/Athena/AthenaConfig.swift
+    dependencies:
+      - package: OracleKit
+      - sdk: WidgetKit.framework
+      - sdk: SwiftUI.framework
+    entitlements:
+      path: Apps/Athena/Widget/AthenaWidget.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.application-groups: [6K28WEXX78.co.laris.oracle.athena]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: co.laris.oracle.athena.widget
+        PRODUCT_NAME: AthenaWidget
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SKIP_INSTALL: YES
+        ENABLE_APP_SANDBOX: YES
+    info:
+      path: Apps/Athena/Widget/Info.plist
+      properties:
+        CFBundleDisplayName: Athena Oracle
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+  AthenaShare:                    # the macOS Share menu entry (Share ▸ Athena Oracle) — OracleShareViewController
+    type: app-extension
+    supportedDestinations: [macOS]
+    sources:
+      - path: Apps/Athena/Share
+        excludes: ["*.entitlements", "Info.plist"]
+      - path: Apps/Athena/AthenaConfig.swift
+    dependencies:
+      - package: OracleKit
+    entitlements:
+      path: Apps/Athena/Share/AthenaShare.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: co.laris.oracle.athena.share
+        PRODUCT_NAME: AthenaShare
+        SKIP_INSTALL: YES
+        ENABLE_APP_SANDBOX: YES
+    info:
+      path: Apps/Athena/Share/Info.plist
+      properties:
+        CFBundleDisplayName: Athena Oracle
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
+          NSExtensionAttributes:
+            NSExtensionActivationRule:
+              NSExtensionActivationSupportsWebURLWithMaxCount: 1
+              NSExtensionActivationSupportsText: true
+              NSExtensionActivationSupportsFileWithMaxCount: 1

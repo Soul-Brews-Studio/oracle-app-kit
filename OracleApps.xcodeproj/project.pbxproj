@@ -7,13 +7,16 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		03128D20616EAF13F22BCA8D /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D886FFA13B5C28908F463CE /* ShareViewController.swift */; };
 		05DAAADEDF82BFF4F279342B /* MapLayoutEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 976327A7B1A9B72817DDDF05 /* MapLayoutEngine.swift */; };
 		0B250C1843C4CAF984D3C87F /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = BF28BFF93E30F2016054C7FC /* OracleKit */; };
 		0CE7AD6783E511A241CCE8B9 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9747F85F8B3132BD641525AE /* Assets.xcassets */; };
 		0E2BA2D4130B1BF12FFE5AAA /* NexusShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 35FAA94347FA173BC06C86F8 /* NexusShare.appex */; platformFilters = (macos, ); settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		1219A0F40327E57A5C962C60 /* NexusConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = E596680FCB92D58641782D23 /* NexusConfig.swift */; };
 		135BC6904B6A6EF518DD7C74 /* NeoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA7B638D3B556C915C153B1E /* NeoApp.swift */; };
+		172E589132DADC7B3DD19523 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB009D7260C21CFEE11FBF5D /* ShareViewController.swift */; };
 		183930EB9CC6C46A392574DD /* NeoShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 47078A7D50C0767AD1B9544E /* NeoShare.appex */; platformFilters = (macos, ); settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		22E9384588A9A57AB8C2E107 /* AthenaConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C34FED5257B206064C6E7E7 /* AthenaConfig.swift */; };
 		2314A1BB992922AD62B2E477 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E220E57022CA2B7EB0FD203 /* WidgetKit.framework */; };
 		248DBC4D211229CA18D7B079 /* BundledANE.swift in Sources */ = {isa = PBXBuildFile; fileRef = 334B42F2652061E9832A4410 /* BundledANE.swift */; };
 		2668904C7E52D602BD0C6ABF /* NexusConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = E596680FCB92D58641782D23 /* NexusConfig.swift */; };
@@ -22,13 +25,17 @@
 		3B644CA804D8F0783F6696AA /* PulseConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = B137A3369CF3DC8269C32453 /* PulseConfig.swift */; };
 		3B76FA783180274DC3FF3684 /* PulseWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = BE742AC8F1D736B0152CD64B /* PulseWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		3EAC39F660472701B2B3CAAC /* HubApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FC24FF95F7988B14813C430 /* HubApp.swift */; };
+		42B51E73231E485B620DEC4A /* ANEEmbedCore in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = EBAFD44694925F4775C0B472 /* ANEEmbedCore */; };
+		44941594C719B322FEC6A5EF /* MapLayoutUMAP in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = EE05C73489675AE8A0BFB668 /* MapLayoutUMAP */; };
 		4771993584B814FF8A661A42 /* NexusApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C7F01FD47329725FDFEFBF7 /* NexusApp.swift */; };
+		483A0F32E5BDEF7F5C4ADEE9 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E220E57022CA2B7EB0FD203 /* WidgetKit.framework */; };
+		4C95A9BC7387EBE30BECFF0B /* AthenaExtras.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D3F5324A8D6E125BC55322C /* AthenaExtras.swift */; };
 		4CAB4D5D7656E5C8BDEB427D /* ANEEmbedCore in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = 1A760CF2A55F6C237D98F152 /* ANEEmbedCore */; };
 		4D873E55B912A714615E4FCF /* PulseWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 935A69762DBD19A005AFE22F /* PulseWidget.swift */; };
 		53B755FA4FF9B222A9140E10 /* MapLayoutEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 976327A7B1A9B72817DDDF05 /* MapLayoutEngine.swift */; };
 		53CA0DD7DC807DAC6EF36E9B /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E220E57022CA2B7EB0FD203 /* WidgetKit.framework */; };
 		548EF9C7581D38F5E84BCD66 /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = AA25C26D192E25E4550F953D /* OracleKit */; };
-		54E3709C28D2D3F941322A12 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D02737C18CEE930435DDAD1 /* ShareViewController.swift */; };
+		5933050FCD2F5F059D3C4263 /* BundledANE.swift in Sources */ = {isa = PBXBuildFile; fileRef = 334B42F2652061E9832A4410 /* BundledANE.swift */; };
 		59B26BEE9BCEFC70F0E9AEAB /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = B0F5F3BACE628CD6D829BFDE /* OracleKit */; };
 		5BB05E053370D69F3D537F60 /* MapSpikeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F81A043C03E0EBA50048E1B1 /* MapSpikeApp.swift */; };
 		5F73AFB86D0CF89FD12B49E0 /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = 9EB334B6C1B129FB8DF7D118 /* OracleKit */; };
@@ -37,6 +44,10 @@
 		6C5441D9506C4227FB534A28 /* MapLayoutUMAP in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = 77079D500348CB3CDEBE6BE6 /* MapLayoutUMAP */; };
 		6E1E55DE03EE6C092E7ED1E6 /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = 4B4657CD7678E1CEC26E7C94 /* OracleKit */; };
 		6F8DA303E4A8482015835CB7 /* NexusWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = B55D288BD45D60C57EC1FD16 /* NexusWidget.swift */; };
+		72386EC7DD3161606709A77E /* MapLayoutEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 976327A7B1A9B72817DDDF05 /* MapLayoutEngine.swift */; };
+		73E22A1958C820F3D01B8701 /* AthenaApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5272A6BAC2792D93DFD2BDF8 /* AthenaApp.swift */; };
+		78946F22CF1780C0946CF7AF /* AthenaConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C34FED5257B206064C6E7E7 /* AthenaConfig.swift */; };
+		7A47C1D6238CEDB7A77EB335 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE26685A1F4C957C3B6A7C53 /* ShareViewController.swift */; };
 		7C447707E6EFA415C2620730 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 90BF0F508DBC77E53A7F9A0F /* Assets.xcassets */; };
 		7E7FEEA734353F7C28425E05 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 464E48710AE91C739C8B1105 /* Assets.xcassets */; };
 		81B740EF69BBBEAB1B99740D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FE480FFFEE4B266EB37C8F5F /* Assets.xcassets */; };
@@ -44,8 +55,11 @@
 		8505E97A8977FEE81E2CB5D9 /* NeoExtras.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85CC7A862B4A57539A3EC547 /* NeoExtras.swift */; };
 		85A9367B8DDB37C40B9472FA /* NexusConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = E596680FCB92D58641782D23 /* NexusConfig.swift */; };
 		88789D16B8DBC2A2204E7C9E /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 9C0A19BBEABB401B04EC5439 /* README.md */; };
+		889D357860F7B861A5D88B93 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 468221B2146BCBCC791C3B0B /* SwiftUI.framework */; };
 		89201715E26C3A13D0949318 /* PulseApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9231C651A42F8ED3C6DF7549 /* PulseApp.swift */; };
+		8ADFC6A2ABC378C6EA26BB5E /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D02737C18CEE930435DDAD1 /* ShareViewController.swift */; };
 		92A18715358F7ABD3A3B9256 /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = 4BC6B464CFBBEF1106689585 /* OracleKit */; };
+		9646DF37B3C4B4EFCB823A62 /* AthenaWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = BA2FD26FF1ECFF685AC4AC64 /* AthenaWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		97098FAE2CDF70880DBCAAB7 /* NexusWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 83F5B866C705325F7C2918CF /* NexusWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		971E729911F9BD737E91F026 /* NeoConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C722827C1DFF0CDB6F2F247 /* NeoConfig.swift */; };
 		98449831B194C1305DBEB46E /* PulseShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B7C941E4DEF8A26B4C94E87F /* PulseShare.appex */; platformFilters = (macos, ); settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -58,13 +72,15 @@
 		A92220ACB1EEA09648D09C9F /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = D8034BE3BE3303D05E137A02 /* OracleKit */; };
 		AA2DD123CEF605C9E6C787A3 /* NeoWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 5EDFE877D27D8F8E8ECC5030 /* NeoWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		AA516104F3FF540DCB538557 /* ANEEmbedCore in Frameworks */ = {isa = PBXBuildFile; productRef = E21624C123AE7BFF0CA6252F /* ANEEmbedCore */; };
+		B06309C44C8E11A1C90E9075 /* AthenaConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C34FED5257B206064C6E7E7 /* AthenaConfig.swift */; };
 		BD95A60EDF666B29F5538E29 /* ANEEmbedCore in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = BEE0829B4ADE75163F6AD679 /* ANEEmbedCore */; };
+		BFBDC167CC330C830EDC0901 /* AthenaWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EDEF2C3DE3B2B9562C67750 /* AthenaWidget.swift */; };
 		C4E0BD8D0B45870B893A2D5D /* NeoConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C722827C1DFF0CDB6F2F247 /* NeoConfig.swift */; };
 		CF034138F765942980273B77 /* MapLayoutUMAP in Frameworks */ = {isa = PBXBuildFile; productRef = F02E3571191A5EED9D261FEC /* MapLayoutUMAP */; };
 		CF7B1BE232CD2BB414E927AF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 907F6BD4CB49E2095191A779 /* Assets.xcassets */; };
 		D60C5A99551B4457FF12EE32 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 468221B2146BCBCC791C3B0B /* SwiftUI.framework */; };
 		D663B860B510852E1D758CEA /* MapLayoutUMAP in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = 5323E2879BF88EFEE7550670 /* MapLayoutUMAP */; };
-		D7511C67943FE37ADACAAAAD /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB009D7260C21CFEE11FBF5D /* ShareViewController.swift */; };
+		D768A2765421CF790B524344 /* AthenaShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = FE8FD0D33704B406B0097DE9 /* AthenaShare.appex */; platformFilters = (macos, ); settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		D838E66684EAB34DB1B0B356 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 03555D2BE97613AFC8E9C4D2 /* Assets.xcassets */; };
 		DC4D7AA2897574B907380863 /* MapLayoutEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 976327A7B1A9B72817DDDF05 /* MapLayoutEngine.swift */; };
 		DF81AAE88BAF2C34DC049621 /* BundledANE.swift in Sources */ = {isa = PBXBuildFile; fileRef = 334B42F2652061E9832A4410 /* BundledANE.swift */; };
@@ -72,10 +88,13 @@
 		E1DAE08F0390A9AE8DCCA5BA /* MapLayoutUMAP in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = D39A71B81546A041AFC23AFF /* MapLayoutUMAP */; };
 		E237B244B33315B46DB5A310 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 468221B2146BCBCC791C3B0B /* SwiftUI.framework */; };
 		E34688015F45948EA7A17D16 /* BundledANE.swift in Sources */ = {isa = PBXBuildFile; fileRef = 334B42F2652061E9832A4410 /* BundledANE.swift */; };
+		E5503F397904704681CD4D6E /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = 4F4CB2AABE28092C38B31B67 /* OracleKit */; };
 		E73105C73F8AAB325D00F325 /* PulseConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = B137A3369CF3DC8269C32453 /* PulseConfig.swift */; };
 		E742B9D4AF1468C14735954D /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = FECEC892500CEA279D83D81D /* OracleKit */; };
+		E8A3A16D817D60163122763D /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = AEBF2F4341D4B8211B87EB8D /* OracleKit */; };
 		EDC954BB53A1938A2913FFC4 /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = 84774326CBC858F01F5A8C1F /* OracleKit */; };
-		F37E3C3DF96F6A7393312512 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE26685A1F4C957C3B6A7C53 /* ShareViewController.swift */; };
+		F8228D81F465A09EA1BA458B /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = 77D9A445400656D39EA0578E /* OracleKit */; };
+		FB7E1F6409E13460011CD592 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EE06677EE264FE2ED681B102 /* Assets.xcassets */; };
 		FD7A77DBE3B1668A604D354B /* PulseConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = B137A3369CF3DC8269C32453 /* PulseConfig.swift */; };
 		FDFDE290E1111B61F5A1D013 /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = D228F516928AAEE2C39582C7 /* OracleKit */; };
 /* End PBXBuildFile section */
@@ -109,6 +128,20 @@
 			remoteGlobalIDString = 9EC664F778F344E25A6035DF;
 			remoteInfo = NeoShare;
 		};
+		2097DC02E1A6BEA6816AAF89 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 430DB4AF39A44099EA106CF8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 41C38EED842B68CD72BCC006;
+			remoteInfo = AthenaShare;
+		};
+		8745C289EF0A1690A9CF9276 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 430DB4AF39A44099EA106CF8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 3AAAA6C923E3C0CA18F05066;
+			remoteInfo = AthenaWidget;
+		};
 		94212C719841CD3C4694701C /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 430DB4AF39A44099EA106CF8 /* Project object */;
@@ -134,6 +167,18 @@
 			files = (
 				97098FAE2CDF70880DBCAAB7 /* NexusWidget.appex in Embed Foundation Extensions */,
 				0E2BA2D4130B1BF12FFE5AAA /* NexusShare.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		50AEE3713C147D874D2BF7C5 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				9646DF37B3C4B4EFCB823A62 /* AthenaWidget.appex in Embed Foundation Extensions */,
+				D768A2765421CF790B524344 /* AthenaShare.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -167,9 +212,12 @@
 /* Begin PBXFileReference section */
 		03555D2BE97613AFC8E9C4D2 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		0D02737C18CEE930435DDAD1 /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
+		1D886FFA13B5C28908F463CE /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		1F13410DB812353A44FCE45E /* PulseExtras.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PulseExtras.swift; sourceTree = "<group>"; };
 		1FC24FF95F7988B14813C430 /* HubApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HubApp.swift; sourceTree = "<group>"; };
+		2C34FED5257B206064C6E7E7 /* AthenaConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AthenaConfig.swift; sourceTree = "<group>"; };
 		2C7F01FD47329725FDFEFBF7 /* NexusApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusApp.swift; sourceTree = "<group>"; };
+		2D3F5324A8D6E125BC55322C /* AthenaExtras.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AthenaExtras.swift; sourceTree = "<group>"; };
 		2F0767639C078D6E55BCEA0E /* NexusExtras.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusExtras.swift; sourceTree = "<group>"; };
 		334B42F2652061E9832A4410 /* BundledANE.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BundledANE.swift; sourceTree = "<group>"; };
 		33D307D5CF34490C5E34FD95 /* Neo.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Neo.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -181,8 +229,10 @@
 		48E214A497E9D1CA5974B0D8 /* MapSpike.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MapSpike.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		4C722827C1DFF0CDB6F2F247 /* NeoConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NeoConfig.swift; sourceTree = "<group>"; };
 		5211C7221AC8D5AC6F908583 /* MapSpikeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapSpikeView.swift; sourceTree = "<group>"; };
+		5272A6BAC2792D93DFD2BDF8 /* AthenaApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AthenaApp.swift; sourceTree = "<group>"; };
 		5AEE109FB99598734E3D1A78 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		5E220E57022CA2B7EB0FD203 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		5EDEF2C3DE3B2B9562C67750 /* AthenaWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AthenaWidget.swift; sourceTree = "<group>"; };
 		5EDFE877D27D8F8E8ECC5030 /* NeoWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = NeoWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		83F5B866C705325F7C2918CF /* NexusWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = NexusWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		85CC7A862B4A57539A3EC547 /* NeoExtras.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NeoExtras.swift; sourceTree = "<group>"; };
@@ -199,6 +249,7 @@
 		B530CFD74615840D1FD21D61 /* Pulse.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Pulse.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B55D288BD45D60C57EC1FD16 /* NexusWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusWidget.swift; sourceTree = "<group>"; };
 		B7C941E4DEF8A26B4C94E87F /* PulseShare.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = PulseShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		BA2FD26FF1ECFF685AC4AC64 /* AthenaWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = AthenaWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		BD99D3EB0C88FD1452416FB0 /* NeoWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NeoWidget.swift; sourceTree = "<group>"; };
 		BE742AC8F1D736B0152CD64B /* PulseWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = PulseWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		D4532687283B94E464FAF092 /* Nexus.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Nexus.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -206,10 +257,13 @@
 		DB009D7260C21CFEE11FBF5D /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		E596680FCB92D58641782D23 /* NexusConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusConfig.swift; sourceTree = "<group>"; };
 		E6B04B136F929B594FC6EF73 /* OracleKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = OracleKit; path = OracleKit; sourceTree = SOURCE_ROOT; };
+		EE06677EE264FE2ED681B102 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		F0619A4B3810A5891443A746 /* Athena.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Athena.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F81A043C03E0EBA50048E1B1 /* MapSpikeApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapSpikeApp.swift; sourceTree = "<group>"; };
 		FA7B638D3B556C915C153B1E /* NeoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NeoApp.swift; sourceTree = "<group>"; };
 		FE26685A1F4C957C3B6A7C53 /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		FE480FFFEE4B266EB37C8F5F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		FE8FD0D33704B406B0097DE9 /* AthenaShare.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = AthenaShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -223,6 +277,16 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		37562548FAA3144015C2462F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E8A3A16D817D60163122763D /* OracleKit in Frameworks */,
+				42B51E73231E485B620DEC4A /* ANEEmbedCore in Frameworks */,
+				44941594C719B322FEC6A5EF /* MapLayoutUMAP in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		76DDC45B0E5FB3543A5B1ABA /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -230,6 +294,16 @@
 				59B26BEE9BCEFC70F0E9AEAB /* OracleKit in Frameworks */,
 				BD95A60EDF666B29F5538E29 /* ANEEmbedCore in Frameworks */,
 				D663B860B510852E1D758CEA /* MapLayoutUMAP in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		82236E31CB241297859E12EB /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F8228D81F465A09EA1BA458B /* OracleKit in Frameworks */,
+				483A0F32E5BDEF7F5C4ADEE9 /* WidgetKit.framework in Frameworks */,
+				889D357860F7B861A5D88B93 /* SwiftUI.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -268,6 +342,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				0B250C1843C4CAF984D3C87F /* OracleKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CA41517BE8077E60B5E75EBD /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E5503F397904704681CD4D6E /* OracleKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -313,11 +395,11 @@
 		01EF82A534256DBDA533DB95 /* Widget */ = {
 			isa = PBXGroup;
 			children = (
-				907F6BD4CB49E2095191A779 /* Assets.xcassets */,
-				935A69762DBD19A005AFE22F /* PulseWidget.swift */,
+				03555D2BE97613AFC8E9C4D2 /* Assets.xcassets */,
+				B55D288BD45D60C57EC1FD16 /* NexusWidget.swift */,
 			);
 			name = Widget;
-			path = Apps/Pulse/Widget;
+			path = Apps/Nexus/Widget;
 			sourceTree = "<group>";
 		};
 		0384E88409B511A572982525 /* Share */ = {
@@ -326,7 +408,7 @@
 				0D02737C18CEE930435DDAD1 /* ShareViewController.swift */,
 			);
 			name = Share;
-			path = Apps/Pulse/Share;
+			path = Apps/Nexus/Share;
 			sourceTree = "<group>";
 		};
 		072B09D458817296196F9E72 /* Frameworks */ = {
@@ -385,6 +467,7 @@
 		3F531203EF9C81FB862684E9 = {
 			isa = PBXGroup;
 			children = (
+				B7F4468C0358B14E2E025CC4 /* Athena */,
 				A918F7E796C546502FC59506 /* Hub */,
 				35EDBF87D2CB78FF0CFF58BA /* MapSpike */,
 				79EA5A1B63E63D54532633FF /* Neo */,
@@ -394,13 +477,24 @@
 				7B49B58220D073276B787D0B /* Share */,
 				B328325CAB29F20534286946 /* Share */,
 				0384E88409B511A572982525 /* Share */,
+				421FFC4696589BF6E57ED056 /* Share */,
 				2F52D47C54D9F3881D771C25 /* Shared */,
 				F838466B268DCCACEA2010A0 /* Widget */,
 				FFE632A0E473818E54EAD582 /* Widget */,
 				01EF82A534256DBDA533DB95 /* Widget */,
+				952511CBCE103687209081B9 /* Widget */,
 				072B09D458817296196F9E72 /* Frameworks */,
 				4B3911DA704ADFCF590622F2 /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		421FFC4696589BF6E57ED056 /* Share */ = {
+			isa = PBXGroup;
+			children = (
+				1D886FFA13B5C28908F463CE /* ShareViewController.swift */,
+			);
+			name = Share;
+			path = Apps/Pulse/Share;
 			sourceTree = "<group>";
 		};
 		47651820CEB16DF156C79410 /* Nexus */ = {
@@ -418,6 +512,9 @@
 		4B3911DA704ADFCF590622F2 /* Products */ = {
 			isa = PBXGroup;
 			children = (
+				F0619A4B3810A5891443A746 /* Athena.app */,
+				FE8FD0D33704B406B0097DE9 /* AthenaShare.appex */,
+				BA2FD26FF1ECFF685AC4AC64 /* AthenaWidget.appex */,
 				48E214A497E9D1CA5974B0D8 /* MapSpike.app */,
 				33D307D5CF34490C5E34FD95 /* Neo.app */,
 				47078A7D50C0767AD1B9544E /* NeoShare.appex */,
@@ -451,7 +548,17 @@
 				DB009D7260C21CFEE11FBF5D /* ShareViewController.swift */,
 			);
 			name = Share;
-			path = Apps/Neo/Share;
+			path = Apps/Athena/Share;
+			sourceTree = "<group>";
+		};
+		952511CBCE103687209081B9 /* Widget */ = {
+			isa = PBXGroup;
+			children = (
+				907F6BD4CB49E2095191A779 /* Assets.xcassets */,
+				935A69762DBD19A005AFE22F /* PulseWidget.swift */,
+			);
+			name = Widget;
+			path = Apps/Pulse/Widget;
 			sourceTree = "<group>";
 		};
 		A918F7E796C546502FC59506 /* Hub */ = {
@@ -470,10 +577,31 @@
 				FE26685A1F4C957C3B6A7C53 /* ShareViewController.swift */,
 			);
 			name = Share;
-			path = Apps/Nexus/Share;
+			path = Apps/Neo/Share;
+			sourceTree = "<group>";
+		};
+		B7F4468C0358B14E2E025CC4 /* Athena */ = {
+			isa = PBXGroup;
+			children = (
+				EE06677EE264FE2ED681B102 /* Assets.xcassets */,
+				5272A6BAC2792D93DFD2BDF8 /* AthenaApp.swift */,
+				2C34FED5257B206064C6E7E7 /* AthenaConfig.swift */,
+				2D3F5324A8D6E125BC55322C /* AthenaExtras.swift */,
+			);
+			name = Athena;
+			path = Apps/Athena;
 			sourceTree = "<group>";
 		};
 		F838466B268DCCACEA2010A0 /* Widget */ = {
+			isa = PBXGroup;
+			children = (
+				5EDEF2C3DE3B2B9562C67750 /* AthenaWidget.swift */,
+			);
+			name = Widget;
+			path = Apps/Athena/Widget;
+			sourceTree = "<group>";
+		};
+		FFE632A0E473818E54EAD582 /* Widget */ = {
 			isa = PBXGroup;
 			children = (
 				90BF0F508DBC77E53A7F9A0F /* Assets.xcassets */,
@@ -481,16 +609,6 @@
 			);
 			name = Widget;
 			path = Apps/Neo/Widget;
-			sourceTree = "<group>";
-		};
-		FFE632A0E473818E54EAD582 /* Widget */ = {
-			isa = PBXGroup;
-			children = (
-				03555D2BE97613AFC8E9C4D2 /* Assets.xcassets */,
-				B55D288BD45D60C57EC1FD16 /* NexusWidget.swift */,
-			);
-			name = Widget;
-			path = Apps/Nexus/Widget;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -515,6 +633,33 @@
 			productName = NeoWidget;
 			productReference = 5EDFE877D27D8F8E8ECC5030 /* NeoWidget.appex */;
 			productType = "com.apple.product-type.app-extension";
+		};
+		0556FD470E85167CC8F29199 /* Athena */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 51023D9D63384CC4B177F4FF /* Build configuration list for PBXNativeTarget "Athena" */;
+			buildPhases = (
+				1ECD8A958265800EAF04371A /* Build the tokenizer + UMAP (Rust) */,
+				9CFE3339E20691F6CDC6FD21 /* Sources */,
+				CD6516F177C22017AB449F8E /* Resources */,
+				37562548FAA3144015C2462F /* Frameworks */,
+				50AEE3713C147D874D2BF7C5 /* Embed Foundation Extensions */,
+				00B12F4295C14075489EF676 /* Stamp CalVer */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				B103F8B91845897E8A636AE5 /* PBXTargetDependency */,
+				E1FDB5BDB2BCE4322735477A /* PBXTargetDependency */,
+			);
+			name = Athena;
+			packageProductDependencies = (
+				AEBF2F4341D4B8211B87EB8D /* OracleKit */,
+				EBAFD44694925F4775C0B472 /* ANEEmbedCore */,
+				EE05C73489675AE8A0BFB668 /* MapLayoutUMAP */,
+			);
+			productName = Athena;
+			productReference = F0619A4B3810A5891443A746 /* Athena.app */;
+			productType = "com.apple.product-type.application";
 		};
 		0B340EA5EB290CE723DAF822 /* NexusShare */ = {
 			isa = PBXNativeTarget;
@@ -553,6 +698,44 @@
 			);
 			productName = PulseWidget;
 			productReference = BE742AC8F1D736B0152CD64B /* PulseWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		3AAAA6C923E3C0CA18F05066 /* AthenaWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6439DA86A7E8A1A41321BB9B /* Build configuration list for PBXNativeTarget "AthenaWidget" */;
+			buildPhases = (
+				043FA8E1E36E21F97E145240 /* Sources */,
+				82236E31CB241297859E12EB /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = AthenaWidget;
+			packageProductDependencies = (
+				77D9A445400656D39EA0578E /* OracleKit */,
+			);
+			productName = AthenaWidget;
+			productReference = BA2FD26FF1ECFF685AC4AC64 /* AthenaWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		41C38EED842B68CD72BCC006 /* AthenaShare */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5208B726322235D8FA11EB0A /* Build configuration list for PBXNativeTarget "AthenaShare" */;
+			buildPhases = (
+				A38285BC096149E7D6C6985D /* Sources */,
+				CA41517BE8077E60B5E75EBD /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = AthenaShare;
+			packageProductDependencies = (
+				4F4CB2AABE28092C38B31B67 /* OracleKit */,
+			);
+			productName = AthenaShare;
+			productReference = FE8FD0D33704B406B0097DE9 /* AthenaShare.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
 		6EE9931880511398B434CF6B /* Oracles */ = {
@@ -750,11 +933,23 @@
 						DevelopmentTeam = 6K28WEXX78;
 						ProvisioningStyle = Automatic;
 					};
+					0556FD470E85167CC8F29199 = {
+						DevelopmentTeam = 6K28WEXX78;
+						ProvisioningStyle = Automatic;
+					};
 					0B340EA5EB290CE723DAF822 = {
 						DevelopmentTeam = 6K28WEXX78;
 						ProvisioningStyle = Automatic;
 					};
 					19EE540E3E022009C36A99F1 = {
+						DevelopmentTeam = 6K28WEXX78;
+						ProvisioningStyle = Automatic;
+					};
+					3AAAA6C923E3C0CA18F05066 = {
+						DevelopmentTeam = 6K28WEXX78;
+						ProvisioningStyle = Automatic;
+					};
+					41C38EED842B68CD72BCC006 = {
 						DevelopmentTeam = 6K28WEXX78;
 						ProvisioningStyle = Automatic;
 					};
@@ -810,6 +1005,9 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
+				0556FD470E85167CC8F29199 /* Athena */,
+				41C38EED842B68CD72BCC006 /* AthenaShare */,
+				3AAAA6C923E3C0CA18F05066 /* AthenaWidget */,
 				9CBD3CAC09ABBCB109575F65 /* MapSpike */,
 				F4C43E59E3D089F341776040 /* Neo */,
 				9EC664F778F344E25A6035DF /* NeoShare */,
@@ -891,9 +1089,37 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		CD6516F177C22017AB449F8E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FB7E1F6409E13460011CD592 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		00B12F4295C14075489EF676 /* Stamp CalVer */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)",
+			);
+			name = "Stamp CalVer";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "sh \"$SRCROOT/scripts/calver-stamp.sh\"";
+		};
 		07F28E6729FA39CB13B7734F /* Build the tokenizer + UMAP (Rust) */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -952,6 +1178,25 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "sh \"$SRCROOT/scripts/calver-stamp.sh\"";
+		};
+		1ECD8A958265800EAF04371A /* Build the tokenizer + UMAP (Rust) */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Build the tokenizer + UMAP (Rust)";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "[ \"$PLATFORM_NAME\" = macosx ] || exit 0\nexport PATH=\"/opt/homebrew/opt/rustup/bin:$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH\"\nif ! command -v cargo >/dev/null; then\n  echo \"error: cargo not found: the Memory page's embedder builds its tokenizer with Rust. Install it, then build again:\"\n  echo \"error:   brew install rustup && /opt/homebrew/opt/rustup/bin/rustup default stable\"\n  exit 1\nfi\ncd \"$SRCROOT/ANEEmbed/tokenizer-ffi\" && cargo build --release --locked\n";
 		};
 		271BE96050CFF8189006A6CC /* Build the tokenizer + UMAP (Rust) */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -1072,6 +1317,15 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		043FA8E1E36E21F97E145240 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				22E9384588A9A57AB8C2E107 /* AthenaConfig.swift in Sources */,
+				BFBDC167CC330C830EDC0901 /* AthenaWidget.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		198D1CFD92F8BB0B1BE14374 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1089,7 +1343,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C4E0BD8D0B45870B893A2D5D /* NeoConfig.swift in Sources */,
-				D7511C67943FE37ADACAAAAD /* ShareViewController.swift in Sources */,
+				7A47C1D6238CEDB7A77EB335 /* ShareViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1107,7 +1361,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				2668904C7E52D602BD0C6ABF /* NexusConfig.swift in Sources */,
-				F37E3C3DF96F6A7393312512 /* ShareViewController.swift in Sources */,
+				8ADFC6A2ABC378C6EA26BB5E /* ShareViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1132,12 +1386,33 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		9CFE3339E20691F6CDC6FD21 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				73E22A1958C820F3D01B8701 /* AthenaApp.swift in Sources */,
+				B06309C44C8E11A1C90E9075 /* AthenaConfig.swift in Sources */,
+				4C95A9BC7387EBE30BECFF0B /* AthenaExtras.swift in Sources */,
+				5933050FCD2F5F059D3C4263 /* BundledANE.swift in Sources */,
+				72386EC7DD3161606709A77E /* MapLayoutEngine.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A38285BC096149E7D6C6985D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				78946F22CF1780C0946CF7AF /* AthenaConfig.swift in Sources */,
+				172E589132DADC7B3DD19523 /* ShareViewController.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		BFE6C4030E63FB39B7303ACF /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				3B644CA804D8F0783F6696AA /* PulseConfig.swift in Sources */,
-				54E3709C28D2D3F941322A12 /* ShareViewController.swift in Sources */,
+				03128D20616EAF13F22BCA8D /* ShareViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1210,6 +1485,19 @@
 			target = 01CF40E90577B244E67480F2 /* NeoWidget */;
 			targetProxy = 0A143AA29BF2AB14D5BDF335 /* PBXContainerItemProxy */;
 		};
+		B103F8B91845897E8A636AE5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 3AAAA6C923E3C0CA18F05066 /* AthenaWidget */;
+			targetProxy = 8745C289EF0A1690A9CF9276 /* PBXContainerItemProxy */;
+		};
+		E1FDB5BDB2BCE4322735477A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			platformFilters = (
+				macos,
+			);
+			target = 41C38EED842B68CD72BCC006 /* AthenaShare */;
+			targetProxy = 2097DC02E1A6BEA6816AAF89 /* PBXContainerItemProxy */;
+		};
 		F4AD72B2B5A0089245802712 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			platformFilters = (
@@ -1226,6 +1514,29 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		07936E0E71E809D0D371ECBB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Apps/Athena/Widget/AthenaWidget.entitlements;
+				ENABLE_APP_SANDBOX = YES;
+				INFOPLIST_FILE = Apps/Athena/Widget/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = co.laris.oracle.athena.widget;
+				PRODUCT_NAME = AthenaWidget;
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
 		07F9CD8CF473A4D397574F5C /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1482,6 +1793,29 @@
 			};
 			name = Debug;
 		};
+		555C4786344B345F27570ED9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Apps/Athena/Share/AthenaShare.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_APP_SANDBOX = YES;
+				INFOPLIST_FILE = Apps/Athena/Share/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = co.laris.oracle.athena.share;
+				PRODUCT_NAME = AthenaShare;
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = macosx;
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				TARGETED_DEVICE_FAMILY = "";
+			};
+			name = Release;
+		};
 		5794BC0AF53A1C51FC6AAAB3 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1596,6 +1930,34 @@
 				TARGETED_DEVICE_FAMILY = "";
 			};
 			name = Release;
+		};
+		83E9987A894499859911A671 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				"ARCHS[sdk=macosx*]" = arm64;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Apps/Athena/Athena.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				INFOPLIST_FILE = Apps/Athena/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Athena;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = co.laris.oracle.athena;
+				PRODUCT_NAME = Athena;
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
 		};
 		8819780CA64A0C0892B6242C /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -1740,6 +2102,29 @@
 			};
 			name = Release;
 		};
+		A7DC5BDC8F0D73F7E5EC8BAB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Apps/Athena/Widget/AthenaWidget.entitlements;
+				ENABLE_APP_SANDBOX = YES;
+				INFOPLIST_FILE = Apps/Athena/Widget/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = co.laris.oracle.athena.widget;
+				PRODUCT_NAME = AthenaWidget;
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		A976E630B98AE5E3042501D3 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1787,6 +2172,57 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = co.laris.oracle.neo;
 				PRODUCT_NAME = Neo;
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		B2AFF76EC9FCB164B26F35B4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Apps/Athena/Share/AthenaShare.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_APP_SANDBOX = YES;
+				INFOPLIST_FILE = Apps/Athena/Share/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = co.laris.oracle.athena.share;
+				PRODUCT_NAME = AthenaShare;
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = macosx;
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				TARGETED_DEVICE_FAMILY = "";
+			};
+			name = Debug;
+		};
+		C548477B467CAE24EC9E5B1C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				"ARCHS[sdk=macosx*]" = arm64;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Apps/Athena/Athena.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				INFOPLIST_FILE = Apps/Athena/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Athena;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = co.laris.oracle.athena;
+				PRODUCT_NAME = Athena;
 				SDKROOT = auto;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
 				SUPPORTS_MACCATALYST = NO;
@@ -1926,11 +2362,38 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
+		51023D9D63384CC4B177F4FF /* Build configuration list for PBXNativeTarget "Athena" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				83E9987A894499859911A671 /* Debug */,
+				C548477B467CAE24EC9E5B1C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		5208B726322235D8FA11EB0A /* Build configuration list for PBXNativeTarget "AthenaShare" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B2AFF76EC9FCB164B26F35B4 /* Debug */,
+				555C4786344B345F27570ED9 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		589303ABA1D2D9F2BA20231D /* Build configuration list for PBXNativeTarget "NeoShare" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				1ED26561887388A71C76D6F5 /* Debug */,
 				6F033EA9ADDB5685F5A7758A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		6439DA86A7E8A1A41321BB9B /* Build configuration list for PBXNativeTarget "AthenaWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				07936E0E71E809D0D371ECBB /* Debug */,
+				A7DC5BDC8F0D73F7E5EC8BAB /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
@@ -2028,6 +2491,10 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = OracleKit;
 		};
+		4F4CB2AABE28092C38B31B67 /* OracleKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = OracleKit;
+		};
 		5323E2879BF88EFEE7550670 /* MapLayoutUMAP */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = MapLayoutUMAP;
@@ -2035,6 +2502,10 @@
 		77079D500348CB3CDEBE6BE6 /* MapLayoutUMAP */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = MapLayoutUMAP;
+		};
+		77D9A445400656D39EA0578E /* OracleKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = OracleKit;
 		};
 		84774326CBC858F01F5A8C1F /* OracleKit */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -2045,6 +2516,10 @@
 			productName = OracleKit;
 		};
 		AA25C26D192E25E4550F953D /* OracleKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = OracleKit;
+		};
+		AEBF2F4341D4B8211B87EB8D /* OracleKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = OracleKit;
 		};
@@ -2075,6 +2550,14 @@
 		E21624C123AE7BFF0CA6252F /* ANEEmbedCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = ANEEmbedCore;
+		};
+		EBAFD44694925F4775C0B472 /* ANEEmbedCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ANEEmbedCore;
+		};
+		EE05C73489675AE8A0BFB668 /* MapLayoutUMAP */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = MapLayoutUMAP;
 		};
 		F02E3571191A5EED9D261FEC /* MapLayoutUMAP */ = {
 			isa = XCSwiftPackageProductDependency;
