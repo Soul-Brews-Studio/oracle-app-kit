@@ -41,7 +41,11 @@ public struct OracleConfig: Sendable {
     /// process's own signed entitlements, so an app signed by another team finds its group; the literal is the
     /// fallback for an unsigned run.
     public var widgetGroup: String {
+        #if os(iOS)
+        "group.co.laris.oracle." + appKey      // iOS names a group group.<id>; there is no team prefix
+        #else
         OracleConfig.signedGroups.first { $0.hasSuffix(".co.laris.oracle." + appKey) } ?? "6K28WEXX78.co.laris.oracle." + appKey
+        #endif
     }
     /// The widget extension's bundle id — its sandbox container is the one path it can surely read.
     public var widgetBundleId: String { "co.laris.oracle." + appKey + ".widget" }

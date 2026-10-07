@@ -44,7 +44,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: co.laris.oracle.neo
         PRODUCT_NAME: Neo
-        INFOPLIST_KEY_CFBundleDisplayName: Neo
+        INFOPLIST_KEY_CFBundleDisplayName: Neo Oracle
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: "1,2"
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
@@ -52,11 +52,12 @@ targets:
         ENABLE_HARDENED_RUNTIME: NO
         ENABLE_USER_SCRIPT_SANDBOXING: NO     # the tokenizer is built with cargo
         "ARCHS[sdk=macosx*]": arm64           # the Neural Engine and the Float16 code exist only on Apple silicon
+        "CODE_SIGN_ENTITLEMENTS[sdk=iphone*]": Apps/Neo/Neo-iOS.entitlements    # iOS wants group.<id>, not the team-prefixed macOS form
     info:
       path: Apps/Neo/Info.plist
       properties:
         CFBundleName: Neo
-        CFBundleDisplayName: Neo
+        CFBundleDisplayName: Neo Oracle
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen: {}
@@ -123,6 +124,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: co.laris.oracle.neo.widget
         PRODUCT_NAME: NeoWidget
+        "CODE_SIGN_ENTITLEMENTS[sdk=iphone*]": Apps/Neo/Widget/NeoWidget-iOS.entitlements
         TARGETED_DEVICE_FAMILY: "1,2"
         SKIP_INSTALL: YES
         ENABLE_APP_SANDBOX: YES

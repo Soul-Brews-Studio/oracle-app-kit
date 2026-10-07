@@ -50,7 +50,7 @@ if [ -d "$A" ]; then
   ID=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$P" 2>/dev/null)
   DN=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleDisplayName' "$P" 2>/dev/null)
   V=$(/usr/libexec/PlistBuddy -c 'Print :ARRACalVer' "$P" 2>/dev/null)
-  [[ $ID == co.laris.oracle.$KEY && $DN == $N ]] && ok "installed    $A ($ID, \"$DN\")" || bad "installed    $A is $ID \"$DN\", expected co.laris.oracle.$KEY \"$N\"" "zsh $K/scripts/build.sh $N --install"
+  [[ $ID == co.laris.oracle.$KEY && $DN == "$N Oracle" ]] && ok "installed    $A ($ID, \"$DN\")" || bad "installed    $A is $ID \"$DN\", expected co.laris.oracle.$KEY \"$N Oracle\"" "zsh $K/scripts/build.sh $N --install"
   [[ $V == *$(TZ=Asia/Bangkok date +%y.%-m.%-d)* ]] && ok "CalVer       $V" || bad "CalVer       ${V:-none} — not built today (Bangkok)" "zsh $K/scripts/build.sh $N --install"
   # the widget and share carry the app's version and build (one stamp per build): Xcode warns otherwise, App Store refuses
   pv() { /usr/libexec/PlistBuddy -c "Print :$1" "$2" 2>/dev/null }

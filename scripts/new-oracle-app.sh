@@ -234,6 +234,21 @@ cat > $D/Widget/${N}Widget.entitlements <<PL
   <key>com.apple.security.application-groups</key><array><string>$GROUP</string></array>
 </dict></plist>
 PL
+# iOS: an App Group must be named group.<id> (the macOS entitlements above keep the team-prefixed form)
+cat > $D/${N}-iOS.entitlements <<PL
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>com.apple.security.application-groups</key><array><string>group.co.laris.oracle.$KEY</string></array>
+</dict></plist>
+PL
+cat > $D/Widget/${N}Widget-iOS.entitlements <<PL
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>com.apple.security.application-groups</key><array><string>group.co.laris.oracle.$KEY</string></array>
+</dict></plist>
+PL
 cat > $D/app.yml <<YML
 targets:
   $N:
@@ -281,7 +296,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: co.laris.oracle.$KEY
         PRODUCT_NAME: $N
-        INFOPLIST_KEY_CFBundleDisplayName: $N
+        INFOPLIST_KEY_CFBundleDisplayName: $N Oracle
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: "1,2"
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
@@ -289,11 +304,12 @@ targets:
         ENABLE_HARDENED_RUNTIME: NO
         ENABLE_USER_SCRIPT_SANDBOXING: NO     # the tokenizer is built with cargo
         "ARCHS[sdk=macosx*]": arm64           # the Neural Engine and the Float16 code exist only on Apple silicon
+        "CODE_SIGN_ENTITLEMENTS[sdk=iphone*]": Apps/$N/${N}-iOS.entitlements    # iOS wants group.<id>, not the team-prefixed macOS form
     info:
       path: Apps/$N/Info.plist
       properties:
         CFBundleName: $N
-        CFBundleDisplayName: $N
+        CFBundleDisplayName: $N Oracle
         CFBundleShortVersionString: \$(MARKETING_VERSION)
         CFBundleVersion: \$(CURRENT_PROJECT_VERSION)
         UILaunchScreen: {}
@@ -360,6 +376,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: co.laris.oracle.$KEY.widget
         PRODUCT_NAME: ${N}Widget
+        "CODE_SIGN_ENTITLEMENTS[sdk=iphone*]": Apps/$N/Widget/${N}Widget-iOS.entitlements
         TARGETED_DEVICE_FAMILY: "1,2"
         SKIP_INSTALL: YES
         ENABLE_APP_SANDBOX: YES

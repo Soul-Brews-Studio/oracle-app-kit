@@ -29,7 +29,7 @@ for N in $names; do
     print -r -- "$out" | sed -e "s|${T:A}|$R|g" -e "s|zsh scripts/new-oracle-app.sh|zsh $R/scripts/new-oracle-app.sh --update|" -e 's| --no-regen||' -e 's/^/    /'; rc=1; continue
   fi
   bad=0
-  for f in ${N}App.swift ${N}Config.swift app.yml Widget/${N}Widget.swift Share/ShareViewController.swift ${N}.entitlements Widget/${N}Widget.entitlements; do
+  for f in ${N}App.swift ${N}Config.swift app.yml Widget/${N}Widget.swift Share/ShareViewController.swift ${N}.entitlements Widget/${N}Widget.entitlements ${N}-iOS.entitlements Widget/${N}Widget-iOS.entitlements; do
     if ! diff -u $R/Apps/$N/$f $T/Apps/$N/$f >$T/d.txt 2>&1; then
       print -r -- "✗ $N/$f differs from what the generator writes:"; sed 's/^/    /' $T/d.txt | head -40; rc=1; bad=1
     fi

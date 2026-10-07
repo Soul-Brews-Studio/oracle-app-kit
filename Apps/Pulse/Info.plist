@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Pulse</string>
+	<string>Pulse Oracle</string>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>

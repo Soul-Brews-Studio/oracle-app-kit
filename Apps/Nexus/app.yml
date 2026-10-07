@@ -44,7 +44,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: co.laris.oracle.nexus
         PRODUCT_NAME: Nexus
-        INFOPLIST_KEY_CFBundleDisplayName: Nexus
+        INFOPLIST_KEY_CFBundleDisplayName: Nexus Oracle
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: "1,2"
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
@@ -52,11 +52,12 @@ targets:
         ENABLE_HARDENED_RUNTIME: NO
         ENABLE_USER_SCRIPT_SANDBOXING: NO     # the tokenizer is built with cargo
         "ARCHS[sdk=macosx*]": arm64           # the Neural Engine and the Float16 code exist only on Apple silicon
+        "CODE_SIGN_ENTITLEMENTS[sdk=iphone*]": Apps/Nexus/Nexus-iOS.entitlements    # iOS wants group.<id>, not the team-prefixed macOS form
     info:
       path: Apps/Nexus/Info.plist
       properties:
         CFBundleName: Nexus
-        CFBundleDisplayName: Nexus
+        CFBundleDisplayName: Nexus Oracle
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen: {}
@@ -123,6 +124,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: co.laris.oracle.nexus.widget
         PRODUCT_NAME: NexusWidget
+        "CODE_SIGN_ENTITLEMENTS[sdk=iphone*]": Apps/Nexus/Widget/NexusWidget-iOS.entitlements
         TARGETED_DEVICE_FAMILY: "1,2"
         SKIP_INSTALL: YES
         ENABLE_APP_SANDBOX: YES
