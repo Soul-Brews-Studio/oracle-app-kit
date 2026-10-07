@@ -262,6 +262,7 @@ targets:
           - \$(TARGET_BUILD_DIR)/\$(INFOPLIST_PATH)
         script: sh "\$SRCROOT/scripts/calver-stamp.sh"
     dependencies:
+      - target: CalVer                  # one CalVer per build for the app and its extensions (project.yml)
       - package: OracleKit
       - package: ANEEmbed           # the Memory page's in-process embedder (Mac only)
         product: ANEEmbedCore
@@ -339,7 +340,14 @@ targets:
       - path: Apps/$N/Widget
         excludes: ["*.entitlements", "Info.plist"]
       - path: Apps/$N/${N}Config.swift
+    postBuildScripts:
+      - name: Stamp CalVer
+        basedOnDependencyAnalysis: false
+        inputFiles:                           # after ProcessInfoPlistFile, which would overwrite the stamp
+          - \$(TARGET_BUILD_DIR)/\$(INFOPLIST_PATH)
+        script: sh "\$SRCROOT/scripts/calver-stamp.sh"
     dependencies:
+      - target: CalVer
       - package: OracleKit
       - sdk: WidgetKit.framework
       - sdk: SwiftUI.framework
@@ -370,7 +378,14 @@ targets:
       - path: Apps/${N}/Share
         excludes: ["*.entitlements", "Info.plist"]
       - path: Apps/${N}/${N}Config.swift
+    postBuildScripts:
+      - name: Stamp CalVer
+        basedOnDependencyAnalysis: false
+        inputFiles:                           # after ProcessInfoPlistFile, which would overwrite the stamp
+          - \$(TARGET_BUILD_DIR)/\$(INFOPLIST_PATH)
+        script: sh "\$SRCROOT/scripts/calver-stamp.sh"
     dependencies:
+      - target: CalVer
       - package: OracleKit
     entitlements:
       path: Apps/${N}/Share/${N}Share.entitlements
