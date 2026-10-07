@@ -1,12 +1,42 @@
 #!/usr/bin/env zsh
-# new-oracle-app.sh <Name> <org/repo> <mac checkout path> <#hex> <sf-symbol> "<tagline>" [--update]
-# Creates Apps/<Name>/: the identity (shared with the widget), the app, its Extras, a WidgetKit status
-# widget, entitlements (App Group), icon and xcodegen targets — then regenerates the project.
-# --update rewrites the generated files of an existing app but keeps <Name>Extras.swift and the icon.
+# new-oracle-app.sh <Name> <org/repo> <mac checkout path> <#hex> <sf-symbol> "<tagline>"
+#                   [--update] [--key <key>] [--port <n>] [--team <id>] [--no-regen]
+# Creates Apps/<Name>/: the identity (shared with the widget), the app (Memory engine, Map layout, MCP server),
+# its Extras, a WidgetKit status widget, a Share extension, entitlements (App Group), icon and xcodegen targets —
+# then regenerates the project. The output matches Neo / Pulse / Nexus; scripts/parity.sh proves it.
+#   <Name>   a Swift identifier (struct <Name>App); its lower-case form is OracleConfig.<name> and the widget kind
+#   --key    bundle-id suffix, App Group, URL scheme and the portal's key: co.laris.oracle.<key>.
+#            Default: the portal's rule, the repo name minus "-oracle", lower-cased (DustBoy-Phd-Oracle → dustboy-phd).
+#   --port   the app's MCP memory server. Default: the next port from 4791 not used by another Apps/*/*App.swift.
+#   --team   Apple signing team for the App Group. Default: $ORACLE_APP_TEAM, else project.yml's DEVELOPMENT_TEAM.
+#   --update rewrites the generated files of an existing app but keeps <Name>Extras.swift and the icon.
 set -e
 N=${1:?Name}; SLUG=${2:?org/repo}; LP=${3:?mac path}; HEX=${4:?#hex}; SYM=${5:?symbol}; TAG=${6:-"$N oracle"}
-UPDATE=0; [[ " $* " == *" --update "* ]] && UPDATE=1
-R=${0:A:h}/..; D=$R/Apps/$N; low=${(L)N}; GROUP="6K28WEXX78.co.laris.oracle.$low"
+R=${0:A:h}/..; D=$R/Apps/$N; low=${(L)N}
+UPDATE=0; REGEN=1; KEY=""; PORT=""; TEAM=${ORACLE_APP_TEAM:-}
+shift $(( $# < 6 ? $# : 6 ))
+while (( $# )); do
+  case $1 in
+    --update) UPDATE=1 ;;
+    --no-regen) REGEN=0 ;;
+    --key) KEY=${2:?--key value}; shift ;;
+    --port) PORT=${2:?--port value}; shift ;;
+    --team) TEAM=${2:?--team value}; shift ;;
+    *) echo "unknown option $1"; exit 2 ;;
+  esac; shift
+done
+[[ $N =~ '^[A-Z][A-Za-z0-9]*$' ]] || { echo "Name must be a Swift type name (Neo, DustBoyPhd), got '$N' — use --key for the hyphenated portal key"; exit 2; }
+if [ -z "$KEY" ]; then KEY=${SLUG#*/}; KEY=${KEY%-[Oo]racle}; KEY=${(L)KEY}; fi
+[[ $KEY =~ '^[a-z][a-z0-9-]*$' ]] || { echo "key must be lower-case letters, digits and '-', got '$KEY'"; exit 2; }
+[ -n "$TEAM" ] || TEAM=$(sed -n 's/^ *DEVELOPMENT_TEAM: *//p' $R/project.yml | head -1)
+[ -n "$TEAM" ] || { echo "no signing team: export ORACLE_APP_TEAM=<id>  (list them: security find-identity -v -p codesigning)"; exit 2; }
+if [ -z "$PORT" ]; then
+  used=" $(rg -o --no-filename 'port: [0-9]+' $R/Apps/*/*App.swift 2>/dev/null | rg -v "^$" | sed 's/port: //' | tr '\n' ' ') "
+  # an app being updated keeps its own port
+  [ -f $D/${N}App.swift ] && PORT=$(rg -o --no-filename 'port: [0-9]+' $D/${N}App.swift | sed 's/port: //' | head -1)
+  if [ -z "$PORT" ]; then PORT=4791; while [[ $used == *" $PORT "* ]]; do PORT=$((PORT + 1)); done; fi
+fi
+GROUP="$TEAM.co.laris.oracle.$KEY"
 [ -e $D ] && [ $UPDATE = 0 ] && { echo "Apps/$N exists — use --update to regenerate (keeps Extras + icon)"; exit 2; }
 mkdir -p $D/Widget $D/Share $D/Assets.xcassets
 [ -f $D/Assets.xcassets/Contents.json ] || print -r -- '{"info":{"version":1,"author":"xcode"}}' > $D/Assets.xcassets/Contents.json
@@ -32,6 +62,13 @@ struct ${N}App: App {
     @NSApplicationDelegateAdaptor(OracleAppDelegate.self) var delegate
     #endif
     @StateObject private var store = OracleStore(config: .${low}.with(extras: ${N}Extras.extras))
+    init() {
+        #if os(macOS)
+        BundledANE.installLazily()   // Memory page: EmbeddingGemma 2 in-process, loaded when the page first opens
+        MapLayoutEngine.install()   // Map page: UMAP in-process (Apple's Rust crate)
+        MCPServer.serve(name: "${low}-memory", port: $PORT) { GHIndex.history(OracleConfig.${low}.repoSlug) }   // agents search ${N}'s memory
+        #endif
+    }
     @AppStorage("oracle.menuBar") private var menuBar = false      // the oracle's tray: off until switched on
     var body: some Scene { OracleScene(store: store, menuBar: \$menuBar) }
 }
@@ -99,8 +136,31 @@ targets:
     sources:
       - path: Apps/$N
         excludes: ["app.yml", "Info.plist", "Widget/**", "Share/**", "*.entitlements"]
+      - path: Apps/Shared
+    preBuildScripts:
+      - name: Build the tokenizer + UMAP (Rust)
+        basedOnDependencyAnalysis: false
+        script: |
+          [ "\$PLATFORM_NAME" = macosx ] || exit 0
+          export PATH="/opt/homebrew/opt/rustup/bin:\$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:\$PATH"
+          if ! command -v cargo >/dev/null; then
+            echo "error: cargo not found: the Memory page's embedder builds its tokenizer with Rust. Install it, then build again:"
+            echo "error:   brew install rustup && rustup-init -y && . ~/.cargo/env"
+            exit 1
+          fi
+          cd "\$SRCROOT/ANEEmbed/tokenizer-ffi" && cargo build --release --locked
+    postBuildScripts:
+      - name: Stamp CalVer
+        basedOnDependencyAnalysis: false
+        script: sh "\$SRCROOT/scripts/calver-stamp.sh"
     dependencies:
       - package: OracleKit
+      - package: ANEEmbed           # the Memory page's in-process embedder (Mac only)
+        product: ANEEmbedCore
+        destinationFilters: [macOS]
+      - package: ANEEmbed
+        product: MapLayoutUMAP
+        destinationFilters: [macOS]
       - target: ${N}Widget
       - target: ${N}Share
         destinationFilters: [macOS]
@@ -110,7 +170,7 @@ targets:
         com.apple.security.application-groups: [$GROUP]
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: co.laris.oracle.$low
+        PRODUCT_BUNDLE_IDENTIFIER: co.laris.oracle.$KEY
         PRODUCT_NAME: $N
         INFOPLIST_KEY_CFBundleDisplayName: $N
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
@@ -118,6 +178,8 @@ targets:
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         ENABLE_APP_SANDBOX: NO
         ENABLE_HARDENED_RUNTIME: NO
+        ENABLE_USER_SCRIPT_SANDBOXING: NO     # the tokenizer is built with cargo
+        "ARCHS[sdk=macosx*]": arm64           # the Neural Engine and the Float16 code exist only on Apple silicon
     info:
       path: Apps/$N/Info.plist
       properties:
@@ -127,8 +189,8 @@ targets:
         CFBundleVersion: \$(CURRENT_PROJECT_VERSION)
         UILaunchScreen: {}
         CFBundleURLTypes:            # widget taps open oracle-<name>://open — the app must own the scheme
-          - CFBundleURLName: co.laris.oracle.$low
-            CFBundleURLSchemes: [oracle-$low]
+          - CFBundleURLName: co.laris.oracle.$KEY
+            CFBundleURLSchemes: [oracle-$KEY]
         CFBundleDocumentTypes:
           - CFBundleTypeName: Anything for $N
             CFBundleTypeRole: Viewer
@@ -171,7 +233,7 @@ targets:
         com.apple.security.application-groups: [$GROUP]
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: co.laris.oracle.$low.widget
+        PRODUCT_BUNDLE_IDENTIFIER: co.laris.oracle.$KEY.widget
         PRODUCT_NAME: ${N}Widget
         TARGETED_DEVICE_FAMILY: "1,2"
         SKIP_INSTALL: YES
@@ -199,7 +261,7 @@ targets:
         com.apple.security.app-sandbox: true
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: co.laris.oracle.${low}.share
+        PRODUCT_BUNDLE_IDENTIFIER: co.laris.oracle.${KEY}.share
         PRODUCT_NAME: ${N}Share
         SKIP_INSTALL: YES
         ENABLE_APP_SANDBOX: YES
@@ -227,5 +289,5 @@ final class ShareViewController: OracleShareViewController {
     override var config: OracleConfig { .${low} }
 }
 SWIFT
-zsh $R/scripts/regen.sh
-echo "ready Apps/$N (+ ${N}Widget, ${N}Share)"
+(( REGEN )) && zsh $R/scripts/regen.sh
+echo "ready Apps/$N (+ ${N}Widget, ${N}Share) · key $KEY · co.laris.oracle.$KEY · MCP :$PORT · team $TEAM"
