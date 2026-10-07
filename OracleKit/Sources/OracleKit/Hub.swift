@@ -209,16 +209,42 @@ public final class HubStore: ObservableObject {
         NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration())
     }
 
-    /// Focus the space in herdr, then bring forward the WezTerm pane whose herdr client shows that session
-    /// (a new WezTerm window attached to it when none does).
+    /// Focus the space in herdr, by the state of the session's WezTerm window:
+    /// front — the switch happens where Nat is looking, nothing moves or rises;
+    /// behind — that window rises on its own screen, and the hub comes back on top only from another screen;
+    /// no window — a new WezTerm window attached to the session, brought to the main screen.
     public func showInHerdr(_ s: HubSpace) {
         Task.detached {
             _ = await Shell.run("herdr", ["--session", s.session, "workspace", "focus", s.spaceId])
-            await WezTerm.show(session: s.session, label: s.label)
-            // like an oracle app's "bring here": the terminal is up on its space, and this app comes back on top
-            try? await Task.sleep(for: .milliseconds(350))
-            await MainActor.run { NSApp.activate(ignoringOtherApps: true); NSApp.mainWindow?.orderFrontRegardless() }
+            switch await WezTerm.clientWindow(session: s.session) {
+            case .front:
+                return
+            case .behind(let id, _):
+                _ = await Shell.run("yabai", ["-m", "window", String(id), "--focus"])
+                let there = await WezTerm.displayID(window: id), here = await WezTerm.hubDisplayID()
+                guard let there, let here, there != here else { return }
+                try? await Task.sleep(for: .milliseconds(250))
+                await MainActor.run { NSApp.activate(ignoringOtherApps: true) }
+            case .none:
+                await self.bringHereNow(s)
+            }
         }
+    }
+
+    /// The old Show in herdr, kept as "Bring here": focus the space, move its WezTerm window to the main screen,
+    /// then this app back on top.
+    public func bringHere(_ s: HubSpace) {
+        Task.detached {
+            _ = await Shell.run("herdr", ["--session", s.session, "workspace", "focus", s.spaceId])
+            await self.bringHereNow(s)
+        }
+    }
+
+    nonisolated private func bringHereNow(_ s: HubSpace) async {
+        await WezTerm.show(session: s.session, label: s.label)
+        // like an oracle app's "bring here": the terminal is up on its space, and this app comes back on top
+        try? await Task.sleep(for: .milliseconds(350))
+        await MainActor.run { NSApp.activate(ignoringOtherApps: true); NSApp.mainWindow?.orderFrontRegardless() }
     }
 
     /// A whole session: its WezTerm client, or a new one — which also starts a stopped session.
@@ -304,6 +330,73 @@ public enum WezTerm {
         }
         if let window { await bringToMain(window) }
         else { await MainActor.run { _ = NSRunningApplication.runningApplications(withBundleIdentifier: bundleId).first?.activate() } }
+    }
+
+    /// Where the WezTerm window holding a session's herdr client is, as Nat sees it (Nat, 2026-10-08: "2 modes —
+    /// active on some window, not active (behind) some window").
+    public enum ClientWindow: Equatable, Sendable {
+        case front(window: Int, screen: String)    // visible: on a shown space, not minimised, at most half covered
+        case behind(window: Int, screen: String)   // covered by other windows, on a hidden space, or minimised
+        case none                                  // no WezTerm window runs this session's client
+        public var label: String {
+            switch self {
+            case .front(_, let s): return "front · \(s)"
+            case .behind(_, let s): return "behind · \(s)"
+            case .none: return "no window"
+            }
+        }
+    }
+
+    /// The state of `session`'s client window. "Covered" samples a 12×12 grid of the window's rectangle against
+    /// the on-screen windows above it (the window list is front to back), so overlaps are not counted twice.
+    public static func clientWindow(session: String) async -> ClientWindow {
+        guard Shell.which("yabai") != nil else { return .none }
+        var id: Int?
+        for c in await panes(running: session) { if let w = await yabaiWindow(titled: { $0 == c.windowTitle }) { id = w; break } }
+        guard let id, let win = await yabaiJSON(["--windows", "--window", String(id)]) as? [String: Any] else { return .none }
+        let screen = await screenName(display: win["display"] as? Int)
+        if (win["is-visible"] as? Bool) != true || (win["is-minimized"] as? Bool) == true { return .behind(window: id, screen: screen) }
+        return covered(window: id) > 0.5 ? .behind(window: id, screen: screen) : .front(window: id, screen: screen)
+    }
+
+    /// The share of a window hidden by the normal windows above it (0…1).
+    static func covered(window id: Int) -> Double {
+        guard let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else { return 0 }
+        func rect(_ w: [String: Any]) -> CGRect? {
+            guard let b = w[kCGWindowBounds as String] as? [String: CGFloat] else { return nil }
+            return CGRect(x: b["X"] ?? 0, y: b["Y"] ?? 0, width: b["Width"] ?? 0, height: b["Height"] ?? 0)
+        }
+        let normal = list.filter { ($0[kCGWindowLayer as String] as? Int) == 0 }
+        guard let i = normal.firstIndex(where: { ($0[kCGWindowNumber as String] as? Int) == id }), let r = rect(normal[i]), r.width > 0, r.height > 0 else { return 0 }
+        let above = normal[..<i].compactMap(rect)
+        var hit = 0, n = 12
+        for a in 0..<n { for b in 0..<n {
+            let p = CGPoint(x: r.minX + (CGFloat(a) + 0.5) * r.width / CGFloat(n), y: r.minY + (CGFloat(b) + 0.5) * r.height / CGFloat(n))
+            if above.contains(where: { $0.contains(p) }) { hit += 1 }
+        } }
+        return Double(hit) / Double(n * n)
+    }
+
+    /// A display's name ("DELL S2725QS") from yabai's display index; "screen #n" when macOS does not say.
+    static func screenName(display index: Int?) async -> String {
+        guard let index, let displays = await yabaiJSON(["--displays"]) as? [[String: Any]],
+              let d = displays.first(where: { ($0["index"] as? Int) == index }), let cg = d["id"] as? Int else { return "screen #\(index ?? 0)" }
+        return await MainActor.run {
+            NSScreen.screens.first { ($0.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.intValue == cg }?.localizedName
+        } ?? "screen #\(index)"
+    }
+
+    /// The yabai display index of the screen the hub's own window is on (nil: no window).
+    @MainActor static func hubDisplayID() -> Int? {
+        (NSApp.mainWindow?.screen ?? NSApp.windows.first(where: \.isVisible)?.screen)?
+            .deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")].flatMap { ($0 as? NSNumber)?.intValue }
+    }
+
+    /// The CGDirectDisplayID of the screen a yabai window is on.
+    static func displayID(window id: Int) async -> Int? {
+        guard let win = await yabaiJSON(["--windows", "--window", String(id)]) as? [String: Any], let index = win["display"] as? Int,
+              let displays = await yabaiJSON(["--displays"]) as? [[String: Any]] else { return nil }
+        return displays.first { ($0["index"] as? Int) == index }?["id"] as? Int
     }
 
     /// Move a window to the main display (the one at the origin), centred on its visible space, and focus it.
