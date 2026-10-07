@@ -260,6 +260,7 @@ public final class GHIndex: ObservableObject {
             }
         }
         docs = f.docs.filter { !$0.vec.isEmpty }; built = f.built; space = f.space; ledger = f.ledger ?? [:]
+        seedCache()
         repos = Array(Set(docs.filter { $0.kind != "note" }.map(\.repo))).sorted()
     }
     /// Writes off the main actor, one save after another (a later save waits for the earlier one).
@@ -359,12 +360,14 @@ public final class GHIndex: ObservableObject {
         if !everything {
             for i in fresh.indices { if let o = old[fresh[i].id], o.hash == fresh[i].hash, !o.vec.isEmpty { fresh[i].vec = o.vec } }
         }
-        let todo = fresh.indices.filter { fresh[$0].vec.isEmpty }
-        HubLog.shared.add(.info, String(format: "read %@ items from %d repos in %.1f s · %@ unchanged · %@ to embed",
-                                        grouped(fresh.count), slugs.count, Date().timeIntervalSince(tRead), grouped(fresh.count - todo.count), grouped(todo.count)))
+        let need = fresh.indices.filter { fresh[$0].vec.isEmpty }
+        let target = everything || space == nil ? runSpace : space
+        let (todo, hits) = reembed ? (need, 0) : await fromCache(&fresh, need, space: target)   // Re-embed all computes anew
+        HubLog.shared.add(.info, String(format: "read %@ items from %d repos in %.1f s · %@ unchanged · %@ from the vector cache · %@ to embed",
+                                        grouped(fresh.count), slugs.count, Date().timeIntervalSince(tRead), grouped(fresh.count - need.count),
+                                        grouped(hits), grouped(todo.count)))
         repoDone = slugs.count; phase = "embedding"; textTotal = todo.count
         let t0 = Date()
-        let target = everything || space == nil ? runSpace : space
         let done = await embedChunks(&fresh, todo, want: target)
         let complete = done == todo.count
         if !complete && !moved {   // stopped or failed midway: what was not reached keeps its old entry, so the next run embeds it
@@ -520,16 +523,27 @@ public final class GHIndex: ObservableObject {
         // pieces embedded in an older form (the session title inside every piece): the same pieces, embedded again
         let hist = docs.filter { $0.kind == "history" }
         let stale = hist.indices.filter { !(hist[$0].text ?? "").hasPrefix("title: none |") }
-        let toEmbed = r.docs.count + sideNew + stale.count
+        var fresh = hist + side + r.docs
+        let staleTexts = stale.map { fresh[$0].text }
+        for i in stale {
+            let body = (fresh[i].text ?? "").components(separatedBy: " | text: ").dropFirst().joined(separator: " | text: ")
+            let piece = body.hasPrefix("asked: ") ? String(body.dropFirst(7)) : body.hasPrefix("answered: ") ? String(body.dropFirst(10)) : body
+            fresh[i].text = SessionHistory.embedText(piece)
+        }
+        let sideTodo = (hist.count..<(hist.count + side.count)).filter { fresh[$0].vec.isEmpty }
+        let need = stale + sideTodo + Array((hist.count + side.count)..<fresh.count)   // older pieces, notes/issues/PRs, then new pieces
+        // the plan: every piece hashed and looked up first — what the cache has is reused, only the rest is embedded
         guard embed else {
-            pending = toEmbed
-            let est = Double(toEmbed) / max(rateHistory.last ?? 0, lastRateEstimate)
-            progress = toEmbed == 0 ? "scan: up to date — nothing new" : "scan: \(grouped(toEmbed)) to embed (\(grouped(r.docs.count)) session pieces, \(grouped(sideNew)) notes/issues/PRs\(stale.isEmpty ? "" : ", \(grouped(stale.count)) older pieces")), ~\(Self.duration(est))"
+            let hits = await cacheHits(need.map { fresh[$0].text ?? "" }, space: space ?? bundled()?.space ?? serviceSpace)
+            let left = need.count - hits
+            pending = left; plan = (need.count, hits)
+            let est = Double(left) / max(rateHistory.last ?? 0, lastRateEstimate)
+            progress = need.isEmpty ? "scan: up to date — nothing new"
+                : "scan: \(grouped(need.count)) to place (\(grouped(r.docs.count)) session pieces, \(grouped(sideNew)) notes/issues/PRs\(stale.isEmpty ? "" : ", \(grouped(stale.count)) older pieces")) · \(grouped(hits)) from the vector cache · \(grouped(left)) to embed\(left > 0 ? ", ~\(Self.duration(est))" : "")"
             HubLog.shared.add(.info, progress)
             return
         }
-        var fresh = hist + side + r.docs
-        if toEmbed == 0 {   // nothing to embed; notes, issues or PRs that are gone leave the index
+        if need.isEmpty {   // nothing to embed; notes, issues or PRs that are gone leave the index
             docs = fresh; ledger = r.ledger; built = Date(); save(); pending = 0
             progress = "up to date — nothing new in \(repo)'s memory"; HubLog.shared.add(.info, progress); return
         }
@@ -538,19 +552,15 @@ public final class GHIndex: ObservableObject {
         if let sp = space, let rs = runSpace, sp != rs, !docs.isEmpty {
             problem = "this index is in another vector space (\(sp.prefix(32))…) — press Re-embed all"; HubLog.shared.add(.error, problem ?? ""); return
         }
-        if !stale.isEmpty { HubLog.shared.add(.info, "\(grouped(stale.count)) session pieces were embedded with their session title — embedding them again, alone") }
-        let staleTexts = stale.map { fresh[$0].text }
-        for i in stale {
-            let body = (fresh[i].text ?? "").components(separatedBy: " | text: ").dropFirst().joined(separator: " | text: ")
-            let piece = body.hasPrefix("asked: ") ? String(body.dropFirst(7)) : body.hasPrefix("answered: ") ? String(body.dropFirst(10)) : body
-            fresh[i].text = SessionHistory.embedText(piece)
-        }
-        let sideTodo = (hist.count..<(hist.count + side.count)).filter { fresh[$0].vec.isEmpty }
-        let todo = stale + sideTodo + Array((hist.count + side.count)..<fresh.count)   // older pieces, notes/issues/PRs, then new pieces
+        if !stale.isEmpty { HubLog.shared.add(.info, "\(grouped(stale.count)) session pieces were embedded with their session title — placing them again, alone") }
+        let (todo, hits) = await fromCache(&fresh, need, space: space ?? runSpace)
+        plan = (need.count, hits)
+        HubLog.shared.add(.info, "\(grouped(need.count)) to place: \(grouped(hits)) from the vector cache (embedded before, by any app) · \(grouped(todo.count)) to embed")
         phase = "embedding"; textTotal = todo.count; repoDone = repoTotal
         let t1 = Date()
         let done = await embedChunks(&fresh, todo, want: space ?? runSpace)
-        for (k, i) in stale.enumerated() where k >= done { fresh[i].text = staleTexts[k] }   // not reached: still the old form, found again
+        let unreached = Set(todo[min(done, todo.count)...])
+        for (k, i) in stale.enumerated() where unreached.contains(i) { fresh[i].text = staleTexts[k] }   // still the old form: found again next run
         docs = fresh.filter { !$0.vec.isEmpty }
         pending = fresh.count - docs.count
         if let rs = runSpace, space == nil { space = rs }
@@ -565,6 +575,39 @@ public final class GHIndex: ObservableObject {
     }
     /// The last scan's own notes, issues, PRs, and how many of them need embedding.
     @Published public private(set) var sideScan: (notes: Int, issues: Int, prs: Int, new: Int)?
+    /// The last plan: pieces to place, and how many of them the vector cache already had.
+    @Published public private(set) var plan: (need: Int, hits: Int)?
+
+    // MARK: the shared vector cache
+
+    /// Fills what the shared vector cache already has for `todo` (in `space`) and returns what is left to embed.
+    /// Hashing and lookup run off the main actor.
+    private func fromCache(_ fresh: inout [IndexDoc], _ todo: [Int], space: String?) async -> (left: [Int], hits: Int) {
+        guard let space, !todo.isEmpty else { return (todo, 0) }
+        let texts = todo.map { fresh[$0].text ?? fresh[$0].title }
+        let hit = await Task.detached(priority: .userInitiated) { VectorCache.shared.get(space, texts) }.value
+        var left: [Int] = []
+        for (k, i) in todo.enumerated() { if let v = hit[texts[k]], !v.isEmpty { fresh[i].vec = v } else { left.append(i) } }
+        return (left, todo.count - left.count)
+    }
+    /// How many of these texts the cache already has — the scan's count; nothing changes.
+    private func cacheHits(_ texts: [String], space: String?) async -> Int {
+        guard let space, !texts.isEmpty else { return 0 }
+        let hit = await Task.detached(priority: .userInitiated) { VectorCache.shared.get(space, texts) }.value
+        return texts.reduce(0) { $0 + (hit[$1] == nil ? 0 : 1) }
+    }
+    /// Puts this index's vectors into the shared cache once per build — vectors computed before the cache existed, or
+    /// by another app — off the main actor.
+    private func seedCache() {
+        guard let space else { return }
+        let key = "vectorCache.seeded." + path.path, stamp = built?.timeIntervalSince1970 ?? 0
+        guard UserDefaults.standard.double(forKey: key) != stamp else { return }
+        let items = docs.compactMap { d -> (text: String, vec: [Float])? in
+            guard let t = d.text, !d.vec.isEmpty else { return nil }
+            return (t, d.vec)
+        }
+        Task.detached(priority: .background) { VectorCache.shared.put(space, items); UserDefaults.standard.set(stamp, forKey: key) }
+    }
 
     /// texts/s to estimate a scan's embedding time before any run here (GPU x2 on issue text, measured 2026-10-07).
     private var lastRateEstimate = 100.0
@@ -621,6 +664,10 @@ public final class GHIndex: ObservableObject {
                 break
             }
             for (k, idx) in chunk.enumerated() { fresh[idx].vec = vecs[k] }
+            if let cs = want ?? (via.hasPrefix("in-process") ? bundled()?.space : serviceSpace) {   // never computed again, by any app
+                let items = zip(inputs, vecs).map { (text: $0.0, vec: $0.1) }
+                Task.detached(priority: .utility) { VectorCache.shared.put(cs, items) }
+            }
             done += chunk.count
             let rate = Double(done) / max(0.001, Date().timeIntervalSince(t0))
             textDone = done; rateHistory.append(rate); if rateHistory.count > 60 { rateHistory.removeFirst() }
