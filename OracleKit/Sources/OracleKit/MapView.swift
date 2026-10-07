@@ -583,7 +583,7 @@ final class MapScene: ObservableObject {
     /// or by kind there too when asked.
     private func buildChunks() {
         chunks.forEach { $0.entity.removeFromParent() }; chunks = []
-        let sphere = MeshResource.generateSphere(radius: 0.0032)
+        let sphere = MapDot.mesh(radius: 0.0032)
         let oracle: [String] = fleet != nil && !byKind ? rowToDoc.map { $0 >= 0 ? fleet?.oracleOf[docs[$0].id] ?? "Fleet" : "" } : []
         for kind in ["history", "note", "issue", "pr"] {
             var byColor: [String: [Int]] = [:]
@@ -694,7 +694,7 @@ final class MapScene: ObservableObject {
         var glow = PhysicallyBasedMaterial()
         glow.emissiveColor = .init(color: .white); glow.emissiveIntensity = 6; glow.baseColor = .init(tint: .white)
         let pts = flat ? xyz.map { SIMD3($0.x, $0.y, 0) } : xyz
-        if let e = Self.instanced(lit, xyz: pts, mesh: MeshResource.generateSphere(radius: 0.006), material: glow) { litEntity = e; root.addChild(e) }
+        if let e = Self.instanced(lit, xyz: pts, mesh: MapDot.mesh(radius: 0.006), material: glow) { litEntity = e; root.addChild(e) }
     }
 
     /// The pointer lights what it touches (the point + its nearest neighbours, with lines to them), like a small
@@ -771,7 +771,7 @@ final class MapScene: ObservableObject {
                 var m = PhysicallyBasedMaterial()
                 m.emissiveColor = .init(color: f.color); m.emissiveIntensity = 2 + 8 * k; m.baseColor = .init(tint: f.color)
                 let pts = flat ? xyz.map { SIMD3($0.x, $0.y, 0) } : xyz
-                if let e = Self.instanced(f.rows, xyz: pts, mesh: MeshResource.generateSphere(radius: 0.004 + 0.004 * k), material: m) {
+                if let e = Self.instanced(f.rows, xyz: pts, mesh: MapDot.mesh(radius: 0.004 + 0.004 * k), material: m) {
                     root.addChild(e); fireEntities.append(e)
                 }
             }
@@ -788,7 +788,7 @@ final class MapScene: ObservableObject {
         var m = PhysicallyBasedMaterial()
         m.emissiveColor = .init(color: .white); m.emissiveIntensity = 9; m.baseColor = .init(tint: .white)
         let pts = flat ? pos.map { SIMD3($0.x, $0.y, 0) } : pos
-        if let e = Self.instanced(Array(pts.indices), xyz: pts, mesh: MeshResource.generateSphere(radius: 0.0028), material: m) { root.addChild(e); pulseEntity = e }
+        if let e = Self.instanced(Array(pts.indices), xyz: pts, mesh: MapDot.mesh(radius: 0.0028), material: m) { root.addChild(e); pulseEntity = e }
     }
 
     /// Groups from MapClusters: each region's and each leaf's centre on the map, for their floating names — only when
@@ -812,7 +812,7 @@ final class MapScene: ObservableObject {
         g.emissiveColor = .init(color: NSColor(accent)); g.emissiveIntensity = glow; g.baseColor = .init(tint: NSColor(accent))
         let nbrs = layout.neighbours(of: row).filter { $0 < xyz.count }
         let pts = flat ? xyz.map { SIMD3($0.x, $0.y, 0) } : xyz
-        let glowE = Self.instanced([row] + nbrs, xyz: pts, mesh: MeshResource.generateSphere(radius: radius), material: g)
+        let glowE = Self.instanced([row] + nbrs, xyz: pts, mesh: MapDot.mesh(radius: radius), material: g)
         if let glowE { root.addChild(glowE) }
         guard !nbrs.isEmpty else { return (glowE, nil) }
         var desc = LowLevelMesh.Descriptor()
@@ -909,3 +909,27 @@ final class MapScene: ObservableObject {
     }
 }
 #endif
+
+
+/// A map point: a 20-triangle icosahedron (60 indices). A RealityKit sphere is about 3,000 indices, so a chunk of 4,096
+/// of them passed MeshInstancesComponent's 10,000,000-index limit and the fleet map drew nothing ("attempted to render
+/// beyond the per component vertex/index limit"); the phone draws its map the same way. Cached per radius.
+@MainActor
+enum MapDot {
+    private static var made: [Float: MeshResource] = [:]
+    static func mesh(radius: Float) -> MeshResource {
+        if let m = made[radius] { return m }
+        let t = (1 + Float(5).squareRoot()) / 2
+        let corners: [SIMD3<Float>] = [[-1, t, 0], [1, t, 0], [-1, -t, 0], [1, -t, 0], [0, -1, t], [0, 1, t],
+                                       [0, -1, -t], [0, 1, -t], [t, 0, -1], [t, 0, 1], [-t, 0, -1], [-t, 0, 1]].map { simd_normalize($0) }
+        let faces: [UInt32] = [0, 11, 5, 0, 5, 1, 0, 1, 7, 0, 7, 10, 0, 10, 11, 1, 5, 9, 5, 11, 4, 11, 10, 2, 10, 7, 6, 7, 1, 8,
+                               3, 9, 4, 3, 4, 2, 3, 2, 6, 3, 6, 8, 3, 8, 9, 4, 9, 5, 2, 4, 11, 6, 2, 10, 8, 6, 7, 9, 8, 1]
+        var d = MeshDescriptor(name: "dot")
+        d.positions = MeshBuffers.Positions(corners.map { $0 * radius })
+        d.normals = MeshBuffers.Normals(corners)
+        d.primitives = .triangles(faces)
+        let m = (try? MeshResource.generate(from: [d])) ?? MeshResource.generateSphere(radius: radius)
+        if made.count < 64 { made[radius] = m }
+        return m
+    }
+}
