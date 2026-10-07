@@ -57,7 +57,7 @@ struct HubRootView: View {
             for _ in 0..<20 where store.oracles.isEmpty { try? await Task.sleep(for: .milliseconds(500)) }
             let slugs = Array(Set(store.oracles.compactMap { $0.checkout.flatMap(GHIndex.slug(fromCheckout:)) })).sorted()
             if !slugs.isEmpty, let why = index.staleReason {
-                await index.index(repos: slugs, why: "automatic at launch — \(why)")
+                await index.index(repos: slugs, vaults: store.oracles.compactMap(\.checkout), why: "automatic at launch — \(why)")
             }
         }
     }
@@ -475,13 +475,14 @@ struct IndexSearchView: View {
     @State private var openOnly = false
     @FocusState private var fieldFocused: Bool
     private var slugs: [String] { Array(Set(store.oracles.compactMap { $0.checkout.flatMap(GHIndex.slug(fromCheckout:)) })).sorted() }
+    private var vaults: [String] { store.oracles.compactMap(\.checkout) }   // their ψ vaults
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 14) {
                 // Relic Studio's Embedding screen, for issues & PRs (Nat: "like this")
                 Text("SEMANTIC MEMORY").font(.caption.weight(.bold)).tracking(2.5).foregroundStyle(Color.orange)
-                Text("Issues & PRs").font(.custom("Avenir Next", size: 34).weight(.bold))
-                Text("Every oracle's issues and pull requests, ready for meaning.").font(.callout).foregroundStyle(.secondary)
+                Text("Issues, PRs & ψ notes").font(.custom("Avenir Next", size: 34).weight(.bold))
+                Text("Every oracle's issues, pull requests and ψ vault notes, ready for meaning.").font(.callout).foregroundStyle(.secondary)
                 HStack(alignment: .top, spacing: 22) {
                     CoverageRing(ready: index.docs.count, pending: index.pending, running: index.running,
                                  progress: index.phase == "embedding" ? Double(index.textDone) / Double(max(1, index.textTotal))
@@ -498,7 +499,7 @@ struct IndexSearchView: View {
                         EngineRow(name: "Model check", value: index.engine.map { $0.ok && $0.models.contains(GHIndex.model) ? "✓ served" : "✗ not served — nothing embeds this model yet: see the debug log" } ?? "—",
                                   good: index.engine.map { $0.ok && $0.models.contains(GHIndex.model) })
                         EngineRow(name: "Vector space", value: index.engine.map { String($0.space.prefix(36)) + ($0.space.count > 36 ? "…" : "") } ?? "—")
-                        EngineRow(name: "Index", value: "\(index.docs.count) items · \(Set(index.docs.map(\.repo)).count) repos" + (index.built.map { " · built \($0.formatted(date: .omitted, time: .shortened))" } ?? ""))
+                        EngineRow(name: "Index", value: "\(index.docs.count) items · \(index.docs.filter { $0.kind == "note" }.count) notes · \(Set(index.docs.map(\.repo)).count) oracles" + (index.built.map { " · built \($0.formatted(date: .omitted, time: .shortened))" } ?? ""))
                         Divider().padding(.vertical, 10)
                         Label("Batch controls", systemImage: "square.stack.3d.up").font(.headline).foregroundStyle(Color.orange).padding(.bottom, 8)
                         HStack(spacing: 10) {
@@ -510,13 +511,13 @@ struct IndexSearchView: View {
                                 .keyboardShortcut(".", modifiers: .command)
                                 .help("Stop the batch (⌘.) — reading: the index stays as it was; embedding: what is done is kept, the rest keeps its old vectors")
                             } else {
-                                Button { Task { await index.index(repos: slugs, why: "Run batch button") } } label: {
+                                Button { Task { await index.index(repos: slugs, vaults: vaults, why: "Run batch button") } } label: {
                                     Label("Run batch", systemImage: "play.fill").frame(maxWidth: .infinity)
                                 }
                                 .buttonStyle(.borderedProminent).tint(.orange).controlSize(.large).disabled(slugs.isEmpty || index.cooldown).handCursor()
                                 .help("Read issues + PRs of \(slugs.count) oracle repos with gh; embed only what is new or changed")
                             }
-                            Button { Task { await index.reembedAll(repos: slugs) } } label: {
+                            Button { Task { await index.reembedAll(repos: slugs, vaults: vaults) } } label: {
                                 Label("Re-embed all", systemImage: "bolt.fill").frame(maxWidth: .infinity)
                             }
                             .buttonStyle(.bordered).tint(.cyan).controlSize(.large).disabled(index.running || index.cooldown || index.docs.isEmpty).handCursor()
@@ -551,8 +552,8 @@ struct IndexSearchView: View {
                 .shadow(color: fieldFocused ? HubStyle.accent.opacity(0.45) : .clear, radius: 14)
                 .animation(.easeOut(duration: 0.2), value: fieldFocused)
                 HStack(spacing: 12) {
-                    Picker("", selection: $kind) { Text("All").tag("all"); Text("Issues").tag("issue"); Text("PRs").tag("pr") }
-                        .pickerStyle(.segmented).frame(width: 230)
+                    Picker("", selection: $kind) { Text("All").tag("all"); Text("Issues").tag("issue"); Text("PRs").tag("pr"); Text("Notes").tag("note") }
+                        .pickerStyle(.segmented).frame(width: 300)
                     Toggle("Open only", isOn: $openOnly).toggleStyle(.checkbox)
                     Spacer()
                 }
@@ -586,7 +587,7 @@ struct IndexSearchView: View {
             }
             let stopAfter = UserDefaults.standard.double(forKey: "hubStopAfter")   // -hubStopAfter 15: press Stop 15 s in (tests Stop)
             if stopAfter > 0 { Task { try? await Task.sleep(for: .seconds(stopAfter)); index.stop() } }
-            if action == "batch" { await index.index(repos: slugs, why: "-hubAction batch (test)") } else { await index.reembedAll(repos: slugs) }
+            if action == "batch" { await index.index(repos: slugs, vaults: vaults, why: "-hubAction batch (test)") } else { await index.reembedAll(repos: slugs, vaults: vaults) }
         }
         .task {
             await index.checkEngine()
@@ -598,7 +599,7 @@ struct IndexSearchView: View {
         .task {   // first visit, or older than 6 h: refresh the index in the background
             if !index.running, let why = index.staleReason {
                 if store.oracles.isEmpty { await store.refresh() }
-                await index.index(repos: slugs, why: "automatic on opening Search — \(why)")
+                await index.index(repos: slugs, vaults: vaults, why: "automatic on opening Search — \(why)")
             }
         }
     }
@@ -615,11 +616,11 @@ struct HitCard: View {
                 HStack(spacing: 8) {
                     Text(String(format: "%.0f%%", max(0, hit.score) * 100)).font(.caption.monospacedDigit().weight(.semibold))
                         .foregroundStyle(HubStyle.accent).frame(width: 40, alignment: .leading)
-                    Text(d.kind == "pr" ? "PR" : "issue").font(.caption2.weight(.semibold))
+                    Text(d.kind == "pr" ? "PR" : d.kind == "note" ? "ψ note" : "issue").font(.caption2.weight(.semibold))
                         .padding(.horizontal, 6).padding(.vertical, 2)
                         .background(Capsule().fill(Color.primary.opacity(0.08)))
-                    Text(d.state.lowercased()).font(.caption2).foregroundStyle(d.state == "OPEN" ? Color.green : Color.secondary)
-                    Text("\(d.repo)#\(d.number)").font(.caption.monospaced()).foregroundStyle(.secondary)
+                    Text(d.kind == "note" ? String(d.updated.prefix(10)) : d.state.lowercased()).font(.caption2).foregroundStyle(d.state == "OPEN" ? Color.green : Color.secondary)
+                    Text(d.kind == "note" ? "\(d.repo) · ψ/\(d.state)" : "\(d.repo)#\(d.number)").font(.caption.monospaced()).foregroundStyle(.secondary)
                     Spacer()
                 }
                 Text(d.title).font(.custom("Avenir Next", size: 15).weight(.medium)).lineLimit(2)

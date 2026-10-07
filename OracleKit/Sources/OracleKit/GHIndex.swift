@@ -9,9 +9,9 @@ import Accelerate
 /// Stored as one JSON file — a few thousand 768-d vectors fit in memory and a brute-force cosine is instant.
 /// Only new or changed items are embedded again (a hash of the text that was embedded).
 public struct IndexDoc: Codable, Identifiable, Hashable, Sendable {
-    public var id: String { "\(repo)#\(number)" }
+    public var id: String { kind == "note" ? "note:\(url)" : "\(repo)#\(number)" }
     public let repo: String          // owner/name
-    public let kind: String          // issue · pr
+    public let kind: String          // issue · pr · note (a ψ vault note: url is file://, state is its folder)
     public let number: Int
     public let title: String
     public let state: String         // OPEN · CLOSED · MERGED
@@ -200,7 +200,11 @@ public final class GHIndex: ObservableObject {
                       models: all.compactMap { $0["model"] as? String }, space: space)
     }
 
-    private struct File: Codable { var model: String; var built: Date?; var docs: [IndexDoc]; var space: String? }
+    /// The index on disk: docs (text, no vectors) as JSON, and every vector, in doc order, as raw Float32 in
+    /// gh-index.vectors — 30k notes × 768 floats as JSON would be ~300 MB. An older file keeps vectors inline.
+    private struct File: Codable { var model: String; var built: Date?; var docs: [IndexDoc]; var space: String?; var dim: Int? }
+    private var vectorsPath: URL { path.deletingLastPathComponent().appendingPathComponent("gh-index.vectors") }
+    private var saving: Task<Void, Never>?
     private let path: URL = {
         let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("ARRA Oracles", isDirectory: true)
@@ -222,13 +226,29 @@ public final class GHIndex: ObservableObject {
     }
 
     private func load() {
-        guard let d = try? Data(contentsOf: path), let f = try? JSONDecoder().decode(File.self, from: d), f.model == Self.model else { return }
-        docs = f.docs; built = f.built; space = f.space
-        repos = Array(Set(f.docs.map(\.repo))).sorted()
+        guard let d = try? Data(contentsOf: path), var f = try? JSONDecoder().decode(File.self, from: d), f.model == Self.model else { return }
+        if let dim = f.dim, dim > 0, let raw = try? Data(contentsOf: vectorsPath), raw.count == f.docs.count * dim * 4 {
+            raw.withUnsafeBytes { (buf: UnsafeRawBufferPointer) in
+                let all = buf.bindMemory(to: Float.self)
+                for i in f.docs.indices { f.docs[i].vec = Array(all[(i * dim)..<((i + 1) * dim)]) }
+            }
+        }
+        docs = f.docs.filter { !$0.vec.isEmpty }; built = f.built; space = f.space
+        repos = Array(Set(docs.filter { $0.kind != "note" }.map(\.repo))).sorted()
     }
+    /// Writes off the main actor, one save after another (a later save waits for the earlier one).
     private func save() {
-        let f = File(model: Self.model, built: built, docs: docs, space: space)
-        if let d = try? JSONEncoder().encode(f) { try? d.write(to: path, options: .atomic) }
+        let snapshot = docs, built = built, space = space, path = path, vectorsPath = vectorsPath, previous = saving, model = Self.model
+        saving = Task.detached(priority: .utility) {
+            await previous?.value
+            let dim = snapshot.first?.vec.count ?? 0
+            var raw = Data(capacity: snapshot.count * dim * 4)
+            for d in snapshot { d.vec.withUnsafeBufferPointer { raw.append(Data(buffer: $0)) } }
+            let f = File(model: model, built: built, docs: snapshot.map { var d = $0; d.vec = []; return d }, space: space, dim: dim)
+            guard let json = try? JSONEncoder().encode(f) else { return }
+            try? raw.write(to: vectorsPath, options: .atomic)
+            try? json.write(to: path, options: .atomic)
+        }
     }
 
     /// owner/name from a checkout path like /opt/Code/github.com/laris-co/neo-oracle
@@ -258,7 +278,7 @@ public final class GHIndex: ObservableObject {
     /// Pull issues + PRs of every repo, embed what is new or changed on the ANE, save.
     /// `why` goes to the debug log. `reembed` embeds every item again, not only new or changed ones.
     /// Stop ends it between steps: while reading nothing changes; while embedding what is done is kept.
-    public func index(repos slugs: [String], why: String, reembed: Bool = false) async {
+    public func index(repos slugs: [String], vaults: [String] = [], why: String, reembed: Bool = false) async {
         guard !running else { HubLog.shared.add(.info, "a batch is already running — \(why) skipped"); return }
         running = true; stopRequested = false; problem = nil
         defer { endRun() }
@@ -294,6 +314,14 @@ public final class GHIndex: ObservableObject {
             HubLog.shared.add(.info, progress); return
         }
         var fresh = slugs.indices.flatMap { byRepo[$0] ?? [] }
+        if !vaults.isEmpty {   // every oracle's ψ notes, read off the main actor
+            progress = "reading the ψ vaults of \(vaults.count) oracles"
+            let tv = Date()
+            let notes = await Task.detached(priority: .userInitiated) { GHIndex.readVaults(vaults) }.value
+            fresh += notes.docs
+            HubLog.shared.add(.read, String(format: "ψ vaults: %@ notes from %d vaults in %.1f s (memory, inbox folders, writing, outbox, active, lab; skipped %@ inbox messages)",
+                                            grouped(notes.docs.count), notes.vaults, Date().timeIntervalSince(tv), grouped(notes.skipped)))
+        }
         // The space this run's vectors land in. Another space than the stored one makes every old vector useless.
         let runSpace = bundled()?.space ?? serviceSpace
         let moved = space != nil && runSpace != nil && space != runSpace && !docs.isEmpty
@@ -331,6 +359,51 @@ public final class GHIndex: ObservableObject {
         HubLog.shared.add(.info, "batch done — " + progress)
     }
 
+    /// The notes of every oracle's ψ vault, as index entries (no vector yet). Only main checkouts (a worktree's ψ is
+    /// the same vault), each real vault once (symlinked vaults are shared), and only the note folders: memory, inbox
+    /// subfolders (handoffs…), writing, outbox, active, lab — never learn/ (cloned repos) and not the flat ψ/inbox/*.md
+    /// files, which are maw and timekeeper message traffic, not notes.
+    nonisolated static func readVaults(_ checkouts: [String]) -> (docs: [IndexDoc], vaults: Int, skipped: Int) {
+        let fm = FileManager.default
+        var seen = Set<String>(), docs: [IndexDoc] = [], skipped = 0
+        let iso = ISO8601DateFormatter()
+        for checkout in checkouts where !checkout.contains("/wt/") {
+            let real = URL(fileURLWithPath: checkout).appendingPathComponent("ψ").resolvingSymlinksInPath()
+            guard fm.fileExists(atPath: real.path), seen.insert(real.path).inserted else { continue }
+            let owner = slug(fromCheckout: checkout) ?? URL(fileURLWithPath: checkout).lastPathComponent
+            for top in ["memory", "inbox", "writing", "outbox", "active", "lab"] {
+                let dir = real.appendingPathComponent(top)
+                guard let walk = fm.enumerator(at: dir, includingPropertiesForKeys: [.isDirectoryKey, .fileSizeKey, .contentModificationDateKey],
+                                               options: [.skipsHiddenFiles]) else { continue }
+                for case let url as URL in walk {
+                    let v = try? url.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey, .contentModificationDateKey])
+                    if v?.isDirectory == true {
+                        if ["learn", "node_modules", ".git", "build", "dist"].contains(url.lastPathComponent) { walk.skipDescendants() }
+                        continue
+                    }
+                    guard url.pathExtension == "md", (v?.fileSize ?? 0) < 1_000_000 else { continue }
+                    if top == "inbox", url.deletingLastPathComponent().path == dir.path { skipped += 1; continue }
+                    guard let raw = try? String(contentsOf: url, encoding: .utf8) else { continue }
+                    var body = Substring(raw)
+                    if body.hasPrefix("---\n"), let end = body.range(of: "\n---", range: body.index(body.startIndex, offsetBy: 4)..<body.endIndex) {
+                        body = body[end.upperBound...]   // drop YAML front matter
+                    }
+                    let lines = body.split(separator: "\n").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+                    let heading = lines.first { $0.hasPrefix("#") }.map { $0.drop { $0 == "#" }.trimmingCharacters(in: .whitespaces) }
+                    let title = heading.flatMap { $0.isEmpty ? nil : $0 } ?? url.deletingPathExtension().lastPathComponent
+                    let text = docText(title: title, body: String(body))
+                    let hash = SHA256.hash(data: Data(text.utf8)).prefix(8).map { String(format: "%02x", $0) }.joined()
+                    let snippet = lines.filter { !$0.hasPrefix("#") }.prefix(2).joined(separator: " · ")
+                    let folder = url.deletingLastPathComponent().path.replacingOccurrences(of: real.path + "/", with: "")
+                    docs.append(IndexDoc(repo: owner, kind: "note", number: 0, title: title, state: folder, url: url.absoluteString,
+                                         updated: v?.contentModificationDate.map { iso.string(from: $0) } ?? "",
+                                         snippet: String(snippet.prefix(220)), hash: hash, vec: [], text: text))
+                }
+            }
+        }
+        return (docs, seen.count, skipped)
+    }
+
     /// One repo's issues and PRs as index entries (no vector yet).
     struct RepoRead: Sendable { var docs: [IndexDoc] = []; var issues = 0, prs = 0, ms = 0; var errors: [String] = [] }
     nonisolated private static func read(_ repo: String) async -> RepoRead {
@@ -361,9 +434,9 @@ public final class GHIndex: ObservableObject {
     /// Embed every item again, on this Mac's ANE once the bundled model has loaded — the way to rebuild every vector,
     /// and to watch the Neural Engine work. No GitHub calls when the index carries the embedded text (batches since
     /// 2026-10-07 store it); an older index reads the repos first.
-    public func reembedAll(repos slugs: [String]) async {
+    public func reembedAll(repos slugs: [String], vaults: [String] = []) async {
         guard !docs.isEmpty, docs.allSatisfy({ $0.text != nil }) else {
-            await index(repos: slugs, why: "Re-embed all (the index has no stored text yet, so read the repos first)", reembed: true)
+            await index(repos: slugs, vaults: vaults, why: "Re-embed all (the index has no stored text yet, so read the repos first)", reembed: true)
             return
         }
         guard !running else { HubLog.shared.add(.info, "a batch is already running — Re-embed all skipped"); return }
