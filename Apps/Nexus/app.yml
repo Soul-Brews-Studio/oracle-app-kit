@@ -60,6 +60,15 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen: {}
+        # #46, iPhone/iPad: the pairing code is scanned with the camera; the Mac is reached over the mesh, plain HTTP to its
+        # NetBird address, which WireGuard encrypts (only loopback and 100.64.0.0/10 answer, with a bearer token). ATS lets no
+        # 100.x address through, not even with NSAllowsLocalNetworking (measured: "requires the use of a secure connection"),
+        # and NSAllowsArbitraryLoads is ignored when NSAllowsLocalNetworking is set — so it stands alone
+        NSCameraUsageDescription: Scan the pairing code that the Nexus app on your Mac shows in Settings → Companion.
+        NSLocalNetworkUsageDescription: Reach the Nexus app on your Mac over your private mesh (NetBird).
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+        UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationPortrait, UIInterfaceOrientationPortraitUpsideDown, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
         CFBundleURLTypes:            # widget taps open oracle-<name>://open — the app must own the scheme
           - CFBundleURLName: co.laris.oracle.nexus
             CFBundleURLSchemes: [oracle-nexus]

@@ -47,4 +47,10 @@ public enum Shell {
         func cancel() { lock.withLock { cancelled = true; if let p = process, p.isRunning { p.terminate() } } }
     }
 }
+#else
+/// iOS runs no CLIs: every call answers nil, as a missing tool does on the Mac.
+public enum Shell {
+    public static func which(_ tool: String) -> String? { nil }
+    public static func run(_ tool: String, _ args: [String], timeout: TimeInterval = 10) async -> String? { nil }
+}
 #endif

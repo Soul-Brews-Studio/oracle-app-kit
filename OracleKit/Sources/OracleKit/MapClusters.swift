@@ -1,3 +1,4 @@
+#if os(macOS)
 import Foundation
 import Accelerate
 import NaturalLanguage
@@ -573,3 +574,4 @@ extension GHIndex {
     }
     static var clusterSets: [String: MapClusters] = [:]
 }
+#endif

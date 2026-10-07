@@ -10,7 +10,11 @@ enum Section: Hashable { case status, inbox, prs, issues, memory, map, trace, se
 public struct OracleRootView: View {
     @ObservedObject private var store: OracleStore
     @Binding private var menuBar: Bool
+    #if os(iOS)
+    @State private var section: Section? = ["work": Section.status, "inbox": .inbox, "prs": .prs, "issues": .issues, "memory": .memory, "map": .map, "trace": .trace, "settings": .settings][UserDefaults.standard.string(forKey: "oracleSection") ?? ""] ?? .status   // -oracleSection work|inbox|prs|issues|memory|map|trace|settings
+    #else
     @State private var section: Section? = ["memory": Section.memory, "map": .map, "trace": .trace, "settings": .settings][UserDefaults.standard.string(forKey: "oracleSection") ?? ""] ?? .status   // -oracleSection memory|map|trace|settings
+    #endif
     @State private var dropTargeted = false
     @State private var inboxHot = false
     @State private var issueHot = false
@@ -24,6 +28,11 @@ public struct OracleRootView: View {
     @AppStorage("oracle.drawerGrown") private var drawerGrown: Double = 0
     #if os(iOS)
     @State private var showSettings = false
+    /// iPhone: the stack shows the list of pages (.sidebar) or one page (.detail); -oracleSection (tests) starts on the page
+    @State private var column: NavigationSplitViewColumn = UserDefaults.standard.string(forKey: "oracleSection") == nil ? .sidebar : .detail
+    @State private var paneSheet: PhonePaneRef?      // a pane tapped in the sidebar's worktree tree
+    @State private var pairLink: PhonePairLink?      // an opened pairing link, shown before it pairs
+    @Environment(\.horizontalSizeClass) private var sizeClass
     #endif
 
     public init(store: OracleStore, menuBar: Binding<Bool>) { self.store = store; _menuBar = menuBar }
@@ -35,6 +44,9 @@ public struct OracleRootView: View {
     }
 
     public var body: some View {
+        #if os(iOS)
+        phoneBody
+        #else
         NavigationSplitView {
             OracleSidebar(store: store, section: $section, menuBar: $menuBar, openPane: $openPane)
                 .navigationSplitViewColumnWidth(min: 240, ideal: 272)
@@ -94,10 +106,6 @@ public struct OracleRootView: View {
             }
             #endif
                 .toolbar {
-                    #if os(iOS)
-                    ToolbarItem { Button { Task { await store.refresh() } } label: { Image(systemName: "arrow.clockwise") } }
-                    ToolbarItem { Button { showSettings = true } label: { Image(systemName: "gear") } }
-                    #endif
                 }
         }
         .tint(c.color)
@@ -126,10 +134,14 @@ public struct OracleRootView: View {
         .onReceive(NotificationCenter.default.publisher(for: .oracleFilesDropped)) { n in
             if let count = n.object as? Int { store.noteDrop(count); section = .inbox }
         }
-        #else
-        .sheet(isPresented: $showSettings) { TokenSettings(onSave: { Task { await store.refresh() } }) }
         #endif
-        .onAppear { store.start() }
+        .onAppear {
+            store.start()
+            #if os(macOS)
+            CompanionServer.shared.attach(store: store)   // #46: the phone's work, inbox, PRs and messages come from this store
+            #endif
+        }
+        #endif
     }
 
     #if os(macOS)
@@ -146,34 +158,42 @@ public struct OracleRootView: View {
 
     @ViewBuilder private var detail: some View {
         switch section ?? .status {
+        #if os(iOS)
+        case .status: PhoneWorkView(store: store)
+        case .inbox: PhoneInboxView(store: store)
+        // the phone has no message box for "Send to agent…" to fill: the cards do not offer it
+        case .prs: GHList(kind: .prs, items: store.prs, work: store.work, accent: c.color, problems: store.problems, answered: store.lastRefresh)
+        case .issues: GHList(kind: .issues, items: store.issues, work: store.work, accent: c.color, problems: store.problems, answered: store.lastRefresh)
+        #else
         case .status: WorkView(store: store, openPane: $openPane)
         case .inbox: InboxList(store: store)
         case .prs: GHList(kind: .prs, items: store.prs, work: store.work, accent: c.color) { heyText = Self.brief($0, pr: true) }
         case .issues: GHList(kind: .issues, items: store.issues, work: store.work, accent: c.color) { heyText = Self.brief($0, pr: false) }
+        #endif
         case .memory:
             #if os(macOS)
             HistoryView(config: c)   // the oracle's own sessions, searched by meaning
             #else
-            EmptyView()
+            PhoneMemoryView(store: store)   // searched on the Mac over the companion API
             #endif
         case .map:
             #if os(macOS)
             if #available(macOS 26, *) { MapView(name: c.name, accent: c.color, index: GHIndex.history(c.repoSlug)) }   // the memory as one 3-D space
             else { Text("The Map needs macOS 26").foregroundStyle(.secondary) }
             #else
-            EmptyView()
+            PhoneMapView(store: store)
             #endif
         case .trace:
             #if os(macOS)
             TraceView(name: c.name, accent: c.color)   // every query asked of that memory, page and MCP
             #else
-            EmptyView()
+            PhoneTraceView(store: store)
             #endif
         case .settings:
             #if os(macOS)
             SettingsView(title: c.name, accent: c.color, indexes: [GHIndex.history(c.repoSlug)]) { section = .trace }
             #else
-            EmptyView()
+            PhoneSettingsView(store: store)   // the pairing and the GitHub token
             #endif
         case .extra(let id): c.extras.sections.first { $0.id == id }.map { $0.view() } ?? AnyView(EmptyView())
         }
@@ -200,6 +220,9 @@ struct OracleSidebar: View {
                     Circle().fill(c.color.gradient).frame(width: 30, height: 30)
                     Image(systemName: c.symbol).font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
                 }
+                #if os(iOS)
+                .accessibilityHidden(true)   // the oracle's name is the next line; the symbol alone is read as its raw name
+                #endif
                 Text("\(c.name) Oracle").font(.custom("Avenir Next", size: 20).weight(.semibold)).tracking(-0.4).lineLimit(1)
                 Spacer(minLength: 4)
                 SidebarIconButton(symbol: "arrow.clockwise", help: "Refresh") { Task { await store.refresh() } }
@@ -214,17 +237,14 @@ struct OracleSidebar: View {
                 }
                 .help(workOpen ? "Click again to fold the worktrees" : "Click again to show the worktrees")
                 if workOpen { WorkTree(store: store, openPane: openPane) }   // herdr-style, LIVE only
-                #if os(macOS)
                 NavRow(symbol: store.unread.isEmpty ? "tray" : "tray.full", title: "Inbox",
                        badge: store.unread.isEmpty ? (store.inbox.isEmpty ? nil : store.inbox.count >= 300 ? "300+" : "\(store.inbox.count)")
                                                    : "\(store.unread.count) new",
                        on: section == .inbox, accent: c.color) { section = .inbox }
-                #endif
                 NavRow(symbol: "arrow.triangle.pull", title: "Pull requests", badge: store.prs.isEmpty ? nil : "\(store.prs.count)",
                        on: section == .prs, accent: c.color) { section = .prs }
                 NavRow(symbol: "exclamationmark.circle", title: "Issues", badge: store.issues.isEmpty ? nil : "\(store.issues.count)",
                        on: section == .issues, accent: c.color) { section = .issues }
-                #if os(macOS)
                 NavRow(symbol: "brain", title: "Memory", badge: nil, on: section == .memory, accent: c.color) { section = .memory }
                     .help("\(c.name)'s own session history, searched by meaning")
                 NavRow(symbol: "point.3.filled.connected.trianglepath.dotted", title: "Map", badge: nil, on: section == .map, accent: c.color, sub: true) { section = .map }
@@ -232,8 +252,9 @@ struct OracleSidebar: View {
                 NavRow(symbol: "list.bullet.rectangle", title: "Trace", badge: nil, on: section == .trace, accent: c.color, sub: true) { section = .trace }
                     .help("Every query asked of \(c.name)'s memory — the page and MCP — and a cloud of what is searched")
                 NavRow(symbol: "gearshape", title: "Settings", badge: nil, on: section == .settings, accent: c.color) { section = .settings }
+                    #if os(macOS)
                     .help("Engine, vector search, MCP, and the trace of every query")
-                #endif
+                    #endif
                 ForEach(c.extras.sections) { x in
                     NavRow(symbol: x.symbol, title: x.title, badge: nil, on: section == .extra(x.id), accent: c.color) { section = .extra(x.id) }
                 }
@@ -258,15 +279,24 @@ struct OracleSidebar: View {
     /// Where this runs and how fresh it is — ARRA's "Local on this Mac" block.
     private func footer(_ c: OracleConfig) -> some View {
         VStack(alignment: .leading, spacing: 5) {
+            #if os(iOS)
+            PhoneFooterStatus()
+            #else
             HStack(spacing: 8) {
                 Circle().fill(store.problems.isEmpty ? Color.green : Color.orange).frame(width: 8, height: 8)
                 Text(store.problems.isEmpty ? "Live on this Mac" : "Needs a look")
                     .font(.custom("Avenir Next", size: 13).weight(.semibold))
             }
+            #endif
             Text(c.repoSlug).font(.system(size: 11, design: .monospaced)).foregroundStyle(.primary.opacity(0.85))
             if let t = store.lastRefresh {
+                #if os(iOS)
+                Text("updated \(t.formatted(date: .omitted, time: .shortened))")
+                    .font(.system(size: 11)).foregroundStyle(.secondary)
+                #else
                 Text("herdr · maw · gh — updated \(t.formatted(date: .omitted, time: .shortened))")
                     .font(.system(size: 11)).foregroundStyle(.secondary)
+                #endif
             }
             Text(AppVersion.calver).font(.system(size: 10, design: .monospaced)).foregroundStyle(.secondary).textSelection(.enabled)
                 .help("This build — CalVer, Bangkok time at build")
@@ -329,6 +359,9 @@ struct SidebarIconButton: View {
                 .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(hover ? Color.primary.opacity(0.08) : Color.clear))
         }
         .buttonStyle(.plain).handCursor().help(help)
+        #if os(iOS)
+        .accessibilityLabel(help)
+        #endif
         .onHover { hover = $0 }
     }
 }
@@ -336,6 +369,7 @@ struct SidebarIconButton: View {
 // MARK: - Work: one row per /herdr-wt worktree
 // Layout card: neo-oracle ψ/writing/diagrams/2026-10-07_oracle-app-work-view.txt
 
+#if os(macOS)
 struct WorkView: View {
     @ObservedObject var store: OracleStore
     var openPane: Binding<String?> = .constant(nil)
@@ -432,6 +466,7 @@ struct WorkView: View {
         #endif
     }
 }
+#endif
 
 /// The widget's rule: needs you > working > idle — one big word, the counts, the urgent pane's ask.
 struct WorkHero: View {
@@ -748,10 +783,15 @@ enum WorkFormat {
         UIPasteboard.general.string = s
         #endif
     }
+    /// A web link, or on the Mac a folder. On the phone the links come from the Mac's answers, and a `tel:` or another
+    /// app's scheme is not a PR.
     static func open(_ u: URL) {
+        let web = ["http", "https"].contains(u.scheme?.lowercased() ?? "")
         #if os(macOS)
+        guard web || u.isFileURL else { return }
         NSWorkspace.shared.open(u)
         #else
+        guard web else { return }
         UIApplication.shared.open(u)
         #endif
     }
@@ -849,6 +889,10 @@ struct GHList: View {
     let items: [GHItem]
     let work: [WorkItem]
     let accent: Color
+    /// The phone's: why the last read failed, and when one last worked (nil: nothing has answered since launch). An empty
+    /// list says "no open …" only once something answered — before that it is "not read", not "none".
+    var problems: [String] = []
+    var answered: Date? = .distantPast
     var onSend: ((GHItem) -> Void)? = nil
     @State private var filter = 0
     var body: some View {
@@ -858,10 +902,17 @@ struct GHList: View {
             VStack(alignment: .leading, spacing: 18) {
                 Text(kind == .prs ? "Pick up a pull request." : "Pick up an issue.")
                     .font(.custom("Avenir Next", size: 30).weight(.bold)).tracking(-0.5)
+                #if os(iOS)
+                // a phone's width: the native control while the labels fit, else a row of pills that scrolls
+                PhoneSegments(options: groups.indices.map { (tag: $0, label: "\(groups[$0].name) · \(groups[$0].items.count)") },
+                              selection: $filter, accent: accent)
+                if !problems.isEmpty { PhoneReadFailure(problem: problems.joined(separator: "\n"), since: answered) }
+                #else
                 Picker("Show", selection: $filter) {
                     ForEach(groups.indices, id: \.self) { i in Text("\(groups[i].name) · \(groups[i].items.count)").tag(i) }
                 }
                 .pickerStyle(.segmented).labelsHidden().fixedSize()
+                #endif
                 VStack(spacing: 8) {
                     ForEach(rows) { it in GHCard(item: it, status: status(it), detail: detail(it), onSend: onSend.map { f in { f(it) } }) }
                 }
@@ -871,7 +922,10 @@ struct GHList: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .overlay {
-            if rows.isEmpty { Text(kind == .prs ? "No open pull requests here" : "No open issues here").foregroundStyle(.secondary) }
+            if rows.isEmpty {
+                if answered == nil { if problems.isEmpty { ProgressView() } }
+                else { Text(kind == .prs ? "No open pull requests here" : "No open issues here").foregroundStyle(.secondary) }
+            }
         }
         .navigationTitle(kind == .prs ? "Pull requests" : "Issues")
     }
@@ -913,9 +967,8 @@ struct GHCard: View {
     let detail: String
     var onSend: (() -> Void)? = nil
     @State private var hover = false
-    @Environment(\.openURL) private var openURL
     var body: some View {
-        Button { if let u = item.url { openURL(u) } } label: {
+        Button { if let u = item.url { WorkFormat.open(u) } } label: {
             HStack(spacing: 12) {
                 Circle().fill(status.color).frame(width: 8, height: 8)
                 VStack(alignment: .leading, spacing: 3) {
@@ -938,28 +991,10 @@ struct GHCard: View {
         .help(item.url?.absoluteString ?? "")
         .contextMenu {
             if let onSend { Button("Send to agent…", action: onSend).handCursor() }
-            if let u = item.url { Button("Open on GitHub") { openURL(u) } }
+            if let u = item.url { Button("Open on GitHub") { WorkFormat.open(u) } }
         }
     }
 }
-
-#if os(iOS)
-struct TokenSettings: View {
-    @Environment(\.dismiss) private var dismiss
-    @State private var token = TokenStore.read() ?? ""
-    let onSave: () -> Void
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section("GitHub token (read-only is enough)") { SecureField("ghp_… or github_pat_…", text: $token) }
-                Section { Text("Kept in this iPad's Keychain. Used only to read PRs and issues.").font(.footnote) }
-            }
-            .navigationTitle("Settings")
-            .toolbar { Button("Save") { TokenStore.write(token); onSave(); dismiss() } }
-        }
-    }
-}
-#endif
 
 public extension Notification.Name {
     static let oracleFilesDropped = Notification.Name("oracleFilesDropped")
@@ -1464,3 +1499,59 @@ struct WorkTree: View {
         #endif
     }
 }
+
+#if os(iOS)
+extension OracleRootView {
+    /// iPhone and iPad: the Mac's split view — the pages on the left, a page on the right (issue #46). The iPad keeps both
+    /// columns; the iPhone collapses to a stack, the list of pages first and a page pushed on it.
+    /// OracleSidebar's rows only set `section`, so `phonePick` also pushes the page.
+    private var phoneBody: some View {
+        NavigationSplitView(preferredCompactColumn: $column) {
+            GeometryReader { g in   // the list scrolls when the screen is short (iPhone on its side), else its footer sits at the bottom
+                ScrollView {
+                    OracleSidebar(store: store, section: phonePick, menuBar: $menuBar, openPane: $openPane)
+                        .frame(minHeight: g.size.height)
+                }
+            }
+            .toolbar(.hidden, for: .navigationBar)
+        } detail: {
+            detail
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .navigationBarTitleDisplayMode(.inline)      // every page has its own big line
+                .refreshable { await store.refresh() }       // PRs and issues; the other pages pull their own
+                .toolbar {
+                    ToolbarItem {
+                        Button { Task { await store.refresh(); NotificationCenter.default.post(name: .oraclePhoneReload, object: nil) } } label: { Image(systemName: "arrow.clockwise") }
+                            .accessibilityLabel("Refresh")
+                    }
+                    ToolbarItem { Button { showSettings = true } label: { Image(systemName: "gear") }.accessibilityLabel("Settings") }
+                }
+        }
+        .tint(c.color)
+        .sheet(isPresented: $showSettings) { PhoneSettingsSheet(store: store) }
+        .sheet(item: $paneSheet) { PhonePaneScreen(ref: $0, accent: c.color, home: WorkFormat.homeSession(store.activity)) }
+        .onChange(of: openPane) { _, new in   // a pane tapped in the sidebar's worktree tree opens its screen
+            guard let new else { return }
+            let a = store.activity.first { $0.place == new }
+            paneSheet = PhonePaneRef(place: new, title: a?.title ?? "", status: a?.status ?? "")
+            openPane = nil
+        }
+        // an opened oracle-<name>://pair?… link (Camera, a note, a message) opens the pair sheet with it filled in: the person
+        // sees which Mac it is, and that it is this oracle's, before anything pairs — a link alone never re-points the phone
+        .onOpenURL { url in if url.host == "pair" { pairLink = PhonePairLink(url: url) } }
+        .sheet(item: $pairLink) { CompanionPairView(link: $0.url.absoluteString) }
+        .task {   // -companionPair <link> (tests) is the store's: it pairs before the first refresh. Here: ask the Mac who it is
+            if CompanionClient.shared.isPaired { await CompanionClient.shared.refreshHello() }
+        }
+        .onAppear { store.start() }
+    }
+
+    /// What the sidebar sees as the open page. On the iPhone, while the list of pages is what shows, none: its Work row folds
+    /// the worktree tree when it thinks it is already on Work, and there a tap must open the page.
+    private var phonePick: Binding<Section?> {
+        Binding(
+            get: { () -> Section? in sizeClass == .compact && column == .sidebar ? Section.extra("") : section },
+            set: { new in section = new; if new != nil { column = .detail } })
+    }
+}
+#endif
