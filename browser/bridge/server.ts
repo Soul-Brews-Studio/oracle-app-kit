@@ -152,7 +152,13 @@ Bun.serve({
       if (!Array.isArray(list) || list.length > 2000) return json({ error: 'bad batch' }, 400);
       const kept = storeEvents(list);
       for (const e of list) pushLive({ ts: e.ts, kind: e.kind, author: e.author || '', text: e.text || '', link: e.link || '', key: e.key || '', post: e.post || '', media: e.media || 0, browser: e.browser, tab: e.tab });
-      console.log(`${stamp()} stream +${kept}/${list.length}  ${[...new Set(list.map(e => e.kind))].join(',')}`);
+      // the bridge's own window shows the data as it streams in (ORACLE_FB_QUIET=1 to keep it to one line per batch)
+      if (process.env.ORACLE_FB_QUIET) console.log(`${stamp()} stream +${kept}/${list.length}  ${[...new Set(list.map(e => e.kind))].join(',')}`);
+      else for (const e of list) {
+        const who = e.kind === 'nav' ? `→ ${String(e.text || e.key).slice(0, 80)}` : `${e.kind === 'comment-seen' ? '↳ ' : ''}${e.author || ''}`;
+        const txt = e.kind === 'nav' ? '' : String(e.text || e.post || '').replace(/\s+/g, ' ').slice(0, 110);
+        console.log(`${new Date(Number(e.ts) || Date.now()).toTimeString().slice(0, 8)}  ${String(e.browser || '').padEnd(10)} ${String(e.kind).padEnd(13)} ${who}${txt ? ': ' + txt : ''}${e.media ? `  [${e.media} media]` : ''}`);
+      }
       // tell the page which node each seen post became, so its 🔮 chip can show "collected" (Nat: "check uuid collected or not")
       const ids: Record<string, any> = {};
       for (const e of list) if (e.kind === 'seen' && e.key) { const n = mainNode(e.link || ''); ids[e.key] = n ? (getNode.get(n.id) || { id: n.id }) : { id: '', note: 'no link on this post (sponsored?) — kept by text hash' }; }
