@@ -870,6 +870,7 @@ struct NeuralEngineRow: View {
 struct DebugLogView: View {
     @ObservedObject private var log = HubLog.shared
     @AppStorage("hub.debugLog") private var open = true
+    @AppStorage("hub.verboseLog") private var verbose = true
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 10) {
@@ -882,6 +883,8 @@ struct DebugLogView: View {
                 }
                 .buttonStyle(.plain).handCursor()
                 Text("\(log.lines.count) lines").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                Toggle("Verbose", isOn: $verbose).toggleStyle(.checkbox).font(.caption)
+                    .help("A scan logs one line per transcript: size, lines, prose, tools, thinking, milliseconds")
                 Spacer()
                 Button("Copy") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(log.text, forType: .string) }
                     .buttonStyle(.borderless).handCursor()

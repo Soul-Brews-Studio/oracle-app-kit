@@ -17,7 +17,7 @@ public final class HubLog: ObservableObject {
 
     @Published public private(set) var lines: [Line] = []
     private var next = 0
-    private let keep = 500
+    private let keep = 2_000   // a verbose scan logs a line per transcript
 
     public static let file: URL = {
         let dir = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)[0]
