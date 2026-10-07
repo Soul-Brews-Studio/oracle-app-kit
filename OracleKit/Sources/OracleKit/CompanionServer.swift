@@ -512,7 +512,8 @@ public final class CompanionServer: ObservableObject {
         if length > maxBody { return .bad(413, "the request body is larger than \(maxBody / 1024) KB") }
         let need = end.upperBound + length
         if d.count < need { return .more(need: need) }
-        guard let r = MCPServer.parse(d) else { return .bad(400, "the request line is not  METHOD /path HTTP/1.1") }
+        // MCPServer.parse (#50) answers a request it can't read with `bad` set, not nil
+        guard let r = MCPServer.parse(d), r.bad == nil else { return .bad(400, "the request line is not  METHOD /path HTTP/1.1") }
         return .request(r)
     }
 
