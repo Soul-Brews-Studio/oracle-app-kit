@@ -101,14 +101,14 @@ public struct MapView: View {
     /// What the page reacts to: the layout and the groups changing, every traced or heard query, the switches.
     private func handlers<V: View>(_ v: V) -> some View {
         v.onChange(of: layout.xyz.count) { scene.needsRebuild = true }
-        .onChange(of: clusters.labels.count) { scene.setGroups(clusters.labels, leaves: clusters.leafLabels); placeOracles() }
+        .onChange(of: clusters.revision) { scene.setGroups(clusters.labels, leaves: clusters.leafLabels, ids: clusters.layoutIds); placeOracles() }
         // #36: every query asked of this memory — a page, the map, another oracle over MCP — fires its hits
         .onChange(of: trace.entries.count) { _, _ in fireTraced() }
         // #37: a query another oracle app answered
         .onChange(of: heard.last?.id) { _, _ in fireHeard() }
         .onChange(of: byKind) { scene.recolor(byKind: byKind) }
         .onChange(of: index.docs.count, initial: true) { count() }
-        .onChange(of: scene.built) { scene.setGroups(clusters.labels, leaves: clusters.leafLabels) }
+        .onChange(of: scene.built) { scene.setGroups(clusters.labels, leaves: clusters.leafLabels, ids: clusters.layoutIds) }
         .animation(.easeOut(duration: 0.18), value: scene.selectedRow)
         .animation(.easeOut(duration: 0.18), value: showGroups)
         .onAppear { installEsc() }
@@ -158,7 +158,7 @@ public struct MapView: View {
             await layout.fit(docs: index.docs, space: index.space, why: why)
         }
         await clusters.refresh(layout: layout, docs: index.docs)
-        scene.setGroups(clusters.labels, leaves: clusters.leafLabels)
+        scene.setGroups(clusters.labels, leaves: clusters.leafLabels, ids: clusters.layoutIds)
         placeOracles()
         if UserDefaults.standard.bool(forKey: "mapGroups") { showGroups = true }   // -mapGroups YES (tests)
         if !Self.actionDone, let q = UserDefaults.standard.string(forKey: "mapQuery"), !q.isEmpty {   // -mapQuery <text> (tests)
@@ -366,7 +366,7 @@ public struct MapView: View {
     }
     private func placeOracles() {
         guard let fleet else { return }
-        dominant = fleet.dominant(labels: clusters.labels, ids: Array(layout.ids.prefix(clusters.labels.count)))
+        dominant = fleet.dominant(labels: clusters.labels, ids: clusters.layoutIds)
     }
 
     private var empty: some View {
@@ -489,6 +489,7 @@ final class MapScene: ObservableObject {
     private var layout: MapLayout?
     private var content: RealityViewCameraContent?
     private var frames = 0
+    private var builtIds: [String] = []
     private var pendingZoom: Float?
     private var builtAt = Date()
     private var fpsSeconds = 0
@@ -514,10 +515,11 @@ final class MapScene: ObservableObject {
     }
 
     func build(into content: inout RealityViewCameraContent, layout: MapLayout, docs: [IndexDoc]) {
-        self.content = content; self.layout = layout
+        self.content = content; self.layout = layout; builtIds = layout.ids
         // a rebuild (new layout): what pointed at rows of the old one goes
         selectedRow = nil; hoverRow = nil; hoverDoc = nil; lit = []; firings = []; fireEntities = []; target = nil
         litEntity = nil; lines = nil; hoverGlow = nil; selGlow = nil; selLines = nil; pulseEntity = nil; webEntity = nil
+        groupOf = []; leafOf = []; groupCentre = [:]; leafCentre = [:]; labelAt = [:]; leafAt = [:]
         root = Entity()
         root.scale = SIMD3(repeating: Self.scale)
         let zoom = UserDefaults.standard.double(forKey: "mapZoom")   // -mapZoom 2.4 (tests: the leaves' names), once the camera has framed
@@ -762,9 +764,10 @@ final class MapScene: ObservableObject {
         if let e = Self.instanced(Array(pts.indices), xyz: pts, mesh: MeshResource.generateSphere(radius: 0.0028), material: m) { root.addChild(e); pulseEntity = e }
     }
 
-    /// Groups from MapClusters: each region's and each leaf's centre on the map, for their floating names.
-    func setGroups(_ labels: [Int], leaves: [Int]) {
-        guard labels.count == xyz.count else { return }
+    /// Groups from MapClusters: each region's and each leaf's centre on the map, for their floating names — only when
+    /// they were made for the rows this scene shows (after a re-fit the scene is rebuilt first, then they match).
+    func setGroups(_ labels: [Int], leaves: [Int], ids: [String]) {
+        guard labels.count == xyz.count, ids == builtIds else { return }
         groupOf = labels; groupCentre = Self.centres(labels, xyz)
         leafOf = leaves.count == xyz.count ? leaves : []; leafCentre = Self.centres(leafOf, xyz)
     }
