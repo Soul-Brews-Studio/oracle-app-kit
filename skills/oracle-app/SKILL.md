@@ -6,23 +6,24 @@ description: "Build an oracle's own Mac app from oracle-app-kit — an agent app
 # /oracle-app — an oracle builds its own app
 
 ```
-/oracle-app new      <Name> [--key k] [--repo org/repo] [--color #hex] [--symbol sf] [--tagline "…"] [--imagegen]
-/oracle-app update   <Name>          regenerate generated files; keeps <Name>Extras.swift, icon, port, widget kind
+/oracle-app new      <Name> [--key=k] [--color=#hex] [--symbol=sf] [--tagline="…"] [--imagegen]
+/oracle-app update   <Name>          regenerate generated files; keeps Extras, icon, key, port, team, widget kind
 /oracle-app panel    <Name> <title>  add an ExtraSection skeleton to <Name>Extras.swift
-/oracle-app build    [<Name>…|--all] Release build + install + relaunch (herdr pane, install lock)
-/oracle-app check    <Name>          the acceptance rows, one report
-/oracle-app portal   build|check     the hub (ARRA Oracles): rebuild; verify the new app shows up
+/oracle-app build    [<Name>…]       Release build + install + relaunch-if-running (herdr pane, install lock)
+/oracle-app check    <Name>          the acceptance rows, one report — never quits an app a human is using
+/oracle-app portal   build|check     the hub (ARRA Oracles): rebuild; verify the new app shows up — never relaunched unasked
 ```
 
-Works under Claude Code and Codex. Every step is a plain shell command below; slash-skills named here
-(`/herdr-pane-run`, `/herdr-pr`, `/imagegen`) are conveniences with the fallback written next to them.
+Works under Claude Code and Codex, in zsh (macOS default) and bash. Every step is a plain shell command below;
+slash-skills named here (`/herdr-pr`, `/imagegen`) are conveniences with the fallback written next to them.
 
 ## 0. Where things are
 
 ```bash
-KIT=$(ghq list -p --exact Soul-Brews-Studio/oracle-app-kit) || ghq get -p Soul-Brews-Studio/oracle-app-kit
-ORACLE=$(git rev-parse --show-toplevel)             # the oracle's own repo — the app is ABOUT it
-date +%-d%b-%a%Y | tr 'A-Z' 'a-z'                    # date slug for the worktree name
+KIT=$(ghq list -p --exact Soul-Brews-Studio/oracle-app-kit)
+[ -n "$KIT" ] || { ghq get -p Soul-Brews-Studio/oracle-app-kit; KIT=$(ghq list -p --exact Soul-Brews-Studio/oracle-app-kit); }
+SLUG=$(git remote get-url origin | sed -E 's#(\.git)?$##; s#.*github\.com[:/]##')    # the oracle's org/repo
+ORACLE=$(ghq list -p --exact "$SLUG")      # its MAIN checkout — not a worktree path: it is baked into the app
 ```
 
 Never work in `$KIT`'s main checkout. Cut a worktree:
@@ -33,82 +34,113 @@ Never work in `$KIT`'s main checkout. Cut a worktree:
 | need | check | when missing (the human does this once per Mac) |
 |---|---|---|
 | Xcode + xcodegen | `xcodebuild -version && xcodegen --version` | `xcode-select --install; brew install xcodegen` |
-| Rust | `command -v cargo` | `brew install rustup && rustup-init -y && . ~/.cargo/env` |
-| signing team | `security find-identity -v -p codesigning` | Xcode → Settings → Accounts → sign in. Several teams: ask once, then `export ORACLE_APP_TEAM=<id>` |
-| Screen Recording | `scripts/shot.sh` prints a window id | System Settings → Privacy & Security → Screen Recording → the terminal |
-| herdr / maw (Work page) | `command -v herdr maw` | optional: without them Work shows "no herdr here" and that row passes |
+| Rust (the build finds it here too) | `PATH="/opt/homebrew/opt/rustup/bin:$HOME/.cargo/bin:$PATH" command -v cargo` | `brew install rustup && rustup-init -y` |
+| uv (draws the icon), ripgrep | `command -v uv rg` | `brew install uv ripgrep` |
+| signing team | the `OU=` of the signing certificate (below) | Xcode → Settings → Accounts → sign in |
+| Screen Recording | `zsh $K/scripts/shot.sh Finder /tmp/f.png --as-is` prints `shot …` | System Settings → Privacy & Security → Screen Recording → the terminal |
+| herdr / maw (Work page) | `command -v herdr maw` | optional: without them the Work page is empty, which is correct |
+
+The Team ID is the certificate's `OU`, **not** the id in parentheses that `find-identity` prints:
+```bash
+security find-identity -v -p codesigning                       # names, e.g. "Apple Development: Name (USERID)"
+security find-certificate -c "Apple Development: <Name> (<USERID>)" -p | openssl x509 -noout -subject   # … OU=<TEAMID> …
+```
+One team: nothing to do (`project.yml` has it). Another or several: ask once, then `export ORACLE_APP_TEAM=<TEAMID>`.
 
 ## 2. `new`
 
 1. **Identity from the oracle's repo, flags only override.**
-   - repo: `git -C $ORACLE remote get-url origin` → `org/repo`. Checkout: `$ORACLE`.
-   - Name: a Swift type name (`Athena`, `DustBoyPhd`). Key: default = portal rule, repo minus `-oracle`,
-     lower-cased (`DustBoy-Phd-Oracle` → `dustboy-phd`). Never hand-pick a key that differs from that rule
-     unless the portal should not match it.
+   - repo: `$SLUG`; checkout: `$ORACLE` (§0).
+   - Name: a Swift type name (`Athena`, `DustBoyPhd`). Key: default = the portal's rule, repo minus `-oracle`,
+     lower-cased (`DustBoy-Phd-Oracle` → `dustboy-phd`). A different key means the portal never matches the app.
    - colour: the oracle's CLAUDE.md design colour, else ask once. symbol + tagline: from its "I am" line.
-   - refuse: `Apps/<Name>` exists, the key is used by another `Apps/*/app.yml`, the colour is another app's.
-2. **Icon.** `design/icons/<Name>.png` if present. `--imagegen` (or an explicit yes): `/imagegen` an emblem on
-   the dark squircle in the oracle colour, save as `design/icons/<Name>.png`. Otherwise the generator draws one.
-   Look at it (Read the PNG) before going on.
-3. **Generate**
+   - The generator refuses, before writing anything: an existing `Apps/<Name>`, a key / colour / MCP port another app
+     has, a port something listens on, a non-Swift Name, a bad team.
+2. **Icon.** `design/icons/<Name>.png` if present. `--imagegen` (or an explicit yes): `/imagegen` an emblem on the dark
+   squircle in the oracle colour, saved as `design/icons/<Name>.png`. Otherwise the generator draws one. Look at it
+   (open the PNG) before going on.
+3. **Generate** — `--opt=value` is one word in zsh and bash alike:
    ```bash
-   zsh $K/scripts/new-oracle-app.sh <Name> <org/repo> <checkout> '<#hex>' <sf.symbol> "<tagline>" \
-       ${KEY:+--key $KEY} ${ORACLE_APP_TEAM:+--team $ORACLE_APP_TEAM}
-   zsh $K/scripts/parity.sh           # the generator still matches Neo/Pulse/Nexus — must print ✓ for each
+   zsh $K/scripts/new-oracle-app.sh <Name> $SLUG "$ORACLE" '<#hex>' <sf.symbol> "<tagline>" \
+       ${KEY:+--key=$KEY} ${ORACLE_APP_TEAM:+--team=$ORACLE_APP_TEAM}
+   zsh $K/scripts/parity.sh           # the generator still matches every app — ✓ for each, or stop
    ```
-   The port is picked automatically (next free from 4791) and printed.
-4. **Build + install** — minutes, so in a herdr pane, never a blocking call:
+   It prints the key, bundle id, MCP port (next free from 4791) and team.
+4. **Build + install the new app only** — the portal finds it by bundle id, it needs no rebuild. Minutes, so in a
+   herdr pane, never a blocking call:
    ```bash
-   herdr pane run <PANE> 'zsh '$K'/scripts/build.sh <Name> Oracles --install; RC=$?; \
+   herdr pane run <PANE> 'zsh '$K'/scripts/build.sh <Name> --install; RC=$?; \
      herdr agent prompt <ME> "PANE <PANE> oracle-app build rc=$RC
    $(herdr pane read <PANE> --source recent-unwrapped --lines 14 | tail -10)"'
    ```
-   (no herdr: run `zsh $K/scripts/build.sh <Name> Oracles --install` in a second terminal.)
-   rc 75 = another agent holds the install lock: it prints who and the wait command. Do not delete the lock
-   while its pid is alive; a dead holder's lock is taken over automatically.
-5. **Check** (section 3). Every row ✓, or fix and re-run — the failing row prints its own fix.
-6. **PR.** Commit `Apps/<Name>/**`, `apps.yml`, `OracleApps.xcodeproj/project.pbxproj`, `design/icons/<Name>.png`
-   and the check screenshots. Scrub first (section 5). Push, open a PR with the "Built by" block (`/herdr-pr`;
-   fallback: oracle, model, worktree, branch, session id, herdr pane in the PR body). **Never merge it.**
+   (no herdr: run `zsh $K/scripts/build.sh <Name> --install` in a second terminal.)
+   rc 75 = another agent holds the install lock: it prints who and a wait command that ends when that agent's process
+   ends. Never delete the lock by hand; a dead holder's lock is taken over automatically.
+5. **Check** (§3). Every row ✓, or fix and re-run — each ✗ prints its own fix.
+6. **PR.** Commit `Apps/<Name>/**`, `apps.yml`, `OracleApps.xcodeproj/project.pbxproj`, `design/icons/<Name>.png`, and
+   screenshots under `docs/screenshots/<Name>/` — **not** under `Apps/<Name>/`, which is the app's source folder and
+   would be bundled into the app. Scrub first (§5). Push, open a PR with the "Built by" block (`/herdr-pr`; fallback:
+   oracle, model, worktree, branch, session id, herdr pane in the PR body). **Never merge it.**
 
 ## 3. `check <Name>` — what "built" means
 
 ```bash
-zsh $K/skills/oracle-app/check.sh <Name>        # runs every row below, prints ✓/✗ and the fix per row
+zsh $K/skills/oracle-app/check.sh <Name>                 # read-mostly: launches the app only if it is not running
+zsh $K/skills/oracle-app/check.sh <Name> --deep --shots --relaunch   # + Memory, Map, screenshots: QUITS and relaunches it
 ```
+
+By default nothing is quit: a running copy is checked as it is (a human may be using it). `--deep` / `--shots` drive
+pages by launch argument, so they need `--relaunch` when the app runs, and they skip while another agent installs.
 
 | row | how | pass |
 |---|---|---|
-| launches | `open "/Applications/<Name>.app" --args -oracleSection status`, then `pgrep -fl "<Name>.app/Contents/MacOS"` | running from `/Applications`, no new crash report |
-| portal key | bundle id vs portal rule | `co.laris.oracle.<key>` == repo minus `-oracle`, lower-cased |
-| MCP | `curl -s 127.0.0.1:<port>/health` | `ok` |
-| widget | `pluginkit -m -i co.laris.oracle.<key>.widget` after one launch | registered (one retry) |
-| CalVer | `PlistBuddy -c 'Print :ARRACalVer'` | today |
+| portal key | bundle id vs the portal's rule | `co.laris.oracle.<key>` == repo minus `-oracle`, lower-cased |
+| app wires | `<Name>App.swift` | BundledANE, MapLayoutEngine, `MCPServer.serve(name: "<name>-memory", port: <port>)` |
+| installed | `/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' /Applications/<Name>.app/Contents/Info.plist` | `co.laris.oracle.<key>`, display name `<Name>` |
+| CalVer | `/usr/libexec/PlistBuddy -c 'Print :ARRACalVer' …/Info.plist` | today, Bangkok time |
+| running | `pgrep -fl "<Name>.app/Contents/MacOS/<Name>"` | from `/Applications` |
+| no crash | `~/Library/Logs/DiagnosticReports/{<Name>,<Name>Widget,<Name>Share}-*` | none since launch |
+| MCP | `curl -s 127.0.0.1:<port>/health` | `"name":"<name>-memory"`, `"status":"ok"` |
+| widget | `pluginkit -m -v -i co.laris.oracle.<key>.widget` | registered from `/Applications/<Name>.app` |
 | parity | `scripts/parity.sh` | ✓ for every app |
-| screenshots | `scripts/shot.sh <Name> <file> -- -oracleSection status|memory|map` | window shots, by window id |
-| iOS compiles | `xcodebuild -scheme <Name> -destination 'generic/platform=iOS' build CODE_SIGNING_ALLOWED=NO` | builds |
+| Memory (`--deep`) | `-oracleSection memory -memoryAction batch -memoryQuery <name>` | `memory batch done` / `up to date`, then the search line |
+| Map (`--deep`) | `-oracleSection map -memoryAction layout` | `map layout: N docs in` or `map: N points in` |
+| screenshots (`--shots`) | `scripts/shot.sh <Name> <file> -- -oracleSection <page>` | window shots, by window id |
+| iOS (`--ios`) | `xcodebuild -scheme <Name> -destination 'generic/platform=iOS' build CODE_SIGNING_ALLOWED=NO` | builds |
 
-Drive the app only by launch arguments (`-oracleSection status|inbox|prs|issues|memory|map|trace|settings`,
-`-memoryAction batch|layout`, `-memoryQuery "<words>"`) and read its log
-(`~/Library/Logs/ARRA Oracles/<Name>.log`). **Never click**: a synthetic click lands in the window a human is using.
+Not covered by a row (look at the screenshots): the Work page's content and the sidebar's identity.
+
+Drive the app only by launch arguments — `-oracleSection memory`, `map`, `trace` or `settings` (anything else opens
+Work), `-memoryAction batch` / `layout`, `-memoryQuery "<words>"` — and read its log,
+`~/Library/Logs/ARRA Oracles/<Name>.log` (the hub's is `embed.log`). **Never click**: a synthetic click lands in the
+window a human is using.
 
 ## 4. `update`, `panel`, `build`, `portal`
 
-- `update <Name>`: `new-oracle-app.sh … --update` with the identity read back from `<Name>Config.swift` (as
-  `parity.sh` does). Keeps Extras, icon, port and the widget `kind` — renaming a kind leaves every placed widget
-  as a grey placeholder for good.
+- `update <Name>`: `zsh $K/scripts/new-oracle-app.sh <the same 6 identity arguments> --update`. Key, port and team are
+  read back from the app; Extras, icon and the widget `kind` are kept — renaming a kind leaves every placed widget a
+  grey placeholder for good. `check.sh` prints the exact command on a ✗.
 - `panel <Name> <Title>`: add to `<Name>Extras.swift`
   `ExtraSection(id: "<slug>", title: "<Title>", symbol: "square.grid.2x2") { AnyView(<Title>Panel()) }` and a
   `struct <Title>Panel: View` stub in the same file.
-- `build`: `scripts/build.sh <Schemes…> --install` (default all four).
-- `portal build`: `scripts/build.sh Oracles --install`. `portal check`: `scripts/shot.sh "ARRA Oracles" hub.png`,
-  confirm the new app's card under APPS; `curl -s 127.0.0.1:4790/health`.
+- `build`: `scripts/build.sh <Schemes…> --install` (no schemes = Oracles Neo Pulse Nexus). Apps that were running
+  are relaunched; the hub always is.
+- `portal build`: `scripts/build.sh Oracles --install` — this relaunches the hub; say so to the human first.
+- `portal check` — never relaunches the hub:
+  ```bash
+  for a in /Applications/*.app; do id=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$a/Contents/Info.plist" 2>/dev/null)
+    [[ $id == co.laris.oracle.* && $id != *.hub ]] && echo "${id#co.laris.oracle.}"; done      # the APPS cards
+  curl -s 127.0.0.1:4790/health                                                                 # the hub's MCP
+  zsh $K/scripts/shot.sh "ARRA Oracles" hub.png --as-is                                          # its window, as it is
+  ```
 
 ## 5. Rules
 
-- No `git push --force`, no push to main, never merge (a human does), temp files in `.tmp/`, long builds in a pane.
-- The kit is **public**. Before committing: `rg -n -i 'token|secret|api[_-]?key|bearer|ghp_|sk-|/Users/[a-z]' <new files>`.
-  Exactly one machine path is allowed: the `OracleConfig.mac("…")` line (the oracle's own checkout).
-- Two agents: the install lock serialises `/Applications`. Tell the other agent (`herdr agent prompt`) before
-  a long install anyway.
+- No `git push --force`, no push to main, never merge (a human does), temp files in the kit's `.tmp/`, long builds in a pane.
+- The kit is **public**. Before committing, scan the new files; exactly one machine path may remain, the
+  `OracleConfig.mac("…")` line (the oracle's own checkout):
+  `rg -n -i '\btoken\b\s*[:=]|secret|api[_-]?key|bearer\s|ghp_|\bsk-[a-z0-9]|/Users/|/home/|/opt/Code' <new files> | rg -v 'OracleConfig\.mac\('`
+  must print nothing. Also: no other people's names, chats or data in screenshots.
+- Two agents: the install lock serialises `/Applications`; `check.sh` and `shot.sh` will not relaunch during another
+  agent's install. Still tell the other agent (`herdr agent prompt`) before a long install.
 - Mac only. No App Store / TestFlight here.

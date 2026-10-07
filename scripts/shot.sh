@@ -1,16 +1,25 @@
 #!/usr/bin/env zsh
-# shot.sh <App> [out.png] [-- launch args…]   e.g.  shot.sh Pulse pulse-map.png -- -oracleSection map
-# Relaunch /Applications/<App>.app (full path: LaunchServices knows many copies from worktree builds) with
-# launch arguments, wait WAIT seconds (default 12), screenshot its largest window by window id (never a screen
-# region, never a click), and tail the app's log. Needs Screen Recording for this terminal, once.
+# shot.sh <App> [out.png] [-- launch args…]     relaunch <App> with launch arguments, then screenshot its window
+# shot.sh <App> [out.png] --as-is                screenshot the window as it is: no quit, no relaunch (the hub a human
+#                                                is using; any app you must not disturb)
+# Relaunches /Applications/<App>.app by full path (LaunchServices knows many copies from worktree builds), waits WAIT
+# seconds (default 12), screenshots its largest window by window id — never a screen region, never a click — and tails
+# the app's log. Refuses to relaunch while another agent holds the install lock. Needs Screen Recording, once.
+# Exit 0 = shot taken.
 set -u
-APP=${1:?App}; shift; OUT=$APP.png
-[[ ${1:-} != "" && ${1:-} != -- ]] && { OUT=$1; shift; }
+R=${0:A:h}/..; R=${R:A}; source $R/scripts/install-lock.sh
+APP=${1:?usage: shot.sh <App> [out.png] [-- launch args… | --as-is]}; shift
+OUT=$APP.png; ASIS=0
+[[ ${1:-} != "" && ${1:-} != -- && ${1:-} != --as-is ]] && { OUT=$1; shift; }
+[[ ${1:-} == --as-is ]] && { ASIS=1; shift; }
 [[ ${1:-} == -- ]] && shift
-pkill -x "$APP"; for i in {1..50}; do pgrep -x "$APP" >/dev/null || break; sleep 0.2; done
-open "/Applications/$APP.app" --args "$@" || { sleep 2; open "/Applications/$APP.app" --args "$@"; }
-sleep ${WAIT:-12}
-pgrep -fl "$APP.app/Contents/MacOS" | rg -q "^.* /Applications/" || echo "! $APP is not running from /Applications:  pgrep -fl '$APP.app/Contents/MacOS'"
+if (( ! ASIS )); then
+  lock_held && { print -r -- "✗ not relaunching $APP: install in progress by $(cat $LOCK_DIR/who 2>/dev/null) — retry when done, or use --as-is"; exit 75; }
+  pkill -x "$APP"; for i in {1..50}; do pgrep -x "$APP" >/dev/null || break; sleep 0.2; done
+  for i in 1 2 3; do open "/Applications/$APP.app" --args "$@" 2>/dev/null && break; sleep 2; done   # -600 while quitting
+  sleep ${WAIT:-12}
+fi
+pgrep -fl "$APP.app/Contents/MacOS" | rg -q " /Applications/" || print -r -- "! $APP is not running from /Applications:  pgrep -fl '$APP.app/Contents/MacOS'"
 W=$(swift -e 'import CoreGraphics
 let l = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as! [[String: Any]]
 var best = 0, id = 0
@@ -18,6 +27,9 @@ for w in l where (w[kCGWindowOwnerName as String] as? String) == "'"$APP"'" && (
   let b = w[kCGWindowBounds as String] as! [String: Any]; let a = (b["Width"] as! Int) * (b["Height"] as! Int)
   if a > best { best = a; id = w[kCGWindowNumber as String] as! Int } }
 print(id)' 2>/dev/null)
-if [[ -n $W && $W != 0 ]]; then screencapture -x -o -l$W "$OUT" && echo "shot $OUT"
-else echo "✗ no window for $APP — Screen Recording for this terminal?  System Settings → Privacy & Security → Screen Recording"; fi
-L="$HOME/Library/Logs/ARRA Oracles/$APP.log"; [ -f "$L" ] && tail -5 "$L"
+rc=0
+if [[ -n $W && $W != 0 ]] && screencapture -x -o -l$W "$OUT"; then print -r -- "shot $OUT"
+else print -r -- "✗ no window for $APP — on screen? Screen Recording for this terminal?  System Settings → Privacy & Security → Screen Recording"; rc=1; fi
+L="$HOME/Library/Logs/ARRA Oracles/$APP.log"; [[ $APP == "ARRA Oracles" ]] && L="$HOME/Library/Logs/ARRA Oracles/embed.log"   # the hub logs to embed.log
+[ -f "$L" ] && tail -5 "$L"
+exit $rc
