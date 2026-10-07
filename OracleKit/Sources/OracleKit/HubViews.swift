@@ -504,6 +504,7 @@ struct IndexSearchView: View {
                         EngineRow(name: "Model check", value: index.engine.map { $0.ok && $0.models.contains(GHIndex.model) ? "✓ served" : "✗ not served — nothing embeds this model yet: see the debug log" } ?? "—",
                                   good: index.engine.map { $0.ok && $0.models.contains(GHIndex.model) })
                         EngineRow(name: "Vector space", value: index.engine.map { String($0.space.prefix(36)) + ($0.space.count > 36 ? "…" : "") } ?? "—")
+                        StorageRow(index: index)
                         EngineRow(name: "Index", value: "\(index.docs.count) items · \(index.docs.filter { $0.kind == "note" }.count) notes · \(Set(index.docs.map(\.repo)).count) oracles" + (index.built.map { " · built \($0.formatted(date: .omitted, time: .shortened))" } ?? ""))
                         Divider().padding(.vertical, 10)
                         Label("Batch controls", systemImage: "square.stack.3d.up").font(.headline).foregroundStyle(Color.orange).padding(.bottom, 8)

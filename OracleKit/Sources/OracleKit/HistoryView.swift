@@ -92,6 +92,10 @@ struct HistoryView: View {
             }
             if index.engine?.kind.hasPrefix("bundled") == true { NeuralEngineRow() }
             if !load.absent { EnginePicker(load: load) }
+            if !load.root.isEmpty {
+                EngineRow(name: "Loaded from", value: load.root + (load.finished.flatMap { f in load.started.map { String(format: " · ready in %.1f s", f.timeIntervalSince($0)) } } ?? ""))
+            }
+            StorageRow(index: index)
             EngineRow(name: "Index", value: "\(grouped(index.docs.count)) items · \(grouped(sessions)) sessions"
                       + (since.isEmpty ? "" : " · since \(since)")
                       + (index.built.map { " · built \($0.formatted(date: .omitted, time: .shortened))" } ?? ""))

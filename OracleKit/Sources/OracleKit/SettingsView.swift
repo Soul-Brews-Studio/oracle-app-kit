@@ -1,17 +1,15 @@
 #if os(macOS)
 import SwiftUI
 
-/// Settings, one page per app: the embedding engine (ANE / GPU), the vector indexes and the shared cache, the MCP
-/// server, and the trace of every query — each with what it logged.
+/// Settings, one page per app: the MCP server and the trace of every query, with the debug log. The engine and the
+/// indexes are memory settings: they live on the Memory page (the hub: its search page), not here twice.
 public struct SettingsView: View {
     let title: String
     let accent: Color
     let indexes: [GHIndex]
-    @ObservedObject private var load = ModelLoad.shared
     @ObservedObject private var mcp = MCPServer.shared
     @ObservedObject private var trace = TraceLog.shared
     @AppStorage("mcp.enabled") private var mcpEnabled = true
-    @State private var cache: (count: Int, mb: Double) = (0, 0)
     @State private var copied = false
 
     public init(title: String, accent: Color, indexes: [GHIndex]) { self.title = title; self.accent = accent; self.indexes = indexes }
@@ -24,67 +22,18 @@ public struct SettingsView: View {
                     Text("\(title) settings").font(.custom("Avenir Next", size: 34).weight(.bold))
                     Text(AppVersion.calver).font(.callout.monospaced()).foregroundStyle(.secondary).textSelection(.enabled)
                 }
-                Text("The engine that embeds, the indexes it fills, the MCP server agents ask, and every query asked.")
+                Text("The MCP server agents ask, and every query asked. The engine and the indexes are on the memory page.")
                     .font(.callout).foregroundStyle(.secondary)
-                card("Engine", "cpu", .cyan) { engine }
-                card("Vector search", "sparkle.magnifyingglass", accent) { vectors }
                 card("MCP", "point.3.connected.trianglepath.dotted", .orange) { mcpCard }
                 card("Trace", "list.bullet.rectangle", .green) { traceCard }
                 DebugLogView()
             }
             .padding(.horizontal, 28).padding(.vertical, 22)
         }
-        .task {
-            if let i = indexes.first { GHIndex.active = i; await i.checkEngine() }
-            await refreshCache()
-        }
-        .onChange(of: load.finished) { Task { for i in indexes { await i.checkEngine() } } }   // the model loaded meanwhile (an MCP call, another page)
+        .task { if let i = indexes.first { GHIndex.active = i } }
     }
 
     // MARK: sections
-
-    private var engine: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            EngineRow(name: "Engine", value: indexes.first?.engine.map { $0.ok ? $0.kind : "not answering" } ?? "checking…")
-            if load.loading || load.failed != nil || load.absent { ModelLoadRow(load: load, fallback: false) }
-            if indexes.first?.engine?.kind.hasPrefix("bundled") == true { NeuralEngineRow() }
-            if !load.absent { EnginePicker(load: load) }
-            EngineRow(name: "Model", value: GHIndex.model)
-            EngineRow(name: "Loaded from", value: load.root.isEmpty ? "not loaded yet — it loads when a page or an MCP call needs it" : load.root)
-            if let f = load.finished, let s = load.started {
-                EngineRow(name: "Load", value: String(format: "ready in %.1f s · %d parts · %d compiled, %d from the cache", f.timeIntervalSince(s),
-                                                      load.steps.count, load.steps.filter { $0.seconds >= 2 }.count, load.steps.filter { $0.seconds < 2 }.count))
-            }
-            if load.failed != nil, let retry = load.retry {
-                Button("Retry loading") { retry() }.controlSize(.small).handCursor().padding(.top, 6)
-            }
-        }
-    }
-
-    private var vectors: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            ForEach(indexes, id: \.name) { i in
-                let kinds = Dictionary(grouping: i.docs, by: \.kind).mapValues(\.count)
-                EngineRow(name: "Index", value: i.name)
-                EngineRow(name: "Items", value: "\(grouped(i.docs.count)) — " + kinds.sorted { $0.key < $1.key }.map { "\($0.key) \(grouped($0.value))" }.joined(separator: " · "))
-                EngineRow(name: "Files", value: "\(Self.mb(i.filePath)) MB text + \(Self.mb(i.vectorsFilePath)) MB vectors · built "
-                          + (i.built.map { $0.formatted(date: .abbreviated, time: .shortened) } ?? "never"))
-                EngineRow(name: "Vector space", value: i.space ?? "—")
-                HStack(spacing: 10) {
-                    Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: i.filePath)]) }
-                    Button("Check engine") { Task { await i.checkEngine() } }
-                }
-                .controlSize(.small).buttonStyle(.bordered).handCursor().padding(.vertical, 6)
-            }
-            Divider().padding(.vertical, 8)
-            EngineRow(name: "Vector cache", value: "\(grouped(cache.count)) vectors · \(String(format: "%.0f", cache.mb)) MB — shared by every app; a text is embedded once")
-            HStack(spacing: 10) {
-                Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([VectorCache.shared.path]) }
-                Button("Recount") { Task { await refreshCache() } }
-            }
-            .controlSize(.small).buttonStyle(.bordered).handCursor().padding(.top, 6)
-        }
-    }
 
     private var mcpCard: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -124,6 +73,7 @@ public struct SettingsView: View {
 
     private var traceCard: some View {
         VStack(alignment: .leading, spacing: 4) {
+            SearchCloud(accent: accent).padding(.bottom, 8)
             HStack {
                 Text("\(trace.entries.count) queries since launch").font(.caption).foregroundStyle(.secondary)
                 Spacer()
@@ -164,20 +114,39 @@ public struct SettingsView: View {
         .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.primary.opacity(0.045)))
         .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color.primary.opacity(0.08)))
     }
+}
 
+/// Where an index lives and what the shared vector cache holds — a row of the memory page's engine card.
+struct StorageRow: View {
+    let index: GHIndex
+    @State private var cache: (count: Int, mb: Double) = (0, 0)
+    var body: some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text("Storage").foregroundStyle(.secondary).frame(width: 110, alignment: .leading)
+            Text("\(Self.mb(index.filePath)) MB text + \(Self.mb(index.vectorsFilePath)) MB vectors · cache \(grouped(cache.count)) vectors, \(String(format: "%.0f", cache.mb)) MB")
+                .lineLimit(1).truncationMode(.middle)
+                .help("The shared vector cache: every app on this Mac reuses a vector once it is computed")
+            Button { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: index.filePath), VectorCache.shared.path]) } label: {
+                Image(systemName: "folder")
+            }
+            .buttonStyle(.borderless).handCursor().help("Show the index and the vector cache in Finder")
+            Spacer(minLength: 0)
+        }
+        .font(.callout).padding(.vertical, 3)
+        .task { await refresh() }
+        .onChange(of: index.built) { Task { await refresh() } }
+    }
     static func mb(_ path: String) -> String {
         let size = ((try? FileManager.default.attributesOfItem(atPath: path))?[.size] as? Int) ?? 0
         return String(format: "%.1f", Double(size) / 1e6)
     }
-
-    private func refreshCache() async {
+    private func refresh() async {
         let path = VectorCache.shared.path.path
-        let r = await Task.detached(priority: .utility) { () -> (Int, Double) in
+        cache = await Task.detached(priority: .utility) { () -> (Int, Double) in
             let fm = FileManager.default
             let size = [path, path + "-wal"].reduce(0) { $0 + (((try? fm.attributesOfItem(atPath: $1))?[.size] as? Int) ?? 0) }
             return (VectorCache.shared.count, Double(size) / 1e6)
         }.value
-        cache = r
     }
 }
 
