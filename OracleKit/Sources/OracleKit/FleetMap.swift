@@ -6,49 +6,46 @@ import SwiftUI
 
 /// Every query an oracle app answers, told to the hub (issue #37). The apps are separate processes, so the fleet map
 /// learns of a search in Pulse from a distributed notification — on this Mac only, no network. Any app in the login
-/// session can observe one, so it carries little: the index, short hashes of the hits (the hub knows which of its rows
-/// each is), the source, the asking oracle's name and the id of the app's trace entry. The words of the query stay in
-/// the app's own query log, where the hub reads them.
+/// session can observe one, or post one, so it carries nothing of the query: the index's name, the source and the id
+/// of the app's trace entry. The hub checks the index against its own members, then reads the hits, the words and who
+/// asked from that oracle's query log — the one place they are kept.
 public enum QueryBroadcast {
     public static let name = "co.laris.oracle.query"
 
     public struct Event: Sendable, Identifiable {
         public let id = UUID()
         public let app: String            // the bundle id that answered: co.laris.oracle.pulse
-        public let index: String          // history/laris-co__pulse
-        public let hashes: [String]       // the hits, best first, as hash(doc id)
+        public let index: String          // history/laris-co__pulse — checked against the hub's members before use
         public let source: String         // page · map · mcp
-        public let asker: String?         // "Neo" — an MCP caller's oracle
-        public let trace: String?         // the answering app's TraceLog entry: its query is in <App>-queries.jsonl
+        public let trace: String          // the answering app's TraceLog entry id
     }
 
-    /// 16 hex digits of FNV-1a 64 over a doc id: the same in every process, and no file path or title to an observer.
-    public nonisolated static func hash(_ id: String) -> String {
-        var h: UInt64 = 0xcbf29ce484222325
-        for b in id.utf8 { h = (h ^ UInt64(b)) &* 0x100000001b3 }
-        return String(h, radix: 16)
-    }
-
-    static func post(index: String, ids: [String], source: String, caller: String?, trace: UUID) {
+    static func post(index: String, source: String, trace: UUID) {
         #if os(macOS)
-        var info: [String: Any] = ["index": index, "hashes": ids.prefix(25).map(hash), "source": source, "trace": trace.uuidString]
-        if let asker = caller?.components(separatedBy: " · ").first, !asker.isEmpty { info["asker"] = String(asker.prefix(40)) }
         DistributedNotificationCenter.default().postNotificationName(.init(name), object: Bundle.main.bundleIdentifier ?? "?",
-                                                                    userInfo: info, deliverImmediately: true)
+            userInfo: ["index": index, "source": source, "trace": trace.uuidString], deliverImmediately: true)
         #endif
     }
 
-    /// The words of a traced query, from the answering app's query log (its last 64 KB); nil when not there.
-    public nonisolated static func query(trace: String, app name: String) -> String? {
+    /// A query as the answering oracle traced it: the hits (best first), the words and who asked.
+    public struct Traced: Sendable { public let ids: [String]; public let query: String; public let caller: String? }
+
+    /// The traced query from `<oracle>-queries.jsonl` (its last 64 KB). Only a plain file whose name the hub derived
+    /// itself is opened: an oracle name with "/" or "..", a trace that is not a UUID, a FIFO or a link — nil.
+    public nonisolated static func traced(_ trace: String, oracle name: String) -> Traced? {
+        guard !name.isEmpty, !name.contains("/"), !name.contains(".."), UUID(uuidString: trace) != nil else { return nil }
         let url = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("Logs/ARRA Oracles/\(name)-queries.jsonl")
-        guard let h = try? FileHandle(forReadingFrom: url) else { return nil }
+        guard (try? FileManager.default.attributesOfItem(atPath: url.path))?[.type] as? FileAttributeType == .typeRegular,
+              let h = try? FileHandle(forReadingFrom: url) else { return nil }
         defer { try? h.close() }
         let end = (try? h.seekToEnd()) ?? 0
         try? h.seek(toOffset: end > 65_536 ? end - 65_536 : 0)
-        guard let d = try? h.readToEnd(), let line = d.split(separator: 0x0A).last(where: { String(decoding: $0, as: UTF8.self).contains(trace) }),
-              let o = try? JSONSerialization.jsonObject(with: Data(line)) as? [String: Any] else { return nil }
-        return o["query"] as? String
+        let dec = JSONDecoder(); dec.dateDecodingStrategy = .iso8601
+        guard let d = try? h.readToEnd(),
+              let line = d.split(separator: 0x0A).last(where: { String(decoding: $0, as: UTF8.self).contains(trace) }),
+              let e = try? dec.decode(TraceLog.Entry.self, from: Data(line)), e.id.uuidString == trace else { return nil }
+        return Traced(ids: e.top.map(\.id), query: e.query, caller: e.caller)
     }
 }
 
@@ -59,18 +56,28 @@ public final class QueryListener: ObservableObject {
     public static let shared = QueryListener()
     @Published public private(set) var last: QueryBroadcast.Event?
     private var observer: NSObjectProtocol?
+    private var oldApps: Set<String> = []
 
     public func start() {
         guard observer == nil else { return }
         let me = Bundle.main.bundleIdentifier
         observer = DistributedNotificationCenter.default().addObserver(forName: .init(QueryBroadcast.name), object: nil, queue: .main) { [weak self] n in
-            guard let app = n.object as? String, app != me, let u = n.userInfo, let index = u["index"] as? String,
-                  let hashes = u["hashes"] as? [String] else { return }
-            let e = QueryBroadcast.Event(app: app, index: index, hashes: hashes, source: u["source"] as? String ?? "page",
-                                         asker: u["asker"] as? String, trace: u["trace"] as? String)
-            MainActor.assumeIsolated { self?.last = e }
+            guard let app = n.object as? String, app != me, let u = n.userInfo else { return }
+            MainActor.assumeIsolated {
+                guard let index = u["index"] as? String, let trace = u["trace"] as? String, let source = u["source"] as? String else {
+                    self?.olderApp(app); return
+                }
+                self?.last = QueryBroadcast.Event(app: app, index: index, source: source, trace: trace)
+            }
         }
         HubLog.shared.add(.info, "fleet map: listening for every oracle app's queries (\(QueryBroadcast.name), this Mac only)")
+    }
+
+    /// An app built before the broadcast carried a trace id: said once, with how to rebuild it.
+    private func olderApp(_ app: String) {
+        guard oldApps.insert(app).inserted else { return }
+        let name = app.split(separator: ".").last.map { $0.prefix(1).uppercased() + $0.dropFirst() } ?? app
+        HubLog.shared.add(.error, "fleet map: \(app) is an older build — its queries can't light the map. Rebuild it from oracle-app-kit:\n  xcodegen generate && xcodebuild -project OracleApps.xcodeproj -scheme \(name) -configuration Release build")
     }
 }
 
@@ -97,42 +104,48 @@ public final class FleetMap: ObservableObject {
     /// doc id → its oracle
     public private(set) var oracleOf: [String: String] = [:]
     private var task: Task<Void, Never>?
-    /// What was read: each member file's date, and the hub's own index's build — a change means read again.
-    private var readStamps: [String: Date] = [:]
-    private var lastMissReload = Date.distantPast
+    /// What was read: each member file's date, and the hub's own index's build and size — a change means read again.
+    private var readStamps: [String: String] = [:]
+    private var lastMissReload = Date.distantPast, lastOffMap = Date.distantPast
 
     /// Reads every member off the main actor and holds the union — the first time, and again whenever a member changed
     /// since (an oracle app saved its index, the hub refreshed its own, a new oracle appeared). Callers at the same
     /// time share one read.
     public func load(why: String) async {
-        if let task { await task.value }
+        while let t = task { await t.value }      // a read under way: wait for it, then see whether it was enough
         guard loaded == nil || isStale else { return }
-        if let task { await task.value; return }   // another caller started a read while this one waited
-        let t = Task { await self.build(why: why) }
+        let t = Task { await self.build(why: why); self.task = nil }   // cleared before any waiter wakes
         task = t
         await t.value
-        if task == t { task = nil }
     }
 
     /// A member changed since the read: its file's date, a new or gone history index, the hub's own index rebuilt.
     public var isStale: Bool { loaded != nil && Self.stamps() != readStamps }
 
-    /// A heard query named docs the union does not have: read again, at most once a minute.
-    func missed(_ n: Int) {
-        guard Date().timeIntervalSince(lastMissReload) > 60 else { return }
-        lastMissReload = Date()
-        HubLog.shared.add(.info, "fleet map: \(n) hits are not on the map yet — reading every oracle's index again")
-        Task { await load(why: "\(n) heard hits not on the map") }
+    /// A heard query's hits that are not on the map. Not in the union: read again once a member changed (at most once a
+    /// minute). In the union but not in its layout: they wait for the next fit — said, once a minute.
+    func missed(_ ids: [String]) {
+        let outside = ids.filter { oracleOf[$0] == nil }
+        if !outside.isEmpty, isStale, task == nil, Date().timeIntervalSince(lastMissReload) > 60 {
+            lastMissReload = Date()
+            HubLog.shared.add(.info, "fleet map: \(outside.count) hits are newer than the map — reading every oracle's index again")
+            Task { await load(why: "\(outside.count) heard hits not on the map") }
+        } else if outside.count < ids.count, Date().timeIntervalSince(lastOffMap) > 60 {
+            lastOffMap = Date()
+            HubLog.shared.add(.info, "fleet map: \(ids.count - outside.count) hits are read but not laid out yet — they join at the next fit (past 1 % new docs)")
+        }
     }
 
-    /// Each member's date: the history index files' modification dates, and gh-index's build.
-    static func stamps() -> [String: Date] {
+    /// Each member's stamp: the history index files' modification dates, and gh-index's build and size (a stopped batch
+    /// saves docs without a new build date).
+    static func stamps() -> [String: String] {
         let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("ARRA Oracles", isDirectory: true)
-        var out: [String: Date] = [:]
+        var out: [String: String] = [:]
         for name in historyIndexes() {
-            out[name] = (try? FileManager.default.attributesOfItem(atPath: dir.appendingPathComponent(name + ".json").path)[.modificationDate]) as? Date
+            let d = (try? FileManager.default.attributesOfItem(atPath: dir.appendingPathComponent(name + ".json").path)[.modificationDate]) as? Date
+            out[name] = "\(d?.timeIntervalSince1970 ?? 0)"
         }
-        out["gh-index"] = GHIndex.shared.built ?? .distantPast
+        out["gh-index"] = "\(GHIndex.shared.built?.timeIntervalSince1970 ?? 0)·\(GHIndex.shared.docs.count)"
         return out
     }
 

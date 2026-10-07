@@ -157,13 +157,17 @@ public struct MapView: View {
     /// red); the caption says who asked.
     private func fireHeard() {
         guard let fleet, let e = heard.last else { return }
-        let rows: [Int] = e.hashes.compactMap { scene.row(ofHash: $0) }
-        if rows.count < e.hashes.count { fleet.missed(e.hashes.count - rows.count) }   // hits newer than the union: read again
-        let owner = FleetMap.oracle(ofIndex: e.index)
-        let who = e.asker ?? (e.source == "mcp" ? "an agent" : "you")
-        // the words are in the answering app's own query log, not in the notification
-        let words = e.trace.flatMap { QueryBroadcast.query(trace: $0, app: owner) }.map { " “\($0.prefix(40))”" } ?? ""
-        scene.fire(rows: rows, color: FleetMap.color(owner), label: "\(who) asked \(owner)\(words)")
+        // only an index the hub read itself; the oracle's name (and so its log's name) comes from the hub's own listing
+        guard let member = fleet.members.first(where: { $0.id == e.index && $0.id.hasPrefix("history/") }) else { return }
+        let owner = member.oracle, known = Set(fleet.members.map(\.oracle))
+        Task {
+            guard let t = await Task.detached(priority: .userInitiated, operation: { QueryBroadcast.traced(e.trace, oracle: owner) }).value else { return }
+            let rows = t.ids.compactMap { layout.row(of: $0) }
+            if rows.count < t.ids.count { fleet.missed(t.ids.filter { layout.row(of: $0) == nil }) }
+            let asker = e.source == "mcp" ? t.caller?.components(separatedBy: " · ").first : nil
+            let who = asker.map { known.contains($0) ? $0 : "an agent" } ?? (e.source == "mcp" ? "an agent" : "you")
+            scene.fire(rows: rows, color: FleetMap.color(owner), label: "\(who) asked \(owner) “\(t.query.prefix(40))”")
+        }
     }
 
     /// On open: the model, the layout (fitted when missing or stale), the groups, and the test hooks.
@@ -553,7 +557,6 @@ final class MapScene: ObservableObject {
         rowToDoc = layout.ids.map { byId[$0] ?? -1 }
         rowKind = rowToDoc.map { $0 >= 0 ? docs[$0].kind : "" }
         self.docs = docs
-        rowOfHash = fleet == nil ? [:] : Dictionary(layout.ids.enumerated().map { (QueryBroadcast.hash($1), $0) }, uniquingKeysWith: { a, _ in a })
         buildChunks()
         web()
         content.add(root)
@@ -717,9 +720,7 @@ final class MapScene: ObservableObject {
     /// The doc of a layout row (nil when the doc left the index since the layout).
     func doc(row: Int) -> IndexDoc? { row < rowToDoc.count && rowToDoc[row] >= 0 ? docs[rowToDoc[row]] : nil }
     func row(ofDoc id: String) -> Int? { layout?.row(of: id) }
-    /// A broadcast hit (QueryBroadcast.hash of its id) → its row; built with the scene, on the fleet map only.
-    func row(ofHash h: String) -> Int? { rowOfHash[h] }
-    private var rowOfHash: [String: Int] = [:]
+
     func neighbours(of row: Int) -> [Int] { layout?.neighbours(of: row).filter { $0 < xyz.count } ?? [] }
     func group(of row: Int) -> Int? { row < groupOf.count ? groupOf[row] : nil }
     func leaf(of row: Int) -> Int? { row < leafOf.count ? leafOf[row] : nil }

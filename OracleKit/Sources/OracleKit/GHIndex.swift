@@ -800,7 +800,7 @@ public final class GHIndex: ObservableObject {
                                    embedMs: embedMs, rankMs: rankMs, pool: pool.count, via: via,
                                    top: found.prefix(5).map { .init(id: $0.doc.id, title: $0.doc.title, score: $0.score) }, caller: caller)
         TraceLog.shared.add(entry)
-        if !memoryOnly { QueryBroadcast.post(index: name, ids: found.prefix(25).map(\.doc.id), source: source, caller: caller, trace: entry.id) }   // #37: the fleet map fires
+        if !memoryOnly { QueryBroadcast.post(index: name, source: source, trace: entry.id) }   // #37: the fleet map fires (it reads the entry)
         return found
     }
 

@@ -29,13 +29,13 @@ final class FleetMapTests: XCTestCase {
         XCTAssertTrue(fleet.dominant(labels: [0], ids: []).isEmpty)   // misaligned: nothing
     }
 
-    func testBroadcastHashIsStableAndOpaque() {
-        let id = "note:file:///opt/Code/github.com/laris-co/nexus-oracle/%CF%88/memory/traces/2026-08-31/2101_dig-nexus-oracle-deep.md"
-        XCTAssertEqual(QueryBroadcast.hash(id), QueryBroadcast.hash(id))            // the same in every process
-        XCTAssertNotEqual(QueryBroadcast.hash(id), QueryBroadcast.hash(id + "#2"))
-        XCTAssertLessThanOrEqual(QueryBroadcast.hash(id).count, 16)
-        XCTAssertFalse(QueryBroadcast.hash(id).contains("nexus"))                   // no path, no title
-        XCTAssertEqual(QueryBroadcast.hash(""), "cbf29ce484222325")                 // FNV-1a 64 offset basis
+    func testTracedOpensOnlyItsOwnLogs() {
+        let t = UUID().uuidString
+        XCTAssertNil(QueryBroadcast.traced(t, oracle: "../../../tmp/x"))   // a path from a notification: never opened
+        XCTAssertNil(QueryBroadcast.traced(t, oracle: "a/b"))
+        XCTAssertNil(QueryBroadcast.traced(t, oracle: ""))
+        XCTAssertNil(QueryBroadcast.traced("not-a-uuid", oracle: "Pulse"))
+        XCTAssertNil(QueryBroadcast.traced(t, oracle: "NoSuchOracle\(t.prefix(8))"))   // no log: nil, no crash
     }
 
     func testColoursAreTheOraclesOwn() {
