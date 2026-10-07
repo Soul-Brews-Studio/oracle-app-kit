@@ -378,6 +378,7 @@ struct SessionSpaces: View {
     @State private var resume: (resumes: [String: Int], lost: [String])?
     @State private var closed: [ClosedSpace] = []
     @State private var starting = false
+    @State private var folded: Set<String> = []   // main spaces whose worktree rows are hidden; key = session:repo
     @State private var reopenError: String?
     var body: some View {
         let s = store.sessions.first { $0.name == session }
@@ -420,8 +421,14 @@ struct SessionSpaces: View {
                 }
                 VStack(spacing: 2) {
                     ForEach(spaces) { sp in
-                        SpaceLine(space: sp, app: sp.repo.map { store.apps[HubParse.displayName($0).lowercased()] } ?? nil, store: store,
-                                  children: sp.linked || sp.repo == nil ? [] : spaces.filter { $0.linked && $0.repo == sp.repo })
+                        let key = sp.session + ":" + (sp.repo ?? "")
+                        let kids = sp.linked || sp.repo == nil ? [] : spaces.filter { $0.linked && $0.repo == sp.repo }
+                        if !(sp.linked && folded.contains(key)) {   // a worktree row hides while its main space is folded
+                            SpaceLine(space: sp, app: sp.repo.map { store.apps[HubParse.displayName($0).lowercased()] } ?? nil, store: store,
+                                      children: kids,
+                                      fold: kids.isEmpty ? nil : Binding(get: { folded.contains(key) },
+                                                                          set: { if $0 { folded.insert(key) } else { folded.remove(key) } }))
+                        }
                     }
                 }
                 if !closed.isEmpty { recentlyClosed(running: s?.running == true) }
@@ -497,6 +504,7 @@ struct SpaceLine: View {
     let app: URL?
     let store: HubStore
     var children: [HubSpace] = []        // worktree spaces under this main space: closing it closes them too
+    var fold: Binding<Bool>? = nil       // main space with worktrees: hide / show its rows
     @State private var hover = false
     @State private var confirmClose = false
     @State private var agents: [String: [ClosedAgent]]?
@@ -504,9 +512,21 @@ struct SpaceLine: View {
     var body: some View {
         HStack(spacing: 10) {
             if space.linked { Text("└").font(.callout.monospaced()).foregroundStyle(.tertiary) }
+            if let f = fold {   // fold the worktree rows under this main space
+                Button { withAnimation(.snappy) { f.wrappedValue.toggle() } } label: {
+                    Image(systemName: f.wrappedValue ? "chevron.right" : "chevron.down")
+                        .font(.system(size: 9, weight: .bold)).foregroundStyle(.secondary).frame(width: 10)
+                }.buttonStyle(.plain).handCursor().help(f.wrappedValue ? "Show its \(children.count) worktrees" : "Hide its worktrees")
+            }
             HubGlyph(status: space.status)
             VStack(alignment: .leading, spacing: 1) {
-                Text(space.label).font(.custom("Avenir Next", size: 15).weight(.medium)).lineLimit(1).truncationMode(.middle)
+                HStack(spacing: 6) {
+                    Text(space.label).font(.custom("Avenir Next", size: 15).weight(.medium)).lineLimit(1).truncationMode(.middle)
+                    if fold?.wrappedValue == true {
+                        Text("+\(children.count) \(children.count == 1 ? "worktree" : "worktrees")")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                }
                 if let r = space.repo, r != space.label {
                     Text(r).font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(1)
                 }
