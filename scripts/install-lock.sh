@@ -15,14 +15,15 @@ lock_held() {
   [[ -n $pid && $pid != $$ ]] && kill -0 $pid 2>/dev/null
 }
 lock_take() {
-  local retry=${1:-} who=${ORACLE_APP_WHO:-${HERDR_PANE_ID:-$USER}} br=$(git -C $_LOCK_KIT branch --show-current 2>/dev/null)
+  local retry=${1:-} who=${ORACLE_APP_WHO:-${HERDR_PANE_ID:-${USER:-$(id -un)}}} br=$(git -C $_LOCK_KIT branch --show-current 2>/dev/null)
   local waited=0 tries=0 pid age ino grave extra
   while ! mkdir $LOCK_DIR 2>/dev/null; do
     # gone again between our mkdir and this test (its holder just released it): try once more before blaming the folder
     [ -d $LOCK_DIR ] || { mkdir $LOCK_DIR 2>/dev/null && break; print -r -- "✗ cannot create the install lock $LOCK_DIR — is ${LOCK_DIR:h} writable?   ls -ld '${LOCK_DIR:h}'"; return 1; }
     # only ever take over a directory that is one of OUR locks (pid / who / branch / since, nothing else)
-    extra=(${(f)"$(ls -A $LOCK_DIR 2>/dev/null | rg -v -x 'pid|who|branch|since')"})
-    [[ -n ${extra[1]:-} ]] && { print -r -- "✗ $LOCK_DIR exists and is not an install lock (holds ${extra[1]}) — point ORACLE_APP_LOCK elsewhere:  export ORACLE_APP_LOCK=\${TMPDIR:-/tmp}/oracle-app-install.lock"; return 1; }
+    # no external tool here: this guard is what keeps a stranger's folder from rm -rf — it must not fail open
+    extra=(${${(f)"$(ls -A $LOCK_DIR 2>/dev/null)"}:#(pid|who|branch|since)})
+    [[ -n ${extra[1]:-} ]] && { print -r -- "✗ $LOCK_DIR exists and is not an install lock (holds ${extra[1]}) — look, then move it away and rerun:  ls -lA '$LOCK_DIR'; mv '$LOCK_DIR' '$LOCK_DIR.not-a-lock'"; return 1; }
     ino=$(stat -f %i $LOCK_DIR 2>/dev/null)   # sampled BEFORE the staleness verdict, re-checked under the takeover mutex
     pid=$(cat $LOCK_DIR/pid 2>/dev/null); age=$(( $(date +%s) - $(stat -f %m $LOCK_DIR 2>/dev/null || date +%s) ))
     if [[ -z $pid ]] && (( age < 10 && waited < 15 )); then sleep 1; waited=$((waited + 1)); continue; fi   # being created right now
@@ -43,7 +44,12 @@ lock_take() {
       rmdir $LOCK_DIR.takeover 2>/dev/null   # a takeover mutex left by a taker that died mid-takeover
     fi
     tries=$((tries + 1))
-    (( tries > 20 )) && { print -r -- "✗ cannot take over the stale install lock $LOCK_DIR — another taker holds $LOCK_DIR.takeover (cleared by itself after 30 s); see who:  ls -ld '$LOCK_DIR' '$LOCK_DIR.takeover'; cat '$LOCK_DIR/who'"; return 1; }
+    if (( tries > 20 )); then
+      if [ ! -w ${LOCK_DIR:h} ]; then print -r -- "✗ cannot take over the stale install lock: ${LOCK_DIR:h} is not writable —  ls -ld '${LOCK_DIR:h}'"
+      elif [ -d $LOCK_DIR.takeover ]; then print -r -- "✗ another taker holds $LOCK_DIR.takeover (it clears itself after 30 s) — wait, or if no other install runs:  rmdir '$LOCK_DIR.takeover'"
+      else print -r -- "✗ the stale install lock $LOCK_DIR cannot be removed —  ls -lA '$LOCK_DIR'"; fi
+      return 1
+    fi
     sleep 0.2
   done
   print -r -- $$ > $LOCK_DIR/pid; print -r -- $who > $LOCK_DIR/who; print -r -- $br > $LOCK_DIR/branch; date '+%H:%M:%S' > $LOCK_DIR/since

@@ -96,7 +96,7 @@ listening() {
   lsof -nP -iTCP:$1 -sTCP:LISTEN -t >/dev/null 2>&1
 }
 if [ -n "$PORT" ]; then
-  [[ $PORT =~ '^[1-9][0-9]*$' ]] && (( PORT <= 65535 )) || die "port must be 1–65535, no leading zero, got '$PORT'"
+  [[ $PORT =~ '^[1-9][0-9]{0,4}$' ]] && (( PORT <= 65535 )) || die "port must be 1–65535, no leading zero, got '$PORT'"
   if [[ $oports == *" $PORT "* ]]; then
     free=4791; while [[ $oports == *" $free "* ]] || listening $free; do free=$((free + 1)); done
     die "port $PORT is already another app's MCP port — a free one (the last --port wins):  zsh $0 ${(q)ARGS[@]} --port=$free"

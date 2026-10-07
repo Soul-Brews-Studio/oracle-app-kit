@@ -5,7 +5,7 @@
 # Relaunches /Applications/<App>.app by full path (LaunchServices knows many copies from worktree builds), waits WAIT
 # seconds (default 12), screenshots its largest window by window id — never a screen region, never a click — and tails
 # the app's log. Refuses to relaunch while another agent holds the install lock. Needs Screen Recording, once.
-# Exit 0 = shot taken.
+# Exit 0 = shot taken · 1 = no window / capture failed · 3 = the screen is locked · 75 = another agent is installing.
 set -u
 R=${0:A:h}/..; R=${R:A}; source $R/scripts/install-lock.sh
 ARGV_ALL=("$@")
