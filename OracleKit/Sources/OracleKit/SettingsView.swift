@@ -150,9 +150,13 @@ public struct SettingsView: View {
                         Spacer(minLength: 0)
                         Text(String(format: "%.0f + %.1f ms · %@ ranked", e.embedMs, e.rankMs, grouped(e.pool))).foregroundStyle(.secondary)
                     }
-                    if let top = e.top.first {
-                        Text(String(format: "   best %.0f%% · %@", Double(top.score) * 100, top.title)).foregroundStyle(.secondary).lineLimit(1)
+                    HStack(spacing: 0) {
+                        Text("   " + TraceView.from(e)).foregroundStyle(e.source == "mcp" ? Color.orange.opacity(0.85) : accent.opacity(0.85))
+                        if let top = e.top.first {
+                            Text(String(format: " · best %.0f%% · %@", Double(top.score) * 100, top.title)).foregroundStyle(.secondary)
+                        }
                     }
+                    .lineLimit(1)
                 }
                 .font(.system(size: 11, design: .monospaced))
             }
@@ -238,11 +242,20 @@ struct TraceView: View {
     @State private var text = ""
     @State private var word: String?
     @State private var open: UUID?
+    @State private var asker = ""   // one caller only: "you", "Neo", "Pulse" …
+
+    /// Who asked, as a row shows it: "you" on a page, else the caller the MCP server measured.
+    static func from(_ e: TraceLog.Entry) -> String {
+        e.source != "mcp" ? "you" : (e.caller ?? "caller not recorded")
+    }
+    /// The first part of `from` — the oracle (or "you") the Who menu lists.
+    static func asker(_ e: TraceLog.Entry) -> String { from(e).components(separatedBy: " · ").first ?? "" }
 
     private var filtered: [TraceLog.Entry] {
         (trace.past + trace.entries).filter { e in
             (who == "all" || (who == "mcp") == (e.source == "mcp"))
-                && (text.isEmpty || e.query.localizedCaseInsensitiveContains(text))
+                && (asker.isEmpty || Self.asker(e) == asker)
+                && (text.isEmpty || e.query.localizedCaseInsensitiveContains(text) || Self.from(e).localizedCaseInsensitiveContains(text))
                 && (word == nil || SearchCloud.words(e.query).contains(word!))
         }
     }
@@ -259,7 +272,13 @@ struct TraceView: View {
                 HStack(spacing: 10) {
                     Picker("", selection: $who) { Text("All").tag("all"); Text("MCP").tag("mcp"); Text("Page").tag("page") }
                         .pickerStyle(.segmented).labelsHidden().frame(width: 200)
-                    TextField("filter queries", text: $text).textFieldStyle(.roundedBorder).frame(maxWidth: 300)
+                    Picker("Who", selection: $asker) {
+                        Text("Everyone").tag("")
+                        ForEach(Array(Set((trace.past + trace.entries).map(Self.asker))).sorted(), id: \.self) { Text($0).tag($0) }
+                    }
+                    .pickerStyle(.menu).fixedSize()
+                    .help("Who asked: you on a page, or the oracle whose agent called over MCP")
+                    TextField("filter queries or callers", text: $text).textFieldStyle(.roundedBorder).frame(maxWidth: 300)
                     if let w = word {
                         Button { word = nil } label: { Label(w, systemImage: "xmark.circle.fill") }.buttonStyle(.bordered).controlSize(.small).handCursor()
                     }
@@ -296,6 +315,7 @@ struct TraceView: View {
                 Spacer(minLength: 0)
                 Text(String(format: "%.0f + %.1f ms · %@ ranked", e.embedMs, e.rankMs, grouped(e.pool))).foregroundStyle(.secondary)
             }
+            Text("   " + Self.from(e)).foregroundStyle(e.source == "mcp" ? Color.orange.opacity(0.9) : accent.opacity(0.9)).lineLimit(1)
             if open == e.id {
                 Text("   \(e.via) · \(e.index)").foregroundStyle(.secondary)
                 ForEach(Array(e.top.enumerated()), id: \.offset) { i, h in

@@ -740,7 +740,7 @@ public final class GHIndex: ObservableObject {
     /// Embeds `q` and ranks this index — for the page or for MCP. Every query is traced: the debug log, and
     /// TraceLog (Settings → Trace, and <App>-queries.jsonl). An oracle app loads its model on first need.
     public func query(_ q: String, kind: String? = nil, kinds: Set<String>? = nil, state: String? = nil, openOnly: Bool = false,
-                      limit: Int = 25, source: String = "page") async -> [IndexHit]? {
+                      limit: Int = 25, source: String = "page", caller: String? = nil) async -> [IndexHit]? {
         if bundled() == nil, !ModelLoad.shared.loading, ModelLoad.shared.failed == nil, !ModelLoad.shared.absent, let reload = ModelLoad.shared.reload {
             reload(UserDefaults.standard.string(forKey: "hub.engineMode") ?? "gpu")
         }
@@ -756,11 +756,12 @@ public final class GHIndex: ObservableObject {
         let embedMs = t1.timeIntervalSince(t0) * 1000, rankMs = Date().timeIntervalSince(t1) * 1000
         let filter = [kind.map { "kind=\($0)" }, kinds.map { "kinds=\($0.sorted().joined(separator: ","))" }, state.map { "who=\($0)" },
                       openOnly ? "open" : nil].compactMap { $0 }.joined(separator: " ")
-        HubLog.shared.add(.search, String(format: "%@ \"%@\" · query embedded in %.0f ms (%@) · ranked %@ in %.1f ms · best %.0f%%",
-                                          source, q, embedMs, via, grouped(pool.count), rankMs, Double(found.first?.score ?? 0) * 100))
+        HubLog.shared.add(.search, String(format: "%@%@ \"%@\" · query embedded in %.0f ms (%@) · ranked %@ in %.1f ms · best %.0f%%",
+                                          source, caller.map { " (\($0))" } ?? "", q, embedMs, via, grouped(pool.count), rankMs,
+                                          Double(found.first?.score ?? 0) * 100))
         TraceLog.shared.add(.init(at: Date(), source: source, index: name, query: q, filter: filter.isEmpty ? "all" : filter,
                                   embedMs: embedMs, rankMs: rankMs, pool: pool.count, via: via,
-                                  top: found.prefix(5).map { .init(id: $0.doc.id, title: $0.doc.title, score: $0.score) }))
+                                  top: found.prefix(5).map { .init(id: $0.doc.id, title: $0.doc.title, score: $0.score) }, caller: caller))
         return found
     }
 

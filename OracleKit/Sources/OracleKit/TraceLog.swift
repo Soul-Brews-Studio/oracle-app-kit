@@ -10,7 +10,7 @@ public final class TraceLog: ObservableObject {
     public struct Entry: Codable, Identifiable, Sendable {
         public var id = UUID()
         public let at: Date
-        public let source: String       // page · mcp
+        public let source: String       // page · mcp (a page query is the person at the app)
         public let index: String        // gh-index · history/laris-co__pulse
         public let query: String
         public let filter: String
@@ -18,6 +18,8 @@ public final class TraceLog: ObservableObject {
         public let pool: Int
         public let via: String
         public let top: [Hit]
+        /// who asked: over MCP the calling oracle and system ("Neo · claude-code 2.1.4 · laris-co w22:pA"); nil on a page
+        public var caller: String? = nil
     }
 
     @Published public private(set) var entries: [Entry] = []
