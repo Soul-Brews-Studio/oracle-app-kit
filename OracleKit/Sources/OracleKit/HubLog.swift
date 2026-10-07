@@ -120,3 +120,13 @@ public final class ANEMeter: ObservableObject {
         history.append(r.gbs); if history.count > 60 { history.removeFirst(history.count - 60) }
     }
 }
+
+/// This build's CalVer — "v26.10.7-alpha.1841", Bangkok time at build — stamped into the Info.plist by
+/// scripts/calver-stamp.sh, so anyone can tell which build is running.
+public enum AppVersion {
+    public static var calver: String {
+        if let v = Bundle.main.object(forInfoDictionaryKey: "ARRACalVer") as? String { return v }
+        if let v = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String { return "v" + v }
+        return "dev"
+    }
+}

@@ -65,6 +65,7 @@ final class BundledANE: LocalEmbedding, @unchecked Sendable {
             return
         }
         let root = found.url
+        await MainActor.run { ModelLoad.shared.root = root.path }
         let t0 = Date()
         do {
             let assets = try Assets(root: found.bundled ? staged(root, identity: try Assets(root: root).manifest.vector_space_identity) : root)

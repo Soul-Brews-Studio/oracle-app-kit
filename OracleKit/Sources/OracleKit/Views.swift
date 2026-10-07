@@ -5,12 +5,12 @@ import AppKit
 import UIKit
 #endif
 
-enum Section: Hashable { case status, inbox, prs, issues, memory, extra(String) }
+enum Section: Hashable { case status, inbox, prs, issues, memory, settings, extra(String) }
 
 public struct OracleRootView: View {
     @ObservedObject private var store: OracleStore
     @Binding private var menuBar: Bool
-    @State private var section: Section? = UserDefaults.standard.string(forKey: "oracleSection") == "memory" ? .memory : .status   // -oracleSection memory
+    @State private var section: Section? = ["memory": Section.memory, "settings": .settings][UserDefaults.standard.string(forKey: "oracleSection") ?? ""] ?? .status   // -oracleSection memory|settings
     @State private var dropTargeted = false
     @State private var inboxHot = false
     @State private var issueHot = false
@@ -154,6 +154,12 @@ public struct OracleRootView: View {
             #else
             EmptyView()
             #endif
+        case .settings:
+            #if os(macOS)
+            SettingsView(title: c.name, accent: c.color, indexes: [GHIndex.history(c.repoSlug)])
+            #else
+            EmptyView()
+            #endif
         case .extra(let id): c.extras.sections.first { $0.id == id }.map { $0.view() } ?? AnyView(EmptyView())
         }
     }
@@ -164,6 +170,7 @@ public struct OracleRootView: View {
 
 struct OracleSidebar: View {
     @ObservedObject var store: OracleStore
+    @AppStorage("oracle.workTreeOpen") private var workOpen = true
     @Binding var section: Section?
     @Binding var menuBar: Bool
     var openPane: Binding<String?> = .constant(nil)
@@ -184,9 +191,14 @@ struct OracleSidebar: View {
             }
             .padding(.horizontal, 18).frame(height: 70)
             VStack(spacing: 3) {
-                NavRow(symbol: "square.stack.3d.up", title: "Work", badge: store.work.isEmpty ? nil : "\(store.work.count)",
-                       on: (section ?? .status) == .status, accent: c.color) { section = .status }
-                if (section ?? .status) == .status { WorkTree(store: store, openPane: openPane) }   // herdr-style, LIVE only
+                // the worktree tree folds: expanded by default, on every page while open; click Work again to fold it
+                NavRow(symbol: "square.stack.3d.up", title: "Work",
+                       badge: (store.work.isEmpty ? "" : "\(store.work.count) ") + (workOpen ? "▾" : "▸"),
+                       on: (section ?? .status) == .status, accent: c.color) {
+                    if (section ?? .status) == .status { workOpen.toggle() } else { section = .status; workOpen = true }
+                }
+                .help(workOpen ? "Click again to fold the worktrees" : "Click again to show the worktrees")
+                if workOpen { WorkTree(store: store, openPane: openPane) }   // herdr-style, LIVE only
                 #if os(macOS)
                 NavRow(symbol: store.unread.isEmpty ? "tray" : "tray.full", title: "Inbox",
                        badge: store.unread.isEmpty ? (store.inbox.isEmpty ? nil : store.inbox.count >= 300 ? "300+" : "\(store.inbox.count)")
@@ -200,6 +212,8 @@ struct OracleSidebar: View {
                 #if os(macOS)
                 NavRow(symbol: "brain", title: "Memory", badge: nil, on: section == .memory, accent: c.color) { section = .memory }
                     .help("\(c.name)'s own session history, searched by meaning")
+                NavRow(symbol: "gearshape", title: "Settings", badge: nil, on: section == .settings, accent: c.color) { section = .settings }
+                    .help("Engine, vector search, MCP, and the trace of every query")
                 #endif
                 ForEach(c.extras.sections) { x in
                     NavRow(symbol: x.symbol, title: x.title, badge: nil, on: section == .extra(x.id), accent: c.color) { section = .extra(x.id) }
@@ -235,6 +249,8 @@ struct OracleSidebar: View {
                 Text("herdr · maw · gh — updated \(t.formatted(date: .omitted, time: .shortened))")
                     .font(.system(size: 11)).foregroundStyle(.secondary)
             }
+            Text(AppVersion.calver).font(.system(size: 10, design: .monospaced)).foregroundStyle(.secondary).textSelection(.enabled)
+                .help("This build — CalVer, Bangkok time at build")
             if let d = store.lastDrop {
                 Label(d, systemImage: "tray.and.arrow.down").font(.system(size: 11)).foregroundStyle(c.color)
             }
