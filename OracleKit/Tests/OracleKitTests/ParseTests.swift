@@ -136,4 +136,10 @@ final class HeyCommandTests: XCTestCase {
         XCTAssertEqual(OracleStore.heyCommand(place: "laris-co:w22:p2", message: "it's done"),
                        "maw herdr hey --session laris-co w22:p2 'it'\\''s done'")
     }
+
+    func testIndexSlugFromCheckout() {
+        XCTAssertEqual(GHIndex.slug(fromCheckout: "/opt/Code/github.com/laris-co/neo-oracle"), "laris-co/neo-oracle")
+        XCTAssertEqual(GHIndex.slug(fromCheckout: "/Users/me/Code/github.com/Soul-Brews-Studio/oracle-app-kit/wt/x"), "Soul-Brews-Studio/oracle-app-kit")
+        XCTAssertNil(GHIndex.slug(fromCheckout: "/tmp/somewhere"))
+    }
 }

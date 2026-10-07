@@ -5,7 +5,7 @@ import AppKit
 // MARK: - Oracles (the landing app) — sidebar: all herdr sessions · detail: every oracle as a card
 // Same look as the oracle apps: ARRA-style sidebar, cards like the Work view.
 
-enum HubPick: Hashable { case all, session(String) }
+enum HubPick: Hashable { case all, search, session(String) }
 
 enum HubStyle {
     static let accent = Color(hex: "#9b8cff")
@@ -34,7 +34,8 @@ public struct HubScene: Scene {
 struct HubRootView: View {
     @ObservedObject var store: HubStore
     @Binding var menuBar: Bool
-    @State private var pick: HubPick = .all
+    @State private var pick: HubPick = UserDefaults.standard.string(forKey: "hubPage") == "search" ? .search : .all   // -hubPage search
+    @StateObject private var index = GHIndex()
     var body: some View {
         NavigationSplitView {
             HubSidebar(store: store, pick: $pick, menuBar: $menuBar)
@@ -42,11 +43,19 @@ struct HubRootView: View {
         } detail: {
             switch pick {
             case .all: OracleBoard(store: store)
+            case .search: IndexSearchView(store: store, index: index)
             case .session(let name): SessionSpaces(store: store, session: name)
             }
         }
         .tint(HubStyle.accent)
         .onAppear { store.start() }
+        .task {   // keep the ANE index fresh in the background: on launch when it is missing or older than 6 h
+            for _ in 0..<20 where store.oracles.isEmpty { try? await Task.sleep(for: .milliseconds(500)) }
+            let slugs = Array(Set(store.oracles.compactMap { $0.checkout.flatMap(GHIndex.slug(fromCheckout:)) })).sorted()
+            if !slugs.isEmpty, index.docs.isEmpty || (index.built.map { Date().timeIntervalSince($0) > 6 * 3600 } ?? true) {
+                await index.index(repos: slugs)
+            }
+        }
     }
 }
 
@@ -68,6 +77,9 @@ struct HubSidebar: View {
             .padding(.horizontal, 18).frame(height: 70)
             NavRow(symbol: "square.grid.2x2", title: "All oracles", badge: "\(store.oracles.count)",
                    on: pick == .all, accent: HubStyle.accent) { pick = .all }
+                .padding(.horizontal, 12)
+            NavRow(symbol: "sparkle.magnifyingglass", title: "Search issues & PRs", badge: nil,
+                   on: pick == .search, accent: HubStyle.accent) { pick = .search }
                 .padding(.horizontal, 12)
             Text("Sessions").font(.custom("Avenir Next", size: 13).weight(.medium)).foregroundStyle(.secondary)
                 .padding(.horizontal, 26).padding(.top, 18).padding(.bottom, 4)
@@ -444,3 +456,165 @@ struct HubMenu: View {
     }
 }
 #endif
+
+// MARK: - Search issues & PRs by meaning — embedded on the ANE (EmbeddingGemma 2 via Chippy :11435)
+
+struct IndexSearchView: View {
+    @ObservedObject var store: HubStore
+    @ObservedObject var index: GHIndex
+    @State private var query = ""
+    @State private var kind = "all"
+    @State private var openOnly = false
+    private var slugs: [String] { Array(Set(store.oracles.compactMap { $0.checkout.flatMap(GHIndex.slug(fromCheckout:)) })).sorted() }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 14) {
+                // Relic Studio's Embedding screen, for issues & PRs (Nat: "like this")
+                Text("SEMANTIC MEMORY").font(.caption.weight(.bold)).tracking(2.5).foregroundStyle(Color.orange)
+                Text("Issues & PRs").font(.custom("Avenir Next", size: 34).weight(.bold))
+                Text("Every oracle's issues and pull requests, ready for meaning.").font(.callout).foregroundStyle(.secondary)
+                HStack(alignment: .top, spacing: 22) {
+                    CoverageRing(ready: index.docs.count, pending: index.pending, running: index.running)
+                        .frame(width: 230)
+                    VStack(alignment: .leading, spacing: 0) {
+                        Label("Vector engine", systemImage: "cpu").font(.headline).foregroundStyle(HubStyle.accent).padding(.bottom, 8)
+                        EngineRow(name: "Engine", value: index.engine.map { $0.ok ? "\($0.kind) · 127.0.0.1:11435 · \($0.workers) workers" : "not answering" } ?? "checking…")
+                        EngineRow(name: "Model", value: GHIndex.model)
+                        EngineRow(name: "Model check", value: index.engine.map { $0.ok && $0.models.contains(GHIndex.model) ? "✓ served" : "✗ not served — open the ANEEmbed app (ane-oracle)" } ?? "—",
+                                  good: index.engine.map { $0.ok && $0.models.contains(GHIndex.model) })
+                        EngineRow(name: "Vector space", value: index.engine.map { String($0.space.prefix(36)) + ($0.space.count > 36 ? "…" : "") } ?? "—")
+                        EngineRow(name: "Index", value: "\(index.docs.count) items · \(Set(index.docs.map(\.repo)).count) repos" + (index.built.map { " · built \($0.formatted(date: .omitted, time: .shortened))" } ?? ""))
+                        Divider().padding(.vertical, 10)
+                        Label("Batch controls", systemImage: "square.stack.3d.up").font(.headline).foregroundStyle(Color.orange).padding(.bottom, 8)
+                        HStack(spacing: 10) {
+                            Button { Task { await index.index(repos: slugs) } } label: {
+                                Label(index.running ? "Embedding…" : "Run batch", systemImage: "play.fill").frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.borderedProminent).tint(.orange).controlSize(.large).disabled(index.running || slugs.isEmpty).handCursor()
+                            .help("Read issues + PRs of \(slugs.count) oracle repos with gh; embed only what is new or changed")
+                            Button { Task { await index.checkEngine() } } label: { Label("Refresh", systemImage: "arrow.clockwise").frame(maxWidth: .infinity) }
+                                .buttonStyle(.bordered).controlSize(.large).handCursor()
+                        }
+                        if !index.progress.isEmpty {
+                            HStack(spacing: 6) {
+                                if index.running { ProgressView().controlSize(.small) }
+                                Text(index.progress).font(.caption.monospaced()).foregroundStyle(.secondary)
+                            }.padding(.top, 8)
+                        }
+                        if let p = index.problem { Text(p).font(.caption).foregroundStyle(.orange).textSelection(.enabled).padding(.top, 6) }
+                    }
+                    .padding(16)
+                    .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.primary.opacity(0.045)))
+                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color.primary.opacity(0.08)))
+                }
+                HStack(spacing: 10) {
+                    Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                    TextField("e.g. flood sensors, ontology of the fleet, ANE embedding speed…", text: $query)
+                        .textFieldStyle(.plain).font(.custom("Avenir Next", size: 16))
+                        .onSubmit { Task { await index.search(query, kind: kind == "all" ? nil : kind, openOnly: openOnly) } }
+                    if index.searching { ProgressView().controlSize(.small) }
+                }
+                .padding(.horizontal, 14).padding(.vertical, 11)
+                .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.primary.opacity(0.06)))
+                HStack(spacing: 12) {
+                    Picker("", selection: $kind) { Text("All").tag("all"); Text("Issues").tag("issue"); Text("PRs").tag("pr") }
+                        .pickerStyle(.segmented).frame(width: 230)
+                    Toggle("Open only", isOn: $openOnly).toggleStyle(.checkbox)
+                    Spacer()
+                }
+                .onChange(of: kind) { if !query.isEmpty { Task { await index.search(query, kind: kind == "all" ? nil : kind, openOnly: openOnly) } } }
+                .onChange(of: openOnly) { if !query.isEmpty { Task { await index.search(query, kind: kind == "all" ? nil : kind, openOnly: openOnly) } } }
+            }
+            .padding(.horizontal, 28).padding(.top, 22).padding(.bottom, 12)
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 8) {
+                    ForEach(index.hits) { h in HitCard(hit: h) }
+                    if index.hits.isEmpty && !query.isEmpty && !index.searching {
+                        Text("press ↩ to search").font(.callout).foregroundStyle(.secondary).padding(.top, 8)
+                    }
+                }
+                .padding(.horizontal, 28).padding(.bottom, 24)
+            }
+        }
+        .task {
+            await index.checkEngine()
+            if let q = UserDefaults.standard.string(forKey: "hubQuery"), !q.isEmpty, query.isEmpty {   // -hubQuery "…"
+                query = q; await index.search(q)
+            }
+        }
+        .task {   // first visit, or older than 6 h: refresh the index in the background
+            if !index.running, index.docs.isEmpty || (index.built.map { Date().timeIntervalSince($0) > 6 * 3600 } ?? true) {
+                if store.oracles.isEmpty { await store.refresh() }
+                await index.index(repos: slugs)
+            }
+        }
+    }
+}
+
+struct HitCard: View {
+    let hit: IndexHit
+    @State private var hover = false
+    var body: some View {
+        let d = hit.doc
+        Button { if let u = URL(string: d.url) { NSWorkspace.shared.open(u) } } label: {
+            VStack(alignment: .leading, spacing: 5) {
+                HStack(spacing: 8) {
+                    Text(String(format: "%.0f%%", max(0, hit.score) * 100)).font(.caption.monospacedDigit().weight(.semibold))
+                        .foregroundStyle(HubStyle.accent).frame(width: 40, alignment: .leading)
+                    Text(d.kind == "pr" ? "PR" : "issue").font(.caption2.weight(.semibold))
+                        .padding(.horizontal, 6).padding(.vertical, 2)
+                        .background(Capsule().fill(Color.primary.opacity(0.08)))
+                    Text(d.state.lowercased()).font(.caption2).foregroundStyle(d.state == "OPEN" ? Color.green : Color.secondary)
+                    Text("\(d.repo)#\(d.number)").font(.caption.monospaced()).foregroundStyle(.secondary)
+                    Spacer()
+                }
+                Text(d.title).font(.custom("Avenir Next", size: 15).weight(.medium)).lineLimit(2)
+                if !d.snippet.isEmpty { Text(d.snippet).font(.callout).foregroundStyle(.secondary).lineLimit(2) }
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.primary.opacity(hover ? 0.08 : 0.045)))
+        }
+        .buttonStyle(.plain).handCursor()
+        .onHover { hover = $0 }
+        .help(d.url)
+    }
+}
+
+/// The coverage ring of Relic Studio's Embedding screen: ready vs pending.
+struct CoverageRing: View {
+    let ready: Int, pending: Int, running: Bool
+    var body: some View {
+        let total = max(1, ready + pending)
+        let cover = Double(ready) / Double(total)
+        VStack(spacing: 14) {
+            ZStack {
+                Circle().stroke(Color.primary.opacity(0.07), lineWidth: 16)
+                Circle().trim(from: 0, to: cover).stroke(HubStyle.accent.gradient, style: StrokeStyle(lineWidth: 16, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                VStack(spacing: 4) {
+                    Text(ready == 0 && pending == 0 ? "—" : String(format: "%.0f%%", cover * 100)).font(.system(size: 34, weight: .bold, design: .rounded))
+                    Text(running ? "embedding…" : (ready == 0 ? "awaiting first batch" : "coverage")).font(.caption).tracking(1.5).foregroundStyle(.secondary)
+                }
+            }
+            .frame(width: 190, height: 190)
+            HStack(spacing: 26) {
+                VStack(spacing: 3) { Text("\(ready)").font(.headline.monospacedDigit()).foregroundStyle(.green); Text("READY").font(.caption2).tracking(1.5).foregroundStyle(.secondary) }
+                VStack(spacing: 3) { Text("\(pending)").font(.headline.monospacedDigit()).foregroundStyle(.orange); Text("PENDING").font(.caption2).tracking(1.5).foregroundStyle(.secondary) }
+            }
+        }
+    }
+}
+
+struct EngineRow: View {
+    let name: String, value: String
+    var good: Bool? = nil
+    var body: some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(name).foregroundStyle(.secondary).frame(width: 110, alignment: .leading)
+            Text(value).foregroundStyle(good == false ? Color.orange : (good == true ? Color.green : Color.primary)).lineLimit(1).truncationMode(.middle).textSelection(.enabled)
+            Spacer(minLength: 0)
+        }
+        .font(.callout).padding(.vertical, 3)
+    }
+}
