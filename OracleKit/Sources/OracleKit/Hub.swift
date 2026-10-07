@@ -25,6 +25,7 @@ public struct HubSpace: Identifiable, Hashable, Sendable {
     public let linked: Bool
     public let panes: Int
     public let agents: Int
+    public var branch: String? = nil    // the checkout's git branch, as herdr's sidebar shows under the name
 }
 
 /// One repo herdr knows about: its live spaces, its worktrees by state, the way back in.
@@ -84,12 +85,17 @@ public enum HubParse {
     /// `maw herdr ls --json` → every space, and one oracle per repo with its spaces and worktree counts.
     public static func parse(ls: Data) -> (spaces: [HubSpace], oracles: [HubOracle]) {
         guard let d = try? JSONSerialization.jsonObject(with: ls) as? [String: Any] else { return ([], []) }
+        var branchOf: [String: String] = [:]   // checkout path -> branch, from the worktree rows
+        for t in d["worktrees"] as? [[String: Any]] ?? [] {
+            if let p = t["path"] as? String, let b = t["branch"] as? String { branchOf[p] = b }
+        }
         let spaces: [HubSpace] = (d["workspaces"] as? [[String: Any]] ?? []).compactMap { w in
             guard let s = w["session"] as? String, let id = w["id"] as? String else { return nil }
             return HubSpace(session: s, spaceId: id, label: w["label"] as? String ?? id, number: w["number"] as? Int ?? 0,
                             status: w["status"] as? String ?? "unknown", repo: w["repo"] as? String,
                             checkout: w["checkout"] as? String, linked: w["linked"] as? Bool ?? false,
-                            panes: w["panes"] as? Int ?? 0, agents: w["agents"] as? Int ?? 0)
+                            panes: w["panes"] as? Int ?? 0, agents: w["agents"] as? Int ?? 0,
+                            branch: (w["checkout"] as? String).flatMap { branchOf[$0] })
         }
         var byRepo: [String: [[String: Any]]] = [:]
         for t in d["worktrees"] as? [[String: Any]] ?? [] {

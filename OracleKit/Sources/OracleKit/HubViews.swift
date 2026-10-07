@@ -540,8 +540,9 @@ struct SpaceLine: View {
                             .font(.caption).foregroundStyle(.secondary)
                     }
                 }
-                if let r = space.repo, r != space.label {
-                    Text(r).font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(1)
+                // under the name: the branch, as herdr's sidebar shows it; the repo when the label does not say it
+                if let sub = [space.linked || space.repo == space.label ? nil : space.repo, space.branch].compactMap({ $0 }).joined(separator: " · ").nilIfEmpty {
+                    Text(sub).font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(1)
                 }
             }
             Spacer(minLength: 8)
@@ -1116,4 +1117,9 @@ struct EnginePicker: View {
             load.reload?(mode)
         }
     }
+}
+
+
+private extension String {
+    var nilIfEmpty: String? { isEmpty ? nil : self }
 }
