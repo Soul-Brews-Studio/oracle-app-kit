@@ -23,6 +23,8 @@ public final class MCPServer: ObservableObject {
     @Published public private(set) var problem: String?
     private var listener: NWListener?
     private var index: (() -> GHIndex)?
+    /// who is on the other end of each MCP session (the id handed out at initialize), so it is measured once
+    private var sessions: [String: MCPCaller] = [:]
 
     public var url: String { "http://127.0.0.1:\(port)/mcp" }
     public var addCommand: String { "claude mcp add --transport http \(name) \(url)" }
@@ -100,10 +102,11 @@ public final class MCPServer: ObservableObject {
         }
     }
 
-    private func respond(_ c: NWConnection, _ status: Int, _ json: Any?) {
+    private func respond(_ c: NWConnection, _ status: Int, _ json: Any?, headers: [String: String] = [:]) {
         let body = json.flatMap { try? JSONSerialization.data(withJSONObject: $0) } ?? Data()
         let reason = [200: "OK", 202: "Accepted", 400: "Bad Request", 404: "Not Found", 405: "Method Not Allowed"][status] ?? "OK"
-        let head = "HTTP/1.1 \(status) \(reason)\r\nContent-Type: application/json\r\nContent-Length: \(body.count)\r\nConnection: close\r\n\r\n"
+        let extra = headers.map { "\($0.key): \($0.value)\r\n" }.joined()
+        let head = "HTTP/1.1 \(status) \(reason)\r\nContent-Type: application/json\r\nContent-Length: \(body.count)\r\n\(extra)Connection: close\r\n\r\n"
         c.send(content: Data(head.utf8) + body, completion: .contentProcessed { _ in c.cancel() })
     }
 
@@ -115,7 +118,10 @@ public final class MCPServer: ObservableObject {
         }
         guard r.path.hasPrefix("/mcp") else { respond(c, 404, ["error": "not found — POST JSON-RPC to /mcp"]); return }
         if r.method == "GET" { respond(c, 405, nil); return }                       // no server-initiated stream
-        if r.method == "DELETE" { respond(c, 200, [:]); return }                     // a client ending its session
+        if r.method == "DELETE" {                                                       // a client ending its session
+            if let sid = r.headers["mcp-session-id"] { sessions[sid] = nil }
+            respond(c, 200, [:]); return
+        }
         guard r.method == "POST", let msg = (try? JSONSerialization.jsonObject(with: r.body)) as? [String: Any] else {
             respond(c, 400, ["jsonrpc": "2.0", "id": NSNull(), "error": ["code": -32700, "message": "parse error"]]); return
         }
@@ -123,8 +129,11 @@ public final class MCPServer: ObservableObject {
         let params = msg["params"] as? [String: Any] ?? [:]
         guard let id = msg["id"] else { respond(c, 202, nil); return }               // a notification: nothing to answer
         let t0 = Date()
+        let sid = r.headers["mcp-session-id"]
+        let port: UInt16? = if case let .hostPort(_, p) = c.endpoint { p.rawValue } else { nil }
         Task { @MainActor in
             var detail = ""
+            var headers: [String: String] = [:]
             var reply: [String: Any] = ["jsonrpc": "2.0", "id": id]
             switch method {
             case "initialize":
@@ -132,16 +141,33 @@ public final class MCPServer: ObservableObject {
                                    "capabilities": ["tools": ["listChanged": false]],
                                    "serverInfo": ["name": name, "version": AppVersion.calver],
                                    "instructions": "Search this oracle's own memory by meaning: its sessions, ψ vault notes, issues and PRs."]
-                detail = (params["clientInfo"] as? [String: Any])?["name"] as? String ?? ""
+                var who = MCPCaller()
+                if let port { who = await MCPCaller.resolve(port: port) }
+                if let info = params["clientInfo"] as? [String: Any] {
+                    who.client = [info["name"] as? String, info["version"] as? String].compactMap { $0 }.joined(separator: " ")
+                }
+                if who.client.isEmpty { who.client = r.headers["user-agent"] ?? "" }
+                let session = UUID().uuidString.lowercased()
+                if sessions.count >= 500 { sessions.removeAll() }
+                sessions[session] = who
+                headers["Mcp-Session-Id"] = session
+                detail = who.label
             case "ping": reply["result"] = [String: Any]()
             case "tools/list": reply["result"] = ["tools": Self.tools]
             case "tools/call":
-                let (result, d) = await call(params)
-                reply["result"] = result; detail = d
+                var who = sid.flatMap { sessions[$0] } ?? MCPCaller()
+                if who.pid == 0, let port {   // a session from before this launch, or a client that sends no session id
+                    who = await MCPCaller.resolve(port: port)
+                    who.client = sid.flatMap { sessions[$0]?.client } ?? r.headers["user-agent"] ?? ""
+                    if let sid { sessions[sid] = who }
+                }
+                if let said = (params["arguments"] as? [String: Any])?["from"] as? String { who.said = said }
+                let (result, d) = await call(params, caller: who.label)
+                reply["result"] = result; detail = d + (who.label.isEmpty ? "" : " · " + who.label)
             default:
                 reply["error"] = ["code": -32601, "message": "method not found: \(method)"]
             }
-            respond(c, 200, reply)
+            respond(c, 200, reply, headers: headers)
             let ms = Date().timeIntervalSince(t0) * 1000
             calls.append(Call(at: Date(), method: method, detail: detail, ms: ms))
             if calls.count > 200 { calls.removeFirst(calls.count - 200) }
@@ -157,14 +183,16 @@ public final class MCPServer: ObservableObject {
                          "properties": ["query": ["type": "string", "description": "What to look for, in plain words"],
                                         "kind": ["type": "string", "enum": kinds,
                                                  "description": "all (default) · sessions · you (what the person asked) · oracle (what the oracle answered) · notes · issues · prs"],
-                                        "limit": ["type": "integer", "minimum": 1, "maximum": 50, "description": "How many results, 10 by default"]],
+                                        "limit": ["type": "integer", "minimum": 1, "maximum": 50, "description": "How many results, 10 by default"],
+                                        "from": ["type": "string",
+                                                 "description": "Who is asking — your oracle or system, e.g. neo-oracle or codex. Optional: the server also identifies the calling process and its repo."]],
                          "required": ["query"]]],
         ["name": "memory_status",
          "description": "What this memory holds: items per kind, sessions, the embedding engine, the vector space, when it was built.",
          "inputSchema": ["type": "object", "properties": [String: Any]()]],
     ]
 
-    private func call(_ params: [String: Any]) async -> ([String: Any], String) {
+    private func call(_ params: [String: Any], caller: String) async -> ([String: Any], String) {
         let tool = params["name"] as? String ?? ""
         let args = params["arguments"] as? [String: Any] ?? [:]
         func text(_ s: String, error: Bool = false) -> [String: Any] { ["content": [["type": "text", "text": s]], "isError": error] }
@@ -184,7 +212,8 @@ public final class MCPServer: ObservableObject {
                 case "prs": ("pr", nil)
                 default: (nil, nil)
             }
-            guard let hits = await index.query(q, kind: filter.kind, state: filter.state, limit: limit, source: "mcp") else {
+            guard let hits = await index.query(q, kind: filter.kind, state: filter.state, limit: limit, source: "mcp",
+                                               caller: caller.isEmpty ? nil : caller) else {
                 return (text(index.problem ?? "no embedder answered", error: true), "memory_search \"\(q)\" failed")
             }
             let lines = hits.enumerated().map { i, h -> String in

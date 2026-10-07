@@ -3,7 +3,7 @@ import Foundation
 #if os(macOS)
 /// Runs a CLI the oracle fleet uses (herdr, gh). A GUI app gets a bare PATH, so look in the usual places.
 public enum Shell {
-    static let searchPaths = [NSHomeDirectory() + "/.local/bin", NSHomeDirectory() + "/.bun/bin", "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin"]
+    static let searchPaths = [NSHomeDirectory() + "/.local/bin", NSHomeDirectory() + "/.bun/bin", "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"]
 
     public static func which(_ tool: String) -> String? {
         searchPaths.map { $0 + "/" + tool }.first { FileManager.default.isExecutableFile(atPath: $0) }

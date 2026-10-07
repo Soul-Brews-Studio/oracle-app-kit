@@ -27,7 +27,7 @@ struct HistoryView: View {
                 Text("SEMANTIC MEMORY").font(.caption.weight(.bold)).tracking(2.5).foregroundStyle(config.color)
                 Text("\(config.name)'s memory").font(.custom("Avenir Next", size: 34).weight(.bold))
                 Text("Every session, ψ note, issue and PR of \(config.repoSlug) — what you asked, what \(config.name) answered and wrote down, ready for meaning.")
-                    .font(.callout).foregroundStyle(.secondary)
+                    .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 HStack(alignment: .top, spacing: 22) {
                     CoverageRing(ready: index.docs.count, pending: index.pending, running: index.running,
                                  progress: index.phase == "embedding" ? Double(index.textDone) / Double(max(1, index.textTotal))
@@ -43,9 +43,9 @@ struct HistoryView: View {
                         Text("All").tag("all"); Text("You").tag("user"); Text(config.name).tag("assistant")
                         Text("ψ notes").tag("note"); Text("Issues & PRs").tag("gh")
                     }
-                    .pickerStyle(.segmented).labelsHidden().frame(width: 430)
-                    Text("a session result copies the command that reopens it").font(.caption).foregroundStyle(.secondary)
-                    Spacer()
+                    .pickerStyle(.segmented).labelsHidden().fixedSize()   // its own width: a fixed frame let it spill over the caption
+                    Text("a session result copies the command that reopens it").font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                    Spacer(minLength: 0)
                 }
                 .onChange(of: who) { if !query.isEmpty { Task { await search() } } }
             }
@@ -135,7 +135,9 @@ struct HistoryView: View {
                     .buttonStyle(.bordered).controlSize(.large).disabled(index.running || index.cooldown || index.docs.isEmpty).handCursor()
             }
             if index.running || !index.rateHistory.isEmpty { LiveTelemetry(index: index).padding(.top, 10) }
-            if !index.progress.isEmpty { Text(index.progress).font(.caption.monospaced()).foregroundStyle(.secondary).padding(.top, 6) }
+            if !index.progress.isEmpty {
+                Text(index.progress).font(.caption.monospaced()).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true).padding(.top, 6)
+            }
             if let p = index.problem { Text(p).font(.caption).foregroundStyle(.orange).textSelection(.enabled).padding(.top, 6) }
         }
         .padding(16)
