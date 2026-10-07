@@ -32,7 +32,7 @@ SLUG=$(get repoSlug); HEX=$(get colorHex); SYM=$(get symbol); TAG=$(get tagline)
 LP=$(sed -n 's/.*OracleConfig.mac("\([^"]*\)").*/\1/p' $C | head -1)
 KEY=$(sed -n 's/^ *PRODUCT_BUNDLE_IDENTIFIER: co\.laris\.oracle\.\([a-z0-9-]*\)$/\1/p' $D/app.yml | head -1)
 PORT=$(sed -n 's/.*port: \([0-9][0-9]*\).*/\1/p' $D/${N}App.swift | head -1)
-RULE=${SLUG#*/}; RULE=${RULE%-[Oo]racle}; RULE=${(L)RULE}
+RULE=${SLUG#*/}; RULE=${RULE%-[Oo]racle}; RULE=${${(L)RULE}//[_.]/-}   # = HubParse.appKey(forRepo:)
 REGEN="zsh $K/scripts/new-oracle-app.sh $N $SLUG '$LP' '$HEX' $SYM \"$TAG\" --update"
 
 # portal key — the hub matches an app to its oracle by this
@@ -62,17 +62,21 @@ launch() { for i in 1 2 3; do open "$A" --args "$@" 2>/dev/null && return 0; sle
 may_relaunch() {
   (( NOLAUNCH )) && { print -r -- "--no-launch"; return 1; }
   lock_held && { print -r -- "install in progress by $(cat $LOCK_DIR/who 2>/dev/null)"; return 1; }
-  [[ -n $(running) ]] && (( ! RELAUNCH )) && { print -r -- "$N is running (a human may be using it) — add --relaunch"; return 1; }
+  [[ -n $(running) ]] && (( ! RELAUNCH && ! OURS )) && { print -r -- "$N is running (a human may be using it) — add --relaunch"; return 1; }
   return 0
 }
 
 # launches — by full path (LaunchServices knows many copies: every worktree build registers one)
-mkdir -p $K/build; MARK=$K/build/.check-$N; : > $MARK
+mkdir -p $K/build; MARK=$K/build/.check-$N; : > $MARK; OURS=0
 if [[ -z $(running) ]] && (( ! NOLAUNCH )) && [ -d "$A" ]; then
   if lock_held; then bad "not launched — install in progress by $(cat $LOCK_DIR/who 2>/dev/null)" "rerun when it is done"
-  else launch -oracleSection status; sleep 10; fi
+  else launch -oracleSection status; OURS=1; sleep 10; fi    # the copy this run started is not a human's
 fi
 RUN=$(running)
+# crashes count from this copy's start (a copy already running was started before this run)
+if [[ -n $RUN ]] && (( ! OURS )); then
+  st=$(ps -o lstart= -p ${RUN%% *} 2>/dev/null); [[ -n $st ]] && touch -t $(date -j -f "%a %b %d %T %Y" "$st" +%Y%m%d%H%M.%S 2>/dev/null) $MARK 2>/dev/null
+fi
 if [[ $RUN == *" /Applications/$N.app/"* ]]; then ok "running      ${RUN%% *} from /Applications"
 elif [[ -n $RUN ]]; then bad "running from elsewhere: ${RUN#* }" "osascript -e 'quit app \"$N\"'; open \"$A\""
 else bad "not running" "open \"$A\"; tail -20 \"$LOG\""; fi
@@ -85,6 +89,13 @@ H=$(curl -s -m 3 127.0.0.1:$PORT/health)
 if [[ $H == *'"status":"ok"'* && $H == *"\"name\":\"${(L)N}-memory\""* ]]; then ok "MCP :$PORT    ${(L)N}-memory ok"
 elif [[ -n $H ]]; then bad "MCP :$PORT answers as another server: ${H[1,120]}" "lsof -nP -iTCP:$PORT -sTCP:LISTEN"
 else bad "MCP :$PORT not answering" "lsof -nP -iTCP:$PORT -sTCP:LISTEN" "tail -20 \"$LOG\""; fi
+# MCP memory_search answers, and Trace records the query with its caller (<Name>-queries.jsonl)
+TQ="$HOME/Library/Logs/ARRA Oracles/$N-queries.jsonl"; q0=$(wc -l < "$TQ" 2>/dev/null || echo 0); MQ="check ${(L)N} $$"
+MR=$(curl -s -m 30 -X POST 127.0.0.1:$PORT/mcp -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' \
+  -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"memory_search\",\"arguments\":{\"query\":\"$MQ\"}}}")
+TR=$(tail -n +$((q0 + 1)) "$TQ" 2>/dev/null | rg -F "\"caller\"" | tail -1)
+if [[ $MR == *'"result"'* && $MR != *'"isError":true'* ]]; then ok "MCP search   memory_search answered"; else bad "MCP search   memory_search failed: ${MR[1,160]}" "tail -20 \"$LOG\""; fi
+[[ -n $TR ]] && ok "Trace        query recorded, caller $(print -r -- $TR | sed -n 's/.*"caller":"\([^"]*\)".*/\1/p')" || bad "Trace        no query recorded in $TQ" "tail -3 \"$TQ\""
 
 # widget — registered from the /Applications copy (a worktree build registers its own)
 wpath() { pluginkit -m -v -i co.laris.oracle.$KEY.widget 2>/dev/null | rg -o '/[^\t]*\.appex' | head -1 }
@@ -103,10 +114,11 @@ if (( DEEP )); then
   #   error ("no embedder", "another vector space"); other error lines (gh gave nothing) are not fatal.
   #   map   → "map layout: N docs in X s" (fitted now) or "map: N points in K chunks" (a cached layout, drawn)
   FATAL='^[0-9:.]+ error  .*(no embedder|another vector space)'
-  deep() {   # deep <section> <action> <done-regex> <timeout-s> [extra args…]
+  N0=0
+  deep() {   # deep <section> <action> <done-regex> <timeout-s> [extra args…]   (sets N0: the log's length at launch)
     local sec=$1 act=$2 re=$3 limit=$4; shift 4
     quit_app
-    local n0=$(wc -l < "$LOG" 2>/dev/null || echo 0)
+    local n0=$(wc -l < "$LOG" 2>/dev/null || echo 0); N0=$n0
     launch -oracleSection $sec -memoryAction $act "$@" || { print -r -- ""; return; }
     local t=0 hit=""
     while (( t < limit )); do
@@ -118,11 +130,11 @@ if (( DEEP )); then
   }
   if why=$(may_relaunch); then
     Q=${(L)N}
-    B=$(deep memory batch 'memory batch done|up to date — nothing new' 600 -memoryQuery "$Q")
+    deep memory batch '^[0-9:.]+ info   (memory batch done|up to date — nothing new in )' 600 -memoryQuery "$Q" > $MARK.out; B=$(<$MARK.out)
     if [[ $B == *" error  "* ]]; then bad "Memory       ${B#* error  }" "open \"$A\" --args -oracleSection memory    # the engine card says what is missing"
     elif [[ -n $B ]]; then ok "Memory       ${B#* info   }"
     else bad "Memory       no batch result within 10 min" "tail -30 \"$LOG\""; fi
-    S=""; for i in {1..6}; do S=$(tail -n 400 "$LOG" | rg "search [a-z]+ .*\"$Q\" · query embedded" | tail -1); [[ -n $S ]] && break; sleep 5; done
+    S=""; for i in {1..6}; do S=$(tail -n +$((N0 + 1)) "$LOG" | rg "search [a-z]+ .*\"$Q\" · query embedded" | tail -1); [[ -n $S ]] && break; sleep 5; done
     [[ -n $S ]] && ok "Memory query ${S#* search }" || bad "Memory query \"$Q\" not searched" "rg -n 'search' \"$LOG\" | tail -5"
     M=$(deep map layout 'map layout: [0-9]+ docs in|map: [0-9]+ points in' 300)
     [[ -n $M ]] && ok "Map          ${M#* info   }" || bad "Map          no layout drawn within 5 min" "rg -n 'map' \"$LOG\" | tail -5"
@@ -133,8 +145,8 @@ if (( SHOTS )); then
   if why=$(may_relaunch); then
     mkdir -p $K/build/shots
     for s in status memory map; do
-      out=$(WAIT=10 zsh $K/scripts/shot.sh $N $K/build/shots/$N-$s.png -- -oracleSection $s 2>&1)
-      [[ $out == *"shot "* ]] && ok "screenshot   build/shots/$N-$s.png" || bad "screenshot   $s failed" ${(f)out}
+      out=$(WAIT=10 zsh $K/scripts/shot.sh $N $K/build/shots/$N-$s.png -- -oracleSection $s 2>&1); src=$?
+      (( src == 0 )) && [[ ${out%%$'\n'*} == "shot "* ]] && ok "screenshot   build/shots/$N-$s.png" || bad "screenshot   $s failed (rc $src)" ${(f)out}
     done
   else bad "screenshots not taken: $why" "zsh $0 $N --shots --relaunch"; fi
 fi
@@ -145,5 +157,5 @@ if (( IOS )); then
     && ok "iOS compiles" || bad "iOS build failed" "rg 'error:' $K/build/ios-$N.log | sort -u | head"
 fi
 
-rm -f $MARK
+rm -f $MARK $MARK.out
 (( fail )) && { print -r -- "— $N: not all green"; exit 1; } || { print -r -- "— $N: all green"; exit 0; }

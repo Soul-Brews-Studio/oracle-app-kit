@@ -12,7 +12,8 @@
 #   --team   Apple signing team for the App Group. Default: $ORACLE_APP_TEAM, else project.yml's DEVELOPMENT_TEAM.
 #   --update rewrites the generated files of an existing app; keeps <Name>Extras.swift, the icon, and — unless given
 #            again — its key, port and team (read back from its app.yml / App.swift / entitlements).
-# Needs: zsh, sed, xcodegen (regen), uv (draws the icon when there is none). Refuses before writing anything.
+# Needs: zsh, sed, lsof (/usr/sbin), xcodegen (regen), uv (icon: draws one, or resizes design/icons/<Name>.png).
+# Refuses before writing anything.
 set -e
 die() { print -r -- "✗ $*"; exit 2; }
 pos=(); UPDATE=0; REGEN=1; KEY=""; PORT=""; TEAM=""
@@ -26,23 +27,28 @@ while (( $# )); do
     *) pos+=("$1") ;;
   esac; shift
 done
-KEY=${key_opt:-}; PORT=${port_opt:-}; TEAM=${team_opt:-${ORACLE_APP_TEAM:-}}
+KEY=${key_opt:-}; PORT=${port_opt:-}; TEAM=${team_opt:-}; OLDPORT=""; KEYSRC=${key_opt:+--key}
 (( $#pos >= 5 && $#pos <= 6 )) || die "usage: new-oracle-app.sh <Name> <org/repo> <mac checkout path> <#hex> <sf-symbol> [\"<tagline>\"] [--update] [--key=k] [--port=n] [--team=id] [--no-regen]"
 N=$pos[1]; SLUG=$pos[2]; LP=$pos[3]; HEX=$pos[4]; SYM=$pos[5]; TAG=${pos[6]:-"$N oracle"}
 R=${0:A:h}/..; R=${R:A}; D=$R/Apps/$N; low=${(L)N}
 [[ $N =~ '^[A-Z][A-Za-z0-9]*$' ]] || die "Name must be a Swift type name (Neo, DustBoyPhd), got '$N' — the hyphenated portal key goes in --key"
 [[ $SLUG == */* ]] || die "repo must be org/repo, got '$SLUG'"
 [[ $HEX =~ '^#[0-9a-fA-F]{6}$' ]] || die "colour must be #rrggbb, got '$HEX'"
+[[ $LP == /* ]] || die "mac checkout path must be absolute, got '$LP' — the oracle's main checkout:  ghq list -p --exact $SLUG"
+[[ -n ${ORACLE_APP_SCRATCH:-} || -d $LP ]] || die "no checkout at $LP on this Mac — clone it:  ghq get -p $SLUG"
+[ -n "$SYM" ] || die "sf-symbol is empty — pass one, e.g. star.fill"
 [ -e $D ] && (( ! UPDATE )) && die "Apps/$N exists — regenerate it with --update (keeps Extras, icon, key, port, team)"
 [ ! -e $D ] && (( UPDATE )) && die "Apps/$N does not exist — drop --update to create it"
 # --update: what the app already is wins over the defaults (an explicit option still wins over both)
 if (( UPDATE )); then
-  [ -n "$KEY" ]  || KEY=$(sed -n 's/^ *PRODUCT_BUNDLE_IDENTIFIER: co\.laris\.oracle\.\([a-z0-9-]*\)$/\1/p' $D/app.yml 2>/dev/null | head -1)
-  [ -n "$PORT" ] || PORT=$(sed -n 's/.*port: \([0-9][0-9]*\).*/\1/p' $D/${N}App.swift 2>/dev/null | head -1)
+  [ -n "$KEY" ]  || { KEY=$(sed -n 's/^ *PRODUCT_BUNDLE_IDENTIFIER: co\.laris\.oracle\.\([a-z0-9-]*\)$/\1/p' $D/app.yml 2>/dev/null | head -1); KEYSRC=${KEY:+Apps/$N/app.yml}; }
+  OLDPORT=$(sed -n 's/.*port: \([0-9][0-9]*\).*/\1/p' $D/${N}App.swift 2>/dev/null | head -1); [ -n "$PORT" ] || PORT=$OLDPORT
   [ -n "$TEAM" ] || TEAM=$(sed -n 's/.*<string>\([A-Z0-9]*\)\.co\.laris\.oracle\.[a-z0-9-]*<\/string>.*/\1/p' $D/${N}.entitlements 2>/dev/null | head -1)
 fi
-if [ -z "$KEY" ]; then KEY=${SLUG#*/}; KEY=${KEY%-[Oo]racle}; KEY=${(L)KEY}; fi
-[[ $KEY =~ '^[a-z][a-z0-9-]*$' ]] || die "key '$KEY' (from $SLUG) is not a bundle-id part: give --key=<lower-case letters, digits, '-'>; the portal matches only the repo-derived key"
+# the portal's rule (HubParse.appKey): repo minus "-oracle", lower-cased, "_" and "." → "-" (a bundle id has no "_")
+if [ -z "$KEY" ]; then KEY=${SLUG#*/}; KEY=${KEY%-[Oo]racle}; KEY=${${(L)KEY}//[_.]/-}; KEYSRC="the repo name $SLUG"; fi
+[[ $KEY =~ '^[a-z][a-z0-9-]*$' ]] || die "key '$KEY' (from $KEYSRC) must start with a lower-case letter and hold only a-z, 0-9, '-' — e.g.:  zsh $0 ${(q)pos[@]} --key=${${${(L)KEY}//[^a-z0-9-]/-}##[^a-z]#}"
+[ -n "$TEAM" ] || TEAM=${ORACLE_APP_TEAM:-}
 [ -n "$TEAM" ] || TEAM=$(sed -n 's/^ *DEVELOPMENT_TEAM: *//p' $R/project.yml | head -1)
 [[ $TEAM =~ '^[A-Z0-9]{10}$' ]] || die "no usable signing team ('$TEAM'): export ORACLE_APP_TEAM=<10-character Team ID> — Xcode → Settings → Accounts shows it"
 # what every OTHER app already holds: bundle keys, MCP ports, colours
@@ -56,22 +62,29 @@ done
 [[ $okeys == *" $KEY "* ]] && die "key '$KEY' is already another app's (co.laris.oracle.$KEY) — give --key=<another>"
 [[ ${(L)ohex} == *" ${(L)HEX} "* ]] && die "colour $HEX is already another app's — pick another"
 # a live listener check; scripts/parity.sh generates into a scratch copy and sets ORACLE_APP_SCRATCH=1 to skip it
-listening() { [[ -z ${ORACLE_APP_SCRATCH:-} ]] && lsof -nP -iTCP:$1 -sTCP:LISTEN -t >/dev/null 2>&1 }
+listening() {
+  [[ -z ${ORACLE_APP_SCRATCH:-} ]] || return 1
+  command -v lsof >/dev/null || die "lsof not found (macOS keeps it in /usr/sbin):  export PATH=\$PATH:/usr/sbin"
+  lsof -nP -iTCP:$1 -sTCP:LISTEN -t >/dev/null 2>&1
+}
 if [ -n "$PORT" ]; then
   [[ $PORT =~ '^[0-9]+$' ]] || die "port must be a number, got '$PORT'"
   [[ $oports == *" $PORT "* ]] && die "port $PORT is already another app's MCP port — give --port=<another>"
-  if listening $PORT && ! (( UPDATE )); then die "something already listens on :$PORT —  lsof -nP -iTCP:$PORT -sTCP:LISTEN"; fi
+  # the app's own port is exempt (it is the app listening); any other port must be free
+  if [[ $PORT != ${OLDPORT:-} ]] && listening $PORT; then die "something already listens on :$PORT —  lsof -nP -iTCP:$PORT -sTCP:LISTEN"; fi
 else
   PORT=4791; while [[ $oports == *" $PORT "* ]] || listening $PORT; do PORT=$((PORT + 1)); done
 fi
 if [ ! -d $D/Assets.xcassets/AppIcon.appiconset ] && ! command -v uv >/dev/null; then
-  die "uv is needed to draw the icon (or put design/icons/$N.png in place):  brew install uv"
+  die "uv is needed to make the icon:  brew install uv"
 fi
 GROUP="$TEAM.co.laris.oracle.$KEY"
 KEYARG=""; [ "$KEY" != "$low" ] && KEYARG=", key: \"$KEY\""   # Neo/Pulse/Nexus: key == name, no argument
 mkdir -p $D/Widget $D/Share $D/Assets.xcassets
 [ -f $D/Assets.xcassets/Contents.json ] || print -r -- '{"info":{"version":1,"author":"xcode"}}' > $D/Assets.xcassets/Contents.json
-[ -d $D/Assets.xcassets/AppIcon.appiconset ] || uv run --quiet --with pillow python $R/scripts/make_icon.py $D/Assets.xcassets/AppIcon.appiconset $HEX ${N[1]}
+# the icon: design/icons/<Name>.png (a Codex / imagegen emblem) resized when present, else drawn
+icon_from=(); [ -f $R/design/icons/$N.png ] && icon_from=(--from $R/design/icons/$N.png)
+[ -d $D/Assets.xcassets/AppIcon.appiconset ] || uv run --quiet --with pillow python $R/scripts/make_icon.py $D/Assets.xcassets/AppIcon.appiconset $HEX ${N[1]} $icon_from
 cat > $D/${N}Config.swift <<SWIFT
 import OracleKit
 

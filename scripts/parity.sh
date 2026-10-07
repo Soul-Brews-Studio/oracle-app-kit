@@ -7,6 +7,7 @@ set -e
 R=${0:A:h}/..; R=${R:A}
 names=("$@")
 if (( ! $#names )); then for d in $R/Apps/*(/); do [ -f $d/${d:t}Config.swift ] && names+=(${d:t}); done; fi
+(( $#names )) || { print -r -- "✗ no app with a <Name>Config.swift under $R/Apps — nothing to compare:  ls $R/Apps"; exit 2; }
 T=$(mktemp -d "${TMPDIR:-/tmp}/oracle-parity.XXXX")
 trap 'rm -rf $T' EXIT; trap 'rm -rf $T; exit 130' INT TERM HUP
 rsync -a --exclude build --exclude .build --exclude .git --exclude wt --exclude target --exclude .tmp $R/ $T/

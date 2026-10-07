@@ -37,7 +37,7 @@ public struct HubOracle: Identifiable, Hashable, Sendable {
     public let checkout: String?
     public let resume: String?
     public var name: String { HubParse.displayName(repo) }
-    public var appKey: String { name.lowercased() }
+    public var appKey: String { HubParse.appKey(forRepo: repo) }
     public var isLive: Bool { !spaces.isEmpty }
     /// The most urgent state across its spaces; with no space open, how it rests.
     public var status: String {
@@ -52,6 +52,13 @@ public enum HubParse {
     public static func word(_ s: String) -> String {
         ["blocked": "blocked", "done": "needs you", "working": "working", "idle": "idle",
          "resumable": "resumable", "cold": "cold"][s] ?? "open"
+    }
+
+    /// The key an oracle's app carries in its bundle id, co.laris.oracle.<key>: the display name lower-cased, with "_"
+    /// and "." made "-" because a bundle id has no "_" ("boon_v2-oracle" → "boon-v2"). scripts/new-oracle-app.sh and
+    /// skills/oracle-app/check.sh apply the same rule; change all three together.
+    public static func appKey(forRepo repo: String) -> String {
+        String(displayName(repo).lowercased().map { $0 == "_" || $0 == "." ? "-" : $0 })
     }
 
     /// "neo-oracle" → "Neo", "DustBoy-Phd-Oracle" → "DustBoy-Phd", "pulse" → "Pulse"

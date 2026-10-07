@@ -9,7 +9,10 @@ R=${0:A:h}/..; R=${R:A}; cd $R || exit 2
 source $R/scripts/install-lock.sh
 INSTALL=0; schemes=()
 for a in "$@"; do [[ $a == --install ]] && INSTALL=1 || schemes+=($a); done
-(( $#schemes )) || schemes=(Oracles Neo Pulse Nexus)
+if (( ! $#schemes )); then
+  (( INSTALL )) && { print -r -- "✗ name the apps to install — --install with no names would replace the hub and every app:  zsh $0 <Name> --install"; exit 2; }
+  schemes=(Oracles Neo Pulse Nexus)
+fi
 mkdir -p build/logs
 zsh scripts/regen.sh >/dev/null || { echo "✗ regen failed:  zsh $R/scripts/regen.sh"; exit 3; }
 rc=0; built=()
@@ -21,7 +24,7 @@ for s in $schemes; do
   (( r )) && { rg 'error:' $log | sed "s|^$R/||" | sort -u | head -12; echo "  full log: $R/$log"; }
 done
 (( INSTALL && $#built )) || exit $rc
-lock_take "zsh $R/scripts/build.sh ${(q)@}" || exit 75
+lock_take "zsh $R/scripts/build.sh ${(j: :)${(q)@}}" || exit 75
 trap lock_drop EXIT; trap 'lock_drop; exit 130' INT TERM HUP
 for s in $built; do
   app=$s; [[ $s == Oracles ]] && app="ARRA Oracles"
