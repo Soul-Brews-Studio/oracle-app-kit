@@ -128,7 +128,17 @@
   function sidePanel() {
     const all = [...document.querySelectorAll('[role="complementary"]')];
     return all.find(p => p.querySelector('[aria-label^="Comment on"], [aria-label^="React with Like"], [aria-label^="Leave a comment"], [role="article"]'))
-      || (all.length === 1 ? all[0] : null);
+      || (all.length === 1 ? all[0] : null)
+      || reelPanel();
+  }
+  // Reels (Nat's /reel/3376772145863784, measured in Ego 2026-10-07): no role=complementary, no data-ad-rendering-role.
+  // The panel is the nearest block above the comments that also holds the author's "Shared with …" globe.
+  const GLOBE = '[aria-label^="Shared with"], [aria-label^="Public"]';
+  function reelPanel() {
+    const art = document.querySelector('[role="article"]');
+    for (let n = art; n && n !== document.body; n = n.parentElement)
+      if ([...n.querySelectorAll(GLOBE)].some(g => !g.closest('[role="article"]'))) return n;
+    return null;
   }
 
   // photo/video pages: the author and caption sit in the right panel (role=complementary); the document title is
@@ -143,7 +153,7 @@
       .map(l => /^Comment on (.+?)['’]s (post|photo|video|reel)/i.exec(l) || /^React with Like to (.+)$/i.exec(l)).find(Boolean);
     const authorEl = side && [...side.querySelectorAll('h2 a, h3 a, strong a, span > a[role="link"]')]
       .find(a => a.innerText.trim() && !/online status|^active$/i.test(a.innerText.trim()) && !a.closest('[role="banner"], [role="navigation"]'));
-    const author = (named?.[1] || authorEl?.innerText || '').replace(/['’]s (post|photo|video|reel)$/i, '').trim().split('\n')[0];
+    const author = (named?.[1] || authorEl?.innerText || (side?.innerText || '').split('\n').find(l => l.trim()) || '').replace(/['’]s (post|photo|video|reel)$/i, '').trim().split('\n')[0];
     const caption = ((side?.querySelector('[data-ad-rendering-role="story_message"]')?.innerText) ||
       captionIn(side, author) || (document.querySelector('[data-ad-rendering-role="story_message"]')?.innerText) ||
       String(getSelection() || '')).trim().replace(SEE, '');
@@ -240,7 +250,11 @@
     const name = nameEl ? links.find(a => nameEl.contains(a)) : links.find(a => a.innerText.trim() && !/online status|^active$/i.test(a.innerText.trim()));
     const time = name && links.find(a => (name.compareDocumentPosition(a) & Node.DOCUMENT_POSITION_FOLLOWING) && !(nameEl || name).contains(a));
     let line = time; while (line && line !== root && !(line.tagName === 'DIV' && getComputedStyle(line).display === 'flex' && line.querySelector('svg') && !line.contains(name))) line = line.parentElement;
-    if (!line || line === root) return;
+    if (!line || line === root) {   // reel: "Nat Weerawan 🌐" is one row with no time link
+      const globe = [...root.querySelectorAll(GLOBE)].find(g => !g.closest('[role="article"]'));
+      line = globe; while (line && line !== root && !(line.tagName === 'DIV' && getComputedStyle(line).display === 'flex')) line = line.parentElement;
+      if (!line || line === root) return;
+    }
     const c = chip(`🔮 ${DEFAULT}`, `New issue in ${DEFAULT} Oracle for this post (⇧-click: another oracle)`, getDetails, 'data-oracle-btn');
     c.setAttribute('data-oracle-head', '1');
     line.append(c);
