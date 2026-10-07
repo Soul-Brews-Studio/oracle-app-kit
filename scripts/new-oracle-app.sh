@@ -38,7 +38,7 @@ R=${0:A:h}/..; R=${R:A}; D=$R/Apps/$N; low=${(L)N}
 [[ $SLUG == */* ]] || die "repo must be org/repo, got '$SLUG'"
 [[ $HEX =~ '^#[0-9a-fA-F]{6}$' ]] || die "colour must be #rrggbb, got '$HEX'"
 # these land inside Swift string literals and are read back by scripts/parity.sh — no '"' or '\'
-for v in "$SLUG" "$LP" "$TAG" "$SYM"; do [[ $v == *[\"\\]* ]] && die "no '\"' or '\\' in the identity (got: $v) — e.g.:  zsh $0 ${(@q)${(@)ARGS//[\"\\]/}}"; done
+for v in "$SLUG" "$LP" "$TAG" "$SYM"; do [[ $v == *[[:cntrl:]\"\\]* ]] && die "no '\"', '\\' or control character (tab, newline) in the identity (got: ${(q)v}) — e.g.:  zsh $0 ${(@q)${(@)ARGS//[[:cntrl:]\"\\]/}}"; done
 [[ $LP == /* ]] || die "mac checkout path must be absolute, got '$LP' — the oracle's main checkout:  ghq list -p --exact $SLUG"
 [[ -n ${ORACLE_APP_SCRATCH:-} || -d $LP ]] || die "no checkout at $LP on this Mac — clone it:  ghq get -p $SLUG"
 [ -n "$SYM" ] || die "sf-symbol is empty — pass one, e.g. star.fill"

@@ -13,6 +13,7 @@
 #   --deep       Memory batch + query, Map layout, by launch argument; reads the app's log   (loads the model; minutes)
 #   --ios        compile the iOS target (no device, no signing)
 set -u
+ARGV_ALL=("$@")
 N=${1:-}; [[ -n $N && $N != --* ]] || { print -r -- "usage: check.sh <Name> [--relaunch] [--no-launch] [--shots] [--deep] [--ios]"; exit 2; }; shift
 RELAUNCH=0 NOLAUNCH=0 SHOTS=0 DEEP=0 IOS=0
 for a in "$@"; do case $a in
@@ -69,7 +70,7 @@ may_relaunch() {
 # launches — by full path (LaunchServices knows many copies: every worktree build registers one)
 mkdir -p $K/build; MARK=$K/build/.check-$N; : > $MARK; OURS=0
 if [[ -z $(running) ]] && (( ! NOLAUNCH )) && [ -d "$A" ]; then
-  if lock_held; then bad "not launched — install in progress by $(cat $LOCK_DIR/who 2>/dev/null)" "rerun when it is done"
+  if lock_held; then bad "not launched — install in progress by $(cat $LOCK_DIR/who 2>/dev/null)" "while kill -0 $(cat $LOCK_DIR/pid 2>/dev/null) 2>/dev/null; do sleep 5; done; zsh $0 ${(@q)ARGV_ALL}"
   else launch -oracleSection status; OURS=1; sleep 10; fi    # the copy this run started is not a human's
 fi
 RUN=$(running)
@@ -95,7 +96,7 @@ MR=$(curl -s -m 30 -X POST 127.0.0.1:$PORT/mcp -H 'Content-Type: application/jso
   -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"memory_search\",\"arguments\":{\"query\":\"$MQ\"}}}")
 TR=$(tail -n +$((q0 + 1)) "$TQ" 2>/dev/null | rg -F "\"query\":\"$MQ\"" | rg -F '"source":"mcp"' | rg -F '"caller":"' | tail -1)   # this exact query, via MCP, with a caller
 if [[ $MR == *'"result"'* && $MR != *'"isError":true'* ]]; then ok "MCP search   memory_search answered"; else bad "MCP search   memory_search failed: ${MR[1,160]}" "tail -20 \"$LOG\""; fi
-[[ -n $TR ]] && ok "Trace        query recorded, caller $(print -r -- $TR | sed -n 's/.*"caller":"\([^"]*\)".*/\1/p')" || bad "Trace        no query recorded in $TQ" "tail -3 \"$TQ\""
+[[ -n $TR ]] && ok "Trace        query recorded, caller $(print -r -- $TR | sed -n 's/.*"caller":"\([^"]*\)".*/\1/p' | sed 's#\\/#/#g')" || bad "Trace        no query recorded in $TQ" "tail -3 \"$TQ\""
 
 # widget — registered from the /Applications copy (a worktree build registers its own)
 wpath() { pluginkit -m -v -i co.laris.oracle.$KEY.widget 2>/dev/null | rg -o '/[^\t]*\.appex' | head -1 }

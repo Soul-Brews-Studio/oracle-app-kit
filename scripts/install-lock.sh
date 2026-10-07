@@ -19,7 +19,7 @@ lock_take() {
   local waited=0 tries=0 pid age ino grave extra
   while ! mkdir $LOCK_DIR 2>/dev/null; do
     # gone again between our mkdir and this test (its holder just released it): try once more before blaming the folder
-    [ -d $LOCK_DIR ] || { mkdir $LOCK_DIR 2>/dev/null && break; print -r -- "✗ cannot create the install lock $LOCK_DIR — is ${LOCK_DIR:h} writable?   ls -ld '${LOCK_DIR:h}'"; return 1; }
+    [ -d $LOCK_DIR ] || { mkdir $LOCK_DIR 2>/dev/null && break; [ -d $LOCK_DIR ] && continue; print -r -- "✗ cannot create the install lock $LOCK_DIR — is ${LOCK_DIR:h} writable?   ls -ld '${LOCK_DIR:h}'"; return 1; }
     # only ever take over a directory that is one of OUR locks (pid / who / branch / since, nothing else)
     # no external tool here: this guard is what keeps a stranger's folder from rm -rf — it must not fail open
     extra=(${${(f)"$(ls -A $LOCK_DIR 2>/dev/null)"}:#(pid|who|branch|since)})

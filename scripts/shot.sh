@@ -18,7 +18,11 @@ OUT=$APP.png; ASIS=0
 LOCKED=$(swift -e 'import CoreGraphics; let d = CGSessionCopyCurrentDictionary() as? [String: Any] ?? [:]; print((d["CGSSessionScreenIsLocked"] as? Int) ?? 0)' 2>/dev/null)
 [[ $LOCKED == 1 ]] && { print -r -- "✗ the screen is locked — a window cannot be captured; unlock it, then:  zsh $0 ${(@q)ARGV_ALL}"; exit 3; }
 if (( ! ASIS )); then
-  lock_held && { print -r -- "✗ not relaunching $APP: install in progress by $(cat $LOCK_DIR/who 2>/dev/null) — retry when done, or use --as-is"; exit 75; }
+  if lock_held; then
+    print -r -- "✗ not relaunching $APP: install in progress by $(cat $LOCK_DIR/who 2>/dev/null) — wait for it, or capture as it is:"
+    print -r -- "    while kill -0 $(cat $LOCK_DIR/pid 2>/dev/null) 2>/dev/null; do sleep 5; done; zsh $0 ${(@q)ARGV_ALL}"
+    print -r -- "    zsh $0 ${(q)APP} ${(q)OUT} --as-is"; exit 75
+  fi
   pkill -x "$APP"; for i in {1..50}; do pgrep -x "$APP" >/dev/null || break; sleep 0.2; done
   for i in 1 2 3; do open "/Applications/$APP.app" --args "$@" 2>/dev/null && break; sleep 2; done   # -600 while quitting
   sleep ${WAIT:-12}

@@ -85,7 +85,7 @@ unless `--team=` is given. The generator's ready line says where the team came f
    (no herdr: run `zsh $K/scripts/build.sh <Name> --install` in a second terminal.)
    rc 75 = another agent holds the install lock: it prints who and a wait command that ends when that agent's process
    ends. Never delete the lock by hand; a dead holder's lock is taken over automatically.
-5. **Check** (§3): `check.sh <Name> --deep --shots --relaunch` — the new app is yours to relaunch. Every row ✓, or
+5. **Check** (§3): `check.sh <Name> --deep --shots --ios --relaunch` — the new app is yours to relaunch. Every row ✓, or
    fix and re-run; each ✗ prints its own fix.
 6. **PR.** Commit `Apps/<Name>/**`, `apps.yml`, `OracleApps.xcodeproj/project.pbxproj`, `design/icons/<Name>.png`, and
    the screenshots `--shots` wrote to `build/shots/` (gitignored), copied under `docs/screenshots/<Name>/` — **not**

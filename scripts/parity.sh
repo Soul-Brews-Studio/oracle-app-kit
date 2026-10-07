@@ -23,7 +23,9 @@ for N in $names; do
   opts=(); [ -n "$KEY" ] && opts+=(--key=$KEY); [ -n "$PORT" ] && opts+=(--port=$PORT); [ -n "$TEAM" ] && opts+=(--team=$TEAM)
   rm -rf $T/Apps/$N
   if ! out=$(cd $T && ORACLE_APP_SCRATCH=1 zsh scripts/new-oracle-app.sh "$N" "$SLUG" "$LP" "$HEX" "$SYM" "$TAG" $opts --no-regen 2>&1); then
-    print -r -- "✗ $N: the generator refused the identity read back from Apps/$N:"; print -r -- "$out" | sed 's/^/    /'; rc=1; continue
+    # its hint was built for this scratch call: show it as the command to run in the real kit (--update, no --no-regen)
+    print -r -- "✗ $N: the generator refused the identity read back from Apps/$N:"
+    print -r -- "$out" | sed -e "s|zsh scripts/new-oracle-app.sh|zsh $R/scripts/new-oracle-app.sh --update|" -e 's| --no-regen||' -e 's/^/    /'; rc=1; continue
   fi
   bad=0
   for f in ${N}App.swift ${N}Config.swift app.yml Widget/${N}Widget.swift Share/ShareViewController.swift ${N}.entitlements Widget/${N}Widget.entitlements; do
