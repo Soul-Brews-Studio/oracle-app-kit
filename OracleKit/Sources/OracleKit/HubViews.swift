@@ -65,7 +65,7 @@ struct HubRootView: View {
             }
             // #37: the fleet map's layout, in the background, the first time (later the Map page keeps it fresh)
             let fleet = FleetMap.shared
-            if fleet.index.layout.meta == nil, MapLayout.engine != nil {
+            if #available(macOS 26, *), fleet.index.layout.meta == nil, MapLayout.engine != nil {   // the map itself needs macOS 26
                 await fleet.load(why: "launch: no fleet layout yet")
                 await fleet.index.layout.fit(docs: fleet.index.docs, space: fleet.index.space, why: "launch: no fleet layout yet")
                 await fleet.index.clusters.refresh(layout: fleet.index.layout, docs: fleet.index.docs)

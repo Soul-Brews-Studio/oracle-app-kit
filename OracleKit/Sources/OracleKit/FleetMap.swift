@@ -4,9 +4,11 @@ import AppKit
 import SwiftUI
 #endif
 
-/// Every query an oracle app answers, told to the hub (issue #37): the apps are separate processes, so the fleet map
-/// learns of a search in Pulse from a distributed notification — on this Mac only, no network. It carries the index,
-/// the hit ids, who asked and the first words of the query (the same things the app's own trace file keeps).
+/// Every query an oracle app answers, told to the hub (issue #37). The apps are separate processes, so the fleet map
+/// learns of a search in Pulse from a distributed notification — on this Mac only, no network. Any app in the login
+/// session can observe one, so it carries little: the index, short hashes of the hits (the hub knows which of its rows
+/// each is), the source, the asking oracle's name and the id of the app's trace entry. The words of the query stay in
+/// the app's own query log, where the hub reads them.
 public enum QueryBroadcast {
     public static let name = "co.laris.oracle.query"
 
@@ -14,19 +16,39 @@ public enum QueryBroadcast {
         public let id = UUID()
         public let app: String            // the bundle id that answered: co.laris.oracle.pulse
         public let index: String          // history/laris-co__pulse
-        public let ids: [String]          // the hits, best first
+        public let hashes: [String]       // the hits, best first, as hash(doc id)
         public let source: String         // page · map · mcp
-        public let caller: String?        // "Neo · mcp-session …" for an MCP call
-        public let query: String
+        public let asker: String?         // "Neo" — an MCP caller's oracle
+        public let trace: String?         // the answering app's TraceLog entry: its query is in <App>-queries.jsonl
     }
 
-    static func post(index: String, ids: [String], source: String, caller: String?, query: String) {
+    /// 16 hex digits of FNV-1a 64 over a doc id: the same in every process, and no file path or title to an observer.
+    public nonisolated static func hash(_ id: String) -> String {
+        var h: UInt64 = 0xcbf29ce484222325
+        for b in id.utf8 { h = (h ^ UInt64(b)) &* 0x100000001b3 }
+        return String(h, radix: 16)
+    }
+
+    static func post(index: String, ids: [String], source: String, caller: String?, trace: UUID) {
         #if os(macOS)
-        var info: [String: Any] = ["index": index, "ids": Array(ids.prefix(25)), "source": source, "query": String(query.prefix(60))]
-        if let caller { info["caller"] = caller }
+        var info: [String: Any] = ["index": index, "hashes": ids.prefix(25).map(hash), "source": source, "trace": trace.uuidString]
+        if let asker = caller?.components(separatedBy: " · ").first, !asker.isEmpty { info["asker"] = String(asker.prefix(40)) }
         DistributedNotificationCenter.default().postNotificationName(.init(name), object: Bundle.main.bundleIdentifier ?? "?",
                                                                     userInfo: info, deliverImmediately: true)
         #endif
+    }
+
+    /// The words of a traced query, from the answering app's query log (its last 64 KB); nil when not there.
+    public nonisolated static func query(trace: String, app name: String) -> String? {
+        let url = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Logs/ARRA Oracles/\(name)-queries.jsonl")
+        guard let h = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? h.close() }
+        let end = (try? h.seekToEnd()) ?? 0
+        try? h.seek(toOffset: end > 65_536 ? end - 65_536 : 0)
+        guard let d = try? h.readToEnd(), let line = d.split(separator: 0x0A).last(where: { String(decoding: $0, as: UTF8.self).contains(trace) }),
+              let o = try? JSONSerialization.jsonObject(with: Data(line)) as? [String: Any] else { return nil }
+        return o["query"] as? String
     }
 }
 
@@ -43,9 +65,9 @@ public final class QueryListener: ObservableObject {
         let me = Bundle.main.bundleIdentifier
         observer = DistributedNotificationCenter.default().addObserver(forName: .init(QueryBroadcast.name), object: nil, queue: .main) { [weak self] n in
             guard let app = n.object as? String, app != me, let u = n.userInfo, let index = u["index"] as? String,
-                  let ids = u["ids"] as? [String] else { return }
-            let e = QueryBroadcast.Event(app: app, index: index, ids: ids, source: u["source"] as? String ?? "page",
-                                         caller: u["caller"] as? String, query: u["query"] as? String ?? "")
+                  let hashes = u["hashes"] as? [String] else { return }
+            let e = QueryBroadcast.Event(app: app, index: index, hashes: hashes, source: u["source"] as? String ?? "page",
+                                         asker: u["asker"] as? String, trace: u["trace"] as? String)
             MainActor.assumeIsolated { self?.last = e }
         }
         HubLog.shared.add(.info, "fleet map: listening for every oracle app's queries (\(QueryBroadcast.name), this Mac only)")
@@ -75,15 +97,43 @@ public final class FleetMap: ObservableObject {
     /// doc id → its oracle
     public private(set) var oracleOf: [String: String] = [:]
     private var task: Task<Void, Never>?
+    /// What was read: each member file's date, and the hub's own index's build — a change means read again.
+    private var readStamps: [String: Date] = [:]
+    private var lastMissReload = Date.distantPast
 
-    /// Reads every member off the main actor and holds the union (once; again with `again`).
-    public func load(why: String, again: Bool = false) async {
-        if let task { await task.value; if !again { return } }
-        if loaded != nil, !again { return }
+    /// Reads every member off the main actor and holds the union — the first time, and again whenever a member changed
+    /// since (an oracle app saved its index, the hub refreshed its own, a new oracle appeared). Callers at the same
+    /// time share one read.
+    public func load(why: String) async {
+        if let task { await task.value }
+        guard loaded == nil || isStale else { return }
+        if let task { await task.value; return }   // another caller started a read while this one waited
         let t = Task { await self.build(why: why) }
         task = t
         await t.value
-        task = nil
+        if task == t { task = nil }
+    }
+
+    /// A member changed since the read: its file's date, a new or gone history index, the hub's own index rebuilt.
+    public var isStale: Bool { loaded != nil && Self.stamps() != readStamps }
+
+    /// A heard query named docs the union does not have: read again, at most once a minute.
+    func missed(_ n: Int) {
+        guard Date().timeIntervalSince(lastMissReload) > 60 else { return }
+        lastMissReload = Date()
+        HubLog.shared.add(.info, "fleet map: \(n) hits are not on the map yet — reading every oracle's index again")
+        Task { await load(why: "\(n) heard hits not on the map") }
+    }
+
+    /// Each member's date: the history index files' modification dates, and gh-index's build.
+    static func stamps() -> [String: Date] {
+        let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("ARRA Oracles", isDirectory: true)
+        var out: [String: Date] = [:]
+        for name in historyIndexes() {
+            out[name] = (try? FileManager.default.attributesOfItem(atPath: dir.appendingPathComponent(name + ".json").path)[.modificationDate]) as? Date
+        }
+        out["gh-index"] = GHIndex.shared.built ?? .distantPast
+        return out
     }
 
     private func build(why: String) async {
@@ -104,16 +154,22 @@ public final class FleetMap: ObservableObject {
             if let b { built = max(built ?? b, b) }
         }
         // the hub's own index is in memory already: its docs without their texts
+        let stamps = Self.stamps()
         let gh = GHIndex.shared
         add(gh.name, gh.docs.map { var d = $0; d.text = nil; return d }, gh.built, gh.space) { Self.oracle(ofRepo: $0.repo, known: known) }
         for name in histories {
             loading = "reading \(Self.oracle(ofIndex: name))'s memory…"
-            guard let r = await Task.detached(priority: .utility, operation: { GHIndex.readDocs(name: name) }).value else { continue }
+            guard let r = await Task.detached(priority: .utility, operation: { GHIndex.readDocs(name: name) }).value else {
+                // missing, of another model, or caught between the two files of a save three times running
+                let dir = "$HOME/Library/Application Support/ARRA Oracles/" + name
+                HubLog.shared.add(.error, "fleet map: could not read \(name) — left out until the next read. To look: ls -l \"\(dir)\".*")
+                continue
+            }
             let o = Self.oracle(ofIndex: name)
             add(name, r.docs, r.built, r.space) { _ in o }
         }
         index.adopt(docs, space: space, built: built)
-        self.oracleOf = oracleOf; self.members = members; loading = ""; loaded = Date()
+        self.oracleOf = oracleOf; self.members = members; loading = ""; loaded = Date(); readStamps = stamps
         // docs new since the fleet's layout: placing them one by one would scan 72k vectors each on the main actor, so
         // past 1 % (or 300) the layout is fitted again in the background; fewer wait off the map until then
         let layout = index.layout
@@ -185,27 +241,39 @@ public final class FleetMap: ObservableObject {
     public static func app(of oracle: String) -> URL? { HubParse.installedApps()[oracle.lowercased()] }
 }
 
-/// The hub's Map page: the fleet's union, read in the background the first time, then the same map as an oracle's.
+/// The hub's Map page: the fleet's union, read in the background (again when a member changed), then the same map as
+/// an oracle's.
 public struct FleetMapPage: View {
     @ObservedObject private var fleet = FleetMap.shared
     @ObservedObject private var index = FleetMap.shared.index
     let accent: Color
     public init(accent: Color) { self.accent = accent }
     public var body: some View {
-        Group {
-            if index.docs.isEmpty {
-                VStack(spacing: 10) {
-                    ProgressView().controlSize(.small)
-                    Text(fleet.loading.isEmpty ? "reading every oracle's memory…" : fleet.loading).font(.callout).foregroundStyle(.secondary)
+        if #available(macOS 26, *) {
+            Group {
+                if !index.docs.isEmpty {
+                    MapView(name: "The fleet", accent: accent, index: index, fleet: fleet)
+                } else if fleet.loaded == nil || !fleet.loading.isEmpty {
+                    VStack(spacing: 10) {
+                        ProgressView().controlSize(.small)
+                        Text(fleet.loading.isEmpty ? "reading every oracle's memory…" : fleet.loading).font(.callout).foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Nothing indexed on this Mac yet").font(.headline)
+                        Text("Open Search issues & PRs and press Run batch, or open an oracle's app and scan its sessions. To see what exists:")
+                            .font(.callout).foregroundStyle(.secondary)
+                        Text("ls -la \"$HOME/Library/Application Support/ARRA Oracles\" \"$HOME/Library/Application Support/ARRA Oracles/history\"")
+                            .font(.caption.monospaced()).textSelection(.enabled)
+                    }
+                    .padding(28).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if #available(macOS 26, *) {
-                MapView(name: "The fleet", accent: accent, index: index, fleet: fleet)
-            } else {
-                Text("The map needs macOS 26").font(.callout).foregroundStyle(.secondary).frame(maxWidth: .infinity, maxHeight: .infinity)
             }
+            .task { await fleet.load(why: "Map page opened") }
+        } else {
+            Text("The map needs macOS 26").font(.callout).foregroundStyle(.secondary).frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .task { await fleet.load(why: "Map page opened") }
     }
 }
 #endif

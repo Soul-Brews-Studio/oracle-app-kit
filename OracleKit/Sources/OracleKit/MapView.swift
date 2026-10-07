@@ -83,7 +83,7 @@ public struct MapView: View {
                 }
                 .padding(14).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 GeometryReader { g in
-                    if let d = scene.hoverDoc.flatMap({ $0 < index.docs.count ? index.docs[$0] : nil }), let p = scene.hoverAt {
+                    if let d = scene.hoverDoc.flatMap({ $0 < scene.docs.count ? scene.docs[$0] : nil }), let p = scene.hoverAt {   // the scene's docs: the ones its rows point at
                         let flipX = p.x > g.size.width - 340, flipY = p.y > g.size.height - 110
                         hoverCard(d).fixedSize(horizontal: false, vertical: true).frame(width: 320, alignment: .leading)
                             .offset(x: flipX ? p.x - 336 : p.x + 18, y: flipY ? p.y - 96 : p.y + 16)
@@ -156,12 +156,14 @@ public struct MapView: View {
     /// Fleet map: a query another oracle app answered fires in that oracle's colour (Pulse's memory lights Pulse
     /// red); the caption says who asked.
     private func fireHeard() {
-        guard fleet != nil, let e = heard.last else { return }
-        let rows: [Int] = e.ids.compactMap { layout.row(of: $0) }
+        guard let fleet, let e = heard.last else { return }
+        let rows: [Int] = e.hashes.compactMap { scene.row(ofHash: $0) }
+        if rows.count < e.hashes.count { fleet.missed(e.hashes.count - rows.count) }   // hits newer than the union: read again
         let owner = FleetMap.oracle(ofIndex: e.index)
-        let asker: String? = e.source == "mcp" ? e.caller?.components(separatedBy: " · ").first : nil
-        let who = asker ?? (e.source == "mcp" ? "an agent" : "you")
-        scene.fire(rows: rows, color: FleetMap.color(owner), label: "\(who) asked \(owner) “\(e.query.prefix(40))”")
+        let who = e.asker ?? (e.source == "mcp" ? "an agent" : "you")
+        // the words are in the answering app's own query log, not in the notification
+        let words = e.trace.flatMap { QueryBroadcast.query(trace: $0, app: owner) }.map { " “\($0.prefix(40))”" } ?? ""
+        scene.fire(rows: rows, color: FleetMap.color(owner), label: "\(who) asked \(owner)\(words)")
     }
 
     /// On open: the model, the layout (fitted when missing or stale), the groups, and the test hooks.
@@ -551,6 +553,7 @@ final class MapScene: ObservableObject {
         rowToDoc = layout.ids.map { byId[$0] ?? -1 }
         rowKind = rowToDoc.map { $0 >= 0 ? docs[$0].kind : "" }
         self.docs = docs
+        rowOfHash = fleet == nil ? [:] : Dictionary(layout.ids.enumerated().map { (QueryBroadcast.hash($1), $0) }, uniquingKeysWith: { a, _ in a })
         buildChunks()
         web()
         content.add(root)
@@ -567,7 +570,9 @@ final class MapScene: ObservableObject {
             var o = BloomOptionsComponent(); o.strength = 1.2; o.threshold = 1.0; o.blurRadius = 10
             root.components.set(o)
         }
-        built += 1; shown = xyz.count; needsRebuild = false; builtAt = Date()
+        show(kinds: shownKinds)          // a rebuild keeps the kind filter and 2D the page has
+        if flat { flatten(true) }
+        built += 1; needsRebuild = false; builtAt = Date()
         HubLog.shared.add(.info, "map: \(xyz.count) points in \(chunks.count) chunks")
     }
 
@@ -593,8 +598,9 @@ final class MapScene: ObservableObject {
 
     /// The fleet map's colour switch: the same points, chunked again by kind or by oracle.
     func recolor(byKind on: Bool) {
-        guard on != byKind, !xyz.isEmpty else { return }
-        byKind = on
+        guard on != byKind else { return }
+        byKind = on                      // kept even with no points yet: build() chunks by it
+        guard !xyz.isEmpty else { return }
         buildChunks()
         show(kinds: shownKinds)
         if flat { flatten(true) }
@@ -711,6 +717,9 @@ final class MapScene: ObservableObject {
     /// The doc of a layout row (nil when the doc left the index since the layout).
     func doc(row: Int) -> IndexDoc? { row < rowToDoc.count && rowToDoc[row] >= 0 ? docs[rowToDoc[row]] : nil }
     func row(ofDoc id: String) -> Int? { layout?.row(of: id) }
+    /// A broadcast hit (QueryBroadcast.hash of its id) → its row; built with the scene, on the fleet map only.
+    func row(ofHash h: String) -> Int? { rowOfHash[h] }
+    private var rowOfHash: [String: Int] = [:]
     func neighbours(of row: Int) -> [Int] { layout?.neighbours(of: row).filter { $0 < xyz.count } ?? [] }
     func group(of row: Int) -> Int? { row < groupOf.count ? groupOf[row] : nil }
     func leaf(of row: Int) -> Int? { row < leafOf.count ? leafOf[row] : nil }
@@ -735,12 +744,8 @@ final class MapScene: ObservableObject {
     /// The caller's colour: an oracle's own accent when another oracle asked over MCP, the app's accent for "you".
     static func callerColor(_ caller: String?, source: String, accent: Color) -> NSColor {
         guard source == "mcp" else { return NSColor(accent) }
-        switch caller?.components(separatedBy: " · ").first?.lowercased() {
-        case "neo": return NSColor(red: 0.39, green: 0.71, blue: 0.96, alpha: 1)      // #64b5f6
-        case "pulse": return NSColor(red: 0.94, green: 0.33, blue: 0.31, alpha: 1)    // #ef5350
-        case "nexus": return NSColor(red: 0.67, green: 0.28, blue: 0.74, alpha: 1)    // #ab47bc
-        default: return .white
-        }
+        let name = caller?.components(separatedBy: " · ").first ?? ""
+        return ["neo", "pulse", "nexus", "athena"].contains(name.lowercased()) ? FleetMap.color(name) : .white   // one colour table
     }
 
     /// A query's hits flash, and pulses run from the best hit to its neighbours (1 hop), then everything decays.
