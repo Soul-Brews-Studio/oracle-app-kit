@@ -21,6 +21,8 @@ targets:
     postBuildScripts:
       - name: Stamp CalVer
         basedOnDependencyAnalysis: false
+        inputFiles:                           # after ProcessInfoPlistFile, which would overwrite the stamp
+          - $(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)
         script: sh "$SRCROOT/scripts/calver-stamp.sh"
     dependencies:
       - package: OracleKit
