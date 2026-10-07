@@ -20,12 +20,26 @@
   .tree .id { color: #e1bee7; font-weight: 600; } .tree .ty { color: #8a8d91; } .tree .who { color: #a5d6a7; } .tree .g { color: #90caf9; }
   .tree .body { white-space: pre-wrap; font-family: system-ui, sans-serif; font-size: 14px; color: #e4e6eb; margin: 6px 0 6px 2ch; border-left: 2px solid #2a2a35; padding-left: 10px; }
   .tree .br { color: #4a4a58; } .tree .c { font-family: system-ui, sans-serif; color: #e4e6eb; } .tree a { font-size: 12px; }
+  /* timeline map: every post as a tick on one time axis, newest right */
+  .tl { position: sticky; top: 49px; z-index: 5; background: #0a0a0f; border-bottom: 1px solid #2a2a35; padding: 10px 0 6px; margin-bottom: 4px; }
+  .tl svg { display: block; width: 100%; height: 64px; overflow: visible; }
+  .tl .ax { stroke: #2a2a35; stroke-width: 1; }
+  .tl .gl { stroke: #1c1c26; stroke-width: 1; }
+  .tl .lbl { fill: #6b6e73; font: 10px ui-monospace, monospace; }
+  .tl .span { stroke: #ffcc80; stroke-width: 2; opacity: .55; }
+  .tl .dot { cursor: pointer; }
+  .tl .dot:hover circle { stroke: #fff; stroke-width: 2; }
+  .tl .new { fill: #66bb6a; } .tl .upd { fill: #ffa726; }
+  .tl .hd { display: flex; gap: 10px; align-items: baseline; padding: 0 0 4px; }
+  .tl .hd b { font-size: 12px; color: #b0b3b8; } .tl .hd span { font-size: 11px; opacity: .55; }
+  .tree.hit { animation: hit 1.2s ease-out; }
+  @keyframes hit { from { background: rgba(255,167,38,.22); } to { background: transparent; } }
   .st { font: 600 11px ui-monospace, monospace; padding: 1px 7px; border-radius: 8px; } .st.new { background: #1f3a24; color: #a5d6a7; }
   .st.same { background: #1c2733; color: #90caf9; } .st.updated { background: #3a2a14; color: #ffcc80; }
 </style>
-<header><b>🔮 bridge · live</b><span class="live" id="state">connecting…</span><span class="s" id="count"></span><nav><button id="tLive" class="on">Live</button><button id="tTree">Tree (graph)</button></nav></header>
-<main id="tree" style="display:none"></main>
-<main id="list"><div class="empty">Nothing yet. Open Facebook: every post that gets a 🔮 chip arrives here. REC (bottom-left badge) adds comments, clicks and page changes.</div></main>
+<header><b>🔮 bridge · live</b><span class="live" id="state">connecting…</span><span class="s" id="count"></span><nav><button id="tLive">Live</button><button id="tTree" class="on">Tree (graph)</button></nav></header>
+<main id="tree"></main>
+<main id="list" style="display:none"><div class="empty">Nothing yet. Open Facebook: every post that gets a 🔮 chip arrives here. REC (bottom-left badge) adds comments, clicks and page changes.</div></main>
 <script>
 // The bridge's own viewer (http://127.0.0.1:4747/): what the surrogate recorded, as text, newest on top. Polls the bridge every second (127.0.0.1 only).
 const B = '';   // served by the bridge itself: same origin
@@ -106,7 +120,7 @@ function postHtml(p) {
   for (const l of p.links) rows.push(`links_to ${ln(l.url, l.id.replace(/^url:/, ''))}`);
   for (const s of p.shares) rows.push(`shares <span class="id">${esc(s.id)}</span> ${ln(s.url, '↗')}`);
   if (p.by_me.length) rows.push(`<span class="ty">me:nat ${esc([...new Set(p.by_me)].join(', '))}</span>`);
-  let h = `<div class="tree"><div><span class="id">${esc(p.id)}</span> <span class="ty">${esc(p.type)} · seen ${p.seen}× · ${new Date(p.last_seen).toLocaleTimeString('en-GB')}</span> ${ln(p.url, 'open ↗')}</div>`;
+  let h = `<div class="tree" id="n-${esc(cssId(p.id))}"><div><span class="id">${esc(p.id)}</span> <span class="ty">${esc(p.type)} · seen ${p.seen}× · ${new Date(p.last_seen).toLocaleTimeString('en-GB')}</span> ${ln(p.url, 'open ↗')}</div>`;
   if (p.versions?.length) {   // v1 … vN: when it was collected and what each update added
     const last = p.versions[p.versions.length - 1];
     h += `<div><span class="st ${p.versions.length > 1 ? 'updated' : 'new'}">v${last.v}</span> <span class="ty">${p.versions.map(x => `v${x.v} ${new Date(x.ts).toLocaleTimeString('en-GB')}${x.changes.length ? ' (' + esc(x.changes.join(', ')) + ')' : ''}`).join(' → ')} · content ${esc(last.hash)}</span></div>`;
@@ -120,10 +134,71 @@ function postHtml(p) {
   }
   return h + '</div>';
 }
+const cssId = (s) => String(s).replace(/[^a-zA-Z0-9_-]/g, '_');
+
+// ── Timeline map: one axis, every post a tick, so a night of collecting is one glance ──
+// x is time (oldest left). A post with several versions draws a span from v1 to vN, so
+// "this one kept changing" is visible without opening it. Click a tick to jump to its card.
+function timelineHtml(rows) {
+  const pts = [];
+  for (const p of rows) {
+    const vs = (p.versions || []).map(v => v.ts).filter(Boolean);
+    const first = vs.length ? Math.min(...vs) : p.last_seen;
+    const last = vs.length ? Math.max(...vs) : p.last_seen;
+    pts.push({ id: p.id, first, last, updated: (p.versions || []).length > 1, seen: p.seen });
+  }
+  if (!pts.length) return '';
+  const t0 = Math.min(...pts.map(p => p.first)), t1 = Math.max(...pts.map(p => p.last));
+  const span = Math.max(t1 - t0, 60_000);               // never divide by zero on a single post
+  const W = 1000, L = 8, R = W - 8, H = 64, Y = 40;     // viewBox units; CSS scales it to width
+  const x = (t) => L + ((t - t0) / span) * (R - L);
+
+  // hour gridlines, or minute lines when the whole window is under an hour
+  const stepMs = span > 6 * 3600e3 ? 3600e3 * 3 : span > 3600e3 ? 3600e3 : 600e3;
+  let grid = '';
+  const startTick = Math.ceil(t0 / stepMs) * stepMs;
+  for (let t = startTick; t <= t1; t += stepMs) {
+    const gx = x(t).toFixed(1);
+    grid += `<line class="gl" x1="${gx}" y1="12" x2="${gx}" y2="${Y}"/>`;
+    grid += `<text class="lbl" x="${gx}" y="${H - 6}" text-anchor="middle">${new Date(t).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</text>`;
+  }
+
+  // stack overlapping ticks so a burst does not collapse into one dot
+  const lanes = [];
+  const body = pts.sort((a, b) => a.first - b.first).map(p => {
+    const x1 = x(p.first), x2 = x(p.last);
+    let lane = 0;
+    while (lanes[lane] != null && lanes[lane] > x1 - 9) lane++;
+    lanes[lane] = Math.max(x2, x1);
+    const cy = Y - 6 - (lane % 3) * 9;
+    const title = `${p.id} · seen ${p.seen}× · ${new Date(p.first).toLocaleTimeString('en-GB')}${p.updated ? ' → ' + new Date(p.last).toLocaleTimeString('en-GB') : ''}`;
+    const line = p.updated && x2 - x1 > 1 ? `<line class="span" x1="${x1.toFixed(1)}" y1="${cy}" x2="${x2.toFixed(1)}" y2="${cy}"/>` : '';
+    return `<g class="dot" data-go="n-${cssId(p.id)}"><title>${esc(title)}</title>${line}`
+         + `<circle class="${p.updated ? 'upd' : 'new'}" cx="${x2.toFixed(1)}" cy="${cy}" r="3.5"/></g>`;
+  }).join('');
+
+  const mins = Math.round(span / 60000);
+  return `<div class="tl"><div class="hd"><b>timeline</b>`
+       + `<span>${pts.length} posts · ${mins < 90 ? mins + ' min' : (span / 3600e3).toFixed(1) + ' h'} `
+       + `· ${pts.filter(p => p.updated).length} updated · click a tick to jump</span></div>`
+       + `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">`
+       + `<line class="ax" x1="${L}" y1="${Y}" x2="${R}" y2="${Y}"/>${grid}${body}</svg></div>`;
+}
+
 let treeTimer = 0;
 async function loadTree() {
   const rows = await fetch(`${B}/tree`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{"limit":30}' }).then(r => r.json()).catch(() => null);
-  $('tree').innerHTML = rows ? (rows.length ? rows.map(postHtml).join('') : '<div class="empty">no posts yet</div>') : '<div class="empty">bridge not reachable</div>';
+  $('tree').innerHTML = rows
+    ? (rows.length ? timelineHtml(rows) + rows.map(postHtml).join('') : '<div class="empty">no posts yet</div>')
+    : '<div class="empty">bridge not reachable</div>';
+  for (const g of $('tree').querySelectorAll('.dot')) {
+    g.onclick = () => {
+      const el = document.getElementById(g.dataset.go);
+      if (!el) return;
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.remove('hit'); void el.offsetWidth; el.classList.add('hit');
+    };
+  }
 }
 const showTab = (tree) => {
   $('tree').style.display = tree ? '' : 'none'; $('list').style.display = tree ? 'none' : '';
@@ -131,6 +206,7 @@ const showTab = (tree) => {
   if (tree) loadTree();
 };
 $('tLive').onclick = () => showTab(false); $('tTree').onclick = () => showTab(true);
+showTab(true);   // Tree (graph) is the default view
 // a new event re-draws the tree (at most every 1.5 s) while it is showing
 new MutationObserver(() => { if ($('tree').style.display !== 'none') { clearTimeout(treeTimer); treeTimer = setTimeout(loadTree, 1500); } }).observe($('list'), { childList: true });
 
