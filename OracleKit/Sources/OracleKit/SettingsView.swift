@@ -142,13 +142,14 @@ public struct SettingsView: View {
             ForEach(all.suffix(8).reversed()) { e in
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 8) {
-                        Text(Calendar.current.isDateInToday(e.at) ? HubLog.clock(e.at) : e.at.formatted(.dateTime.month(.abbreviated).day().hour().minute()))
-                            .foregroundStyle(.tertiary)
+                        Text(Calendar.current.isDateInToday(e.at) ? e.at.formatted(.dateTime.hour().minute().second())
+                                                                   : e.at.formatted(.dateTime.month(.abbreviated).day().hour().minute()))
+                            .foregroundStyle(.tertiary).lineLimit(1).fixedSize()
                         Text(e.source.uppercased()).foregroundStyle(e.source == "mcp" ? Color.orange : accent).frame(width: 40, alignment: .leading)
-                        Text("\"\(e.query)\"").lineLimit(1)
-                        Text(e.filter).foregroundStyle(.secondary)
+                        Text("\"\(e.query)\"").lineLimit(1).truncationMode(.tail)
+                        Text(e.filter).foregroundStyle(.secondary).lineLimit(1)
                         Spacer(minLength: 0)
-                        Text(String(format: "%.0f + %.1f ms · %@ ranked", e.embedMs, e.rankMs, grouped(e.pool))).foregroundStyle(.secondary)
+                        Text(String(format: "%.0f + %.1f ms", e.embedMs, e.rankMs)).foregroundStyle(.secondary).lineLimit(1).fixedSize()
                     }
                     HStack(spacing: 0) {
                         Text("   " + TraceView.from(e)).foregroundStyle(e.source == "mcp" ? Color.orange.opacity(0.85) : accent.opacity(0.85))
@@ -232,8 +233,9 @@ struct CardTitleButton: View {
 }
 
 /// Every query asked of this app's memory — from its pages and over MCP — on its own page, under Memory in the
-/// sidebar: a big cloud of what is searched (click a word to filter), All / MCP / Page and a text filter, and every
-/// query of every launch; click one for all its top hits.
+/// sidebar: a big cloud of what is searched (click a word to filter), All / MCP / Page, who asked, a text filter,
+/// and every query of every launch; click one for all its top hits. One scroll, and it narrows with the window
+/// (a tiled window is 680 pt wide): the cloud shrinks, the filters stack, a row keeps one line.
 struct TraceView: View {
     let name: String
     let accent: Color
@@ -243,6 +245,11 @@ struct TraceView: View {
     @State private var word: String?
     @State private var open: UUID?
     @State private var asker = ""   // one caller only: "you", "Neo", "Pulse" …
+    @State private var width: CGFloat = 900
+    /// -traceMaxWidth 420 (tests): the page as a tiled window shows it, whatever the window manager does
+    private static let testWidth = UserDefaults.standard.string(forKey: "traceMaxWidth").flatMap(Double.init).map { CGFloat($0) }
+
+    private var narrow: Bool { width < 700 }
 
     /// Who asked, as a row shows it: "you" on a page, else the caller the MCP server measured.
     static func from(_ e: TraceLog.Entry) -> String {
@@ -262,35 +269,15 @@ struct TraceView: View {
 
     var body: some View {
         let list = filtered
-        VStack(alignment: .leading, spacing: 0) {
+        ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 Text("TRACE").font(.caption.weight(.bold)).tracking(2.5).foregroundStyle(accent)
-                Text(name.hasSuffix("s") ? "\(name)' trace" : "\(name)'s trace").font(.custom("Avenir Next", size: 34).weight(.bold))
-                Text("Every query asked of \(name)'s memory — from its pages and over MCP — and what came back first.")
-                    .font(.callout).foregroundStyle(.secondary)
-                SearchCloud(accent: accent, who: $who, selected: $word, limit: 120, scale: 1.8, header: false, minHeight: 320, center: true)
-                HStack(spacing: 10) {
-                    Picker("", selection: $who) { Text("All").tag("all"); Text("MCP").tag("mcp"); Text("Page").tag("page") }
-                        .pickerStyle(.segmented).labelsHidden().frame(width: 200)
-                    Picker("Who", selection: $asker) {
-                        Text("Everyone").tag("")
-                        ForEach(Array(Set((trace.past + trace.entries).map(Self.asker))).sorted(), id: \.self) { Text($0).tag($0) }
-                    }
-                    .pickerStyle(.menu).fixedSize()
-                    .help("Who asked: you on a page, or the oracle whose agent called over MCP")
-                    TextField("filter queries or callers", text: $text).textFieldStyle(.roundedBorder).frame(maxWidth: 300)
-                    if let w = word {
-                        Button { word = nil } label: { Label(w, systemImage: "xmark.circle.fill") }.buttonStyle(.bordered).controlSize(.small).handCursor()
-                    }
-                    Spacer()
-                    Text("\(grouped(list.count)) of \(grouped(trace.past.count + trace.entries.count)) queries · every launch")
-                        .font(.caption).foregroundStyle(.secondary)
-                    Button("Open the query log") { NSWorkspace.shared.open(TraceLog.file) }.controlSize(.small).buttonStyle(.borderless).handCursor()
-                        .help(TraceLog.file.path)
-                }
-            }
-            .padding(.horizontal, 28).padding(.top, 22).padding(.bottom, 12)
-            ScrollView {
+                Text(name.hasSuffix("s") ? "\(name)' trace" : "\(name)'s trace").font(.custom("Avenir Next", size: narrow ? 28 : 34).weight(.bold))
+                Text("Every query asked of \(name)'s memory — from its pages and over MCP — who asked, and what came back first.")
+                    .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                SearchCloud(accent: accent, who: $who, selected: $word, limit: narrow ? 60 : 120, scale: width < 560 ? 1.1 : narrow ? 1.35 : 1.8,
+                            header: false, minHeight: narrow ? 200 : 320, center: true)
+                filters(list.count)
                 LazyVStack(alignment: .leading, spacing: 6) {
                     if list.isEmpty {
                         Text(trace.past.isEmpty && trace.entries.isEmpty ? "no query yet — search the Memory page, or ask over MCP" : "no query matches")
@@ -298,26 +285,68 @@ struct TraceView: View {
                     }
                     ForEach(list.reversed()) { e in row(e) }
                 }
-                .padding(.horizontal, 28).padding(.bottom, 24)
             }
+            .padding(.horizontal, narrow ? 18 : 28).padding(.top, 22).padding(.bottom, 24)
+        }
+        .frame(maxWidth: Self.testWidth ?? .infinity, alignment: .leading)
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { w in
+            if (w < 700) != narrow { HubLog.shared.add(.info, "trace page: \(Int(w)) pt wide — \(w < 700 ? "narrow" : "wide") layout") }
+            width = w
         }
         .task { await trace.loadPast() }
     }
 
+    @ViewBuilder private func filters(_ shown: Int) -> some View {
+        let kind = Picker("", selection: $who) { Text("All").tag("all"); Text("MCP").tag("mcp"); Text("Page").tag("page") }
+            .pickerStyle(.segmented).labelsHidden().fixedSize()
+        let asked = Picker("Who", selection: $asker) {
+            Text("Everyone").tag("")
+            ForEach(Array(Set((trace.past + trace.entries).map(Self.asker))).sorted(), id: \.self) { Text($0).tag($0) }
+        }
+        .pickerStyle(.menu).fixedSize()
+        .help("Who asked: you on a page, or the oracle whose agent called over MCP")
+        let field = TextField("filter queries or callers", text: $text).textFieldStyle(.roundedBorder).frame(minWidth: 120, maxWidth: 300)
+        let count = HStack(spacing: 10) {
+            if let w = word {
+                Button { word = nil } label: { Label(w, systemImage: "xmark.circle.fill") }.buttonStyle(.bordered).controlSize(.small).handCursor()
+            }
+            Text("\(grouped(shown)) of \(grouped(trace.past.count + trace.entries.count)) queries · every launch")
+                .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+            Spacer(minLength: 0)
+            Button("Open the query log") { NSWorkspace.shared.open(TraceLog.file) }.controlSize(.small).buttonStyle(.borderless).handCursor()
+                .help(TraceLog.file.path)
+        }
+        if narrow {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 10) { kind; asked }
+                field.frame(maxWidth: .infinity, alignment: .leading)
+                count
+            }
+        } else {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 10) { kind; asked; field; Spacer(minLength: 0) }
+                count
+            }
+        }
+    }
+
     private func row(_ e: TraceLog.Entry) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
+        let when = Calendar.current.isDateInToday(e.at) ? e.at.formatted(.dateTime.hour().minute().second())
+                                                       : e.at.formatted(.dateTime.month(.abbreviated).day().hour().minute())
+        let cost = narrow ? String(format: "%.0f ms", e.embedMs + e.rankMs)
+                          : String(format: "%.0f + %.1f ms · %@ ranked", e.embedMs, e.rankMs, grouped(e.pool))
+        return VStack(alignment: .leading, spacing: 3) {
             HStack(spacing: 10) {
-                Text(Calendar.current.isDateInToday(e.at) ? HubLog.clock(e.at) : e.at.formatted(.dateTime.month(.abbreviated).day().hour().minute()))
-                    .foregroundStyle(.tertiary)
-                Text(e.source.uppercased()).foregroundStyle(e.source == "mcp" ? Color.orange : accent).frame(width: 40, alignment: .leading)
-                Text("\"\(e.query)\"").lineLimit(1)
-                Text(e.filter).foregroundStyle(.secondary)
+                Text(when).foregroundStyle(.tertiary).lineLimit(1).fixedSize()
+                Text(e.source.uppercased()).foregroundStyle(e.source == "mcp" ? Color.orange : accent).lineLimit(1).fixedSize()
+                Text("\"\(e.query)\"").lineLimit(1).truncationMode(.tail)
+                if !narrow { Text(e.filter).foregroundStyle(.secondary).lineLimit(1).fixedSize() }
                 Spacer(minLength: 0)
-                Text(String(format: "%.0f + %.1f ms · %@ ranked", e.embedMs, e.rankMs, grouped(e.pool))).foregroundStyle(.secondary)
+                Text(cost).foregroundStyle(.secondary).lineLimit(1).fixedSize()
             }
             Text("   " + Self.from(e)).foregroundStyle(e.source == "mcp" ? Color.orange.opacity(0.9) : accent.opacity(0.9)).lineLimit(1)
             if open == e.id {
-                Text("   \(e.via) · \(e.index)").foregroundStyle(.secondary)
+                Text("   \(e.filter) · \(grouped(e.pool)) ranked · \(e.via) · \(e.index)").foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 ForEach(Array(e.top.enumerated()), id: \.offset) { i, h in
                     Text(String(format: "   %d. %.0f%%  %@", i + 1, Double(h.score) * 100, h.title)).lineLimit(1)
                 }
@@ -325,8 +354,9 @@ struct TraceView: View {
                 Text(String(format: "   best %.0f%% · %@", Double(top.score) * 100, top.title)).foregroundStyle(.secondary).lineLimit(1)
             }
         }
-        .font(.system(size: 12, design: .monospaced))
+        .font(.system(size: narrow ? 11 : 12, design: .monospaced))
         .padding(.horizontal, 10).padding(.vertical, 7)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.primary.opacity(open == e.id ? 0.08 : 0.03)))
         .contentShape(Rectangle())
         .onTapGesture { open = open == e.id ? nil : e.id }
@@ -334,6 +364,7 @@ struct TraceView: View {
         .help(open == e.id ? "Click to fold" : "Click for every top hit")
     }
 }
+
 
 extension MCPServer {
     /// What this app serves (set once at launch), so Settings can switch it off and on again.

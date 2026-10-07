@@ -105,7 +105,8 @@ struct Flow: Layout {
         return out
     }
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let width = proposal.width ?? 600
+        // no width offered (an ideal-size pass): one long row — never a guess that placement would disagree with
+        let width = proposal.width ?? subviews.reduce(0) { $0 + $1.sizeThatFits(.unspecified).width + spacing }
         let rs = rows(subviews, width: width)
         let height = rs.reduce(0) { $0 + ($1.map(\.1.height).max() ?? 0) } + spacing * CGFloat(max(0, rs.count - 1))
         return CGSize(width: width, height: height)
