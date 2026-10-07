@@ -5,6 +5,11 @@ const ORACLES = ['Neo', 'Pulse', 'Nexus'];           // one per installed oracle
 const CONTEXTS = ['page', 'link', 'selection', 'image'];
 
 chrome.runtime.onInstalled.addListener(() => {
+  // Content scripts reach only pages loaded AFTER an install or ⟳ — and Facebook is a single-page app, so a tab
+  // opened before never gets fb.js (the "no icon" root cause, 2026-10-07). Put it into every open Facebook tab now.
+  chrome.tabs.query({ url: 'https://www.facebook.com/*' }, (tabs) => {
+    for (const t of tabs) chrome.scripting.executeScript({ target: { tabId: t.id }, files: ['fb.js'] }).catch(() => {});
+  });
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({ id: 'root', title: 'New issue in', contexts: CONTEXTS });
     for (const o of ORACLES) {

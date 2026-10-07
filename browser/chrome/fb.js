@@ -1,17 +1,22 @@
 // Facebook: a "🔮 Issue" button in every post's action bar (next to Like · Comment · Share).
 // Click → pick the oracle → its Mac app opens the issue draft with the post's link, author and text.
-// Anchors are Facebook's own data-ad-rendering-role attributes (profile_name, story_message, share_button),
+// Anchors are Facebook's own data-ad-rendering-role attributes (profile_name, story_message, like_button),
 // measured 2026-10-07 — the class names are obfuscated and change, these do not (yet).
 (() => {
+  if (window.__oracleIssueButtons) return;      // injected twice (manifest + reload-time inject): run once
+  window.__oracleIssueButtons = true;
   const ORACLES = ['Neo', 'Pulse', 'Nexus'];
   const MARK = 'data-oracle-issue';
   const POSTLINK = /\/posts\/|\/permalink|story_fbid|\/videos\/|\/reel\/\d|\/photo\/?\?fbid=|\/photo\.php/;
 
-  // the post that owns this share button: the highest ancestor holding exactly one share button and an author
-  function postOf(share) {
-    let n = share, best = null;
+  // Every post has Like; friends-only posts have no Share (Nat's screenshot 2026-10-07), so Like is the anchor.
+  const LIKE = '[data-ad-rendering-role="like_button"]';
+
+  // the post that owns this Like: the highest ancestor holding exactly one Like and an author
+  function postOf(like) {
+    let n = like, best = null;
     for (let i = 0; i < 30 && n && n !== document.body; i++) {
-      if (n.querySelectorAll('[data-ad-rendering-role="share_button"]').length > 1) break;
+      if (n.querySelectorAll(LIKE).length > 1) break;
       if (n.querySelector('[data-ad-rendering-role="profile_name"]')) best = n;
       n = n.parentElement;
     }
@@ -45,7 +50,7 @@
     let h = ts && POSTLINK.test(ts.href) ? ts.href : '';
     ts?.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));   // drop the focus ring + date tooltip it raised
     // a single-post page: the page itself is the post (never borrow it for another post on the page)
-    if (!h && document.querySelectorAll('[data-ad-rendering-role="share_button"]').length === 1 && POSTLINK.test(location.href)) h = location.href;
+    if (!h && document.querySelectorAll(LIKE).length === 1 && POSTLINK.test(location.href)) h = location.href;
     return h ? clean(h) : '';
   }
 
@@ -89,11 +94,11 @@
   }
 
   function addButtons() {
-    for (const share of document.querySelectorAll('[data-ad-rendering-role="share_button"]')) {
-      const wrap = (share.closest('[role="button"]') || share).parentElement;
+    for (const like of document.querySelectorAll(LIKE)) {
+      const wrap = (like.closest('[role="button"]') || like).parentElement;
       const bar = wrap?.parentElement;
       if (!bar || bar.hasAttribute(MARK)) continue;
-      const post = postOf(share);
+      const post = postOf(like);
       if (!post) continue;
       bar.setAttribute(MARK, '1');
       const btn = document.createElement('div');
@@ -103,7 +108,7 @@
         cursor: 'pointer', borderRadius: '6px', color: '#b0b3b8', font: '600 15px system-ui, sans-serif', padding: '6px 0' });
       btn.onmouseenter = () => (btn.style.background = 'rgba(255,255,255,.06)'); btn.onmouseleave = () => (btn.style.background = '');
       btn.onclick = (e) => { e.stopPropagation(); e.preventDefault(); menu(btn, post); };
-      wrap.after(btn);
+      bar.lastElementChild.after(btn);   // at the end: after Share, or after Comment when there is no Share
     }
   }
 
