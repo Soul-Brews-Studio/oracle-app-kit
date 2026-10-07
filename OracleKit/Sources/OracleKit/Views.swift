@@ -17,6 +17,7 @@ public struct OracleRootView: View {
     @State private var draft: IssueDraft?
     @State private var heyText = ""
     @State private var openPane: String?      // a LIVE pane clicked in Work: its terminal shows in a 3rd column until ×
+    @AppStorage("oracle.drawerWidth") private var drawerWidth: Double = 560   // dragged wider or narrower, remembered
     #if os(iOS)
     @State private var showSettings = false
     #endif
@@ -38,9 +39,9 @@ public struct OracleRootView: View {
                 #if os(macOS)
                 // the 3rd column exists only while a pane is open (Nat: 3 columns all the time was "too nested")
                 if let place = openPane, section == .status {
-                    Divider()
+                    DrawerHandle(width: $drawerWidth)
                     TerminalColumn(store: store, place: place) { openPane = nil }
-                        .frame(width: Drawer.width)
+                        .frame(width: drawerWidth)
                         .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
                 #endif
@@ -48,8 +49,8 @@ public struct OracleRootView: View {
             #if os(macOS)
             // a right DRAWER: the window grows by the drawer's width so Work keeps its size (Nat: "not resize the current")
             .onChange(of: openPane) { old, new in
-                if old == nil, new != nil { Drawer.grow(by: Drawer.width) }
-                if old != nil, new == nil { Drawer.grow(by: -Drawer.width) }
+                if old == nil, new != nil { Drawer.grow(by: drawerWidth + DrawerHandle.width) }
+                if old != nil, new == nil { Drawer.grow(by: -(drawerWidth + DrawerHandle.width)) }
             }
             .onChange(of: section) { _, s in if s != .status { openPane = nil } }
             #endif
@@ -1194,16 +1195,50 @@ struct TerminalColumn: View {
 /// Grows or shrinks the app window to the right (or left, at the screen edge) so a drawer adds room instead of
 /// taking it from the Work column.
 @MainActor enum Drawer {
-    static let width: CGFloat = 460
-    static func grow(by dx: CGFloat) {
+    /// `leftward`: the window's right edge stays put and it grows to the left — what a drag on the drawer's left edge wants
+    static func grow(by dx: CGFloat, leftward: Bool = false, animate: Bool = true) {
         guard let w = NSApp.keyWindow ?? NSApp.windows.first(where: { $0.isVisible && $0.canBecomeMain }) else { return }
         var f = w.frame
         f.size.width += dx
+        if leftward { f.origin.x -= dx }
         if let vis = w.screen?.visibleFrame {
             if f.width > vis.width { f.size.width = vis.width }
             if f.maxX > vis.maxX { f.origin.x = max(vis.minX, vis.maxX - f.width) }   // no room on the right: open toward the left
+            if f.minX < vis.minX { f.origin.x = vis.minX }
         }
-        w.setFrame(f, display: true, animate: true)
+        w.setFrame(f, display: true, animate: animate)
+    }
+}
+
+/// The drawer's left edge: drag it to make the terminal wider or narrower (360–1200 px). The window grows or shrinks to
+/// the left by the same amount, so the Work column never changes size.
+struct DrawerHandle: View {
+    static let width: CGFloat = 7
+    @Binding var width: Double
+    @State private var start: Double?
+    @State private var inside = false
+    var body: some View {
+        ZStack {
+            Color.primary.opacity(inside || start != nil ? 0.12 : 0.04)
+            Capsule().fill(Color.primary.opacity(0.35)).frame(width: 2, height: 34)
+        }
+        .frame(width: Self.width)
+        .contentShape(Rectangle())
+        .onHover { h in
+            guard h != inside else { return }
+            inside = h
+            if h { NSCursor.resizeLeftRight.push() } else { NSCursor.pop() }
+        }
+        .onDisappear { if inside { inside = false; NSCursor.pop() } }
+        .gesture(DragGesture(minimumDistance: 1, coordinateSpace: .global)
+            .onChanged { g in
+                let base = start ?? width; if start == nil { start = width }
+                let next = min(1200, max(360, base - g.translation.width))
+                let dx = next - width
+                if abs(dx) >= 1 { Drawer.grow(by: dx, leftward: true, animate: false); width = next }
+            }
+            .onEnded { _ in start = nil })
+        .help("Drag to make the terminal wider or narrower")
     }
 }
 #endif
