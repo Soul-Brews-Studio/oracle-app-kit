@@ -71,15 +71,25 @@ public struct SettingsView: View {
             ForEach(indexes, id: \.name) { i in
                 let kinds = Dictionary(grouping: i.docs, by: \.kind).mapValues(\.count)
                 EngineRow(name: "Index", value: i.name)
-                EngineRow(name: "Items", value: "\(grouped(i.docs.count)) — " + kinds.sorted { $0.key < $1.key }.map { "\($0.key) \(grouped($0.value))" }.joined(separator: " · "))
+                if !i.docs.isEmpty || i.name != "fleet-map" {
+                    EngineRow(name: "Items", value: "\(grouped(i.docs.count)) — " + kinds.sorted { $0.key < $1.key }.map { "\($0.key) \(grouped($0.value))" }.joined(separator: " · "))
+                }
+                if i.name == "fleet-map" {   // #37: the union of every oracle's index, in memory only
+                    EngineRow(name: "From", value: FleetMap.shared.members.isEmpty ? "every oracle's index, read when the Map page opens"
+                              : FleetMap.shared.members.map { "\($0.oracle) \(grouped($0.count))" }.joined(separator: " · ")
+                              + " · read " + (FleetMap.shared.loaded.map { $0.formatted(date: .omitted, time: .shortened) } ?? "—"))
+                } else {
                 EngineRow(name: "Files", value: "\(Self.mb(i.filePath)) MB text + \(Self.mb(i.vectorsFilePath)) MB vectors · built "
                           + (i.built.map { $0.formatted(date: .abbreviated, time: .shortened) } ?? "never"))
-                EngineRow(name: "Vector space", value: i.space ?? "—")
+                }
+                if !i.docs.isEmpty || i.name != "fleet-map" { EngineRow(name: "Vector space", value: i.space ?? "—") }
                 MapLayoutRow(index: i)
                 MapClustersRow(clusters: i.clusters)
                 HStack(spacing: 10) {
-                    Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: i.filePath)]) }
-                    Button("Check engine") { Task { await i.checkEngine() } }
+                    if i.name != "fleet-map" {
+                        Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: i.filePath)]) }
+                        Button("Check engine") { Task { await i.checkEngine() } }
+                    }
                     Button(i.layout.running ? "Laying out…" : "Rebuild map layout") {
                         Task { await i.layout.fit(docs: i.docs, space: i.space, why: "Rebuild map layout button") }
                     }
