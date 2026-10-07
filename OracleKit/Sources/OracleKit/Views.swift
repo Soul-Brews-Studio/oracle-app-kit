@@ -30,7 +30,7 @@ public struct OracleRootView: View {
 
     public var body: some View {
         NavigationSplitView {
-            OracleSidebar(store: store, section: $section, menuBar: $menuBar)
+            OracleSidebar(store: store, section: $section, menuBar: $menuBar, openPane: $openPane)
                 .navigationSplitViewColumnWidth(min: 240, ideal: 272)
         } detail: {
             HStack(spacing: 0) {
@@ -130,6 +130,7 @@ struct OracleSidebar: View {
     @ObservedObject var store: OracleStore
     @Binding var section: Section?
     @Binding var menuBar: Bool
+    var openPane: Binding<String?> = .constant(nil)
     #if os(macOS)
     static let hubApp = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "co.laris.oracle.hub")
     #endif
@@ -149,6 +150,7 @@ struct OracleSidebar: View {
             VStack(spacing: 3) {
                 NavRow(symbol: "square.stack.3d.up", title: "Work", badge: store.work.isEmpty ? nil : "\(store.work.count)",
                        on: (section ?? .status) == .status, accent: c.color) { section = .status }
+                if (section ?? .status) == .status { WorkTree(store: store, openPane: openPane) }   // herdr-style, LIVE only
                 #if os(macOS)
                 NavRow(symbol: store.unread.isEmpty ? "tray" : "tray.full", title: "Inbox",
                        badge: store.unread.isEmpty ? (store.inbox.isEmpty ? nil : store.inbox.count >= 300 ? "300+" : "\(store.inbox.count)")
@@ -283,6 +285,7 @@ struct WorkView: View {
                             LiveCard(item: w, config: c, twins: twins, home: home, copied: $copied, openPane: openPane) {
                                 #if os(macOS)
                                 store.bringToMain(w)
+                                if w.panes.contains(where: { $0.place == openPane.wrappedValue }) { openPane.wrappedValue = nil }   // bring here closes its drawer
                                 #endif
                             }
                         }
@@ -1164,7 +1167,7 @@ struct TerminalColumn: View {
                 Text(act?.title ?? "").font(.callout).foregroundStyle(.secondary).lineLimit(1).truncationMode(.tail)
                 Spacer(minLength: 6)
                 if let item = store.work.first(where: { $0.panes.contains { $0.place == place } }) {
-                    Button("bring here") { store.bringToMain(item) }.buttonStyle(.borderless).font(.caption.weight(.medium)).handCursor()
+                    Button("bring here") { store.bringToMain(item); close() }.buttonStyle(.borderless).font(.caption.weight(.medium)).handCursor()
                         .help("Bring this pane's WezTerm window to the main display")
                 }
                 Button(action: close) { Image(systemName: "xmark").font(.callout.weight(.semibold)) }
@@ -1293,3 +1296,57 @@ struct DrawerHandle: View {
     }
 }
 #endif
+
+/// Under "Work" in the sidebar: this oracle's LIVE worktrees as herdr draws them — name, branch dimmed underneath,
+/// worktrees hanging off the main checkout with ├─ / └─, a state dot. A row with a pane opens its terminal drawer;
+/// one without brings its WezTerm window here. RESUMABLE and COLD stay on the Work page (Nat: no long extra sections).
+struct WorkTree: View {
+    @ObservedObject var store: OracleStore
+    let openPane: Binding<String?>
+    var body: some View {
+        let live = store.work.filter { $0.state <= .open }
+        let main = live.first { $0.isMain }
+        let rest = live.filter { !$0.isMain }
+        let home = WorkFormat.homeSession(store.activity)
+        VStack(alignment: .leading, spacing: 1) {
+            if let m = main { row(m, prefix: "", home: home) }
+            ForEach(Array(rest.enumerated()), id: \.element.id) { i, w in
+                row(w, prefix: main == nil ? "" : (i == rest.count - 1 ? "└─ " : "├─ "), cont: main == nil ? "" : (i == rest.count - 1 ? "   " : "│  "), home: home)
+            }
+        }
+        .padding(.leading, 30).padding(.trailing, 8).padding(.bottom, 4)
+    }
+    @ViewBuilder private func row(_ w: WorkItem, prefix: String, cont: String = "", home: String) -> some View {
+        let pane = w.panes.sorted { WorkFormat.rank($0.status) < WorkFormat.rank($1.status) }.first
+        let open = pane != nil && openPane.wrappedValue == pane?.place
+        let dot: (String, Color) = switch w.state {
+            case .needsYou: ("◐", .orange); case .working: ("●", .green); default: ("○", .secondary) }
+        HStack(alignment: .top, spacing: 0) {
+            Text(prefix).font(.caption.monospaced()).foregroundStyle(.tertiary)
+            VStack(alignment: .leading, spacing: 1) {
+                HStack(spacing: 5) {
+                    Text(dot.0).font(.caption).foregroundStyle(dot.1)
+                    Text(w.slug).font(.callout.weight(open ? .semibold : .regular)).lineLimit(1).truncationMode(.tail)
+                    if let n = w.issue { Text("#\(n)").font(.caption2.monospacedDigit()).foregroundStyle(.secondary) }
+                    Spacer(minLength: 0)
+                }
+                Text(pane.map { "\(w.branch) · \(WorkFormat.pane($0.place, home: home))" } ?? w.branch)
+                    .font(.caption.monospaced()).foregroundStyle(.tertiary).lineLimit(1).truncationMode(.middle)
+                    .padding(.leading, cont.isEmpty ? 0 : 0)
+            }
+        }
+        .padding(.vertical, 3).padding(.horizontal, 6)
+        .background(RoundedRectangle(cornerRadius: 7).fill(open ? store.config.color.opacity(0.16) : Color.clear))
+        .contentShape(Rectangle())
+        .handCursor()
+        .onTapGesture {
+            if let p = pane { openPane.wrappedValue = open ? nil : p.place } else { bring(w) }
+        }
+        .help(pane == nil ? "Bring its WezTerm window here" : "Show its terminal in the drawer")
+    }
+    private func bring(_ w: WorkItem) {
+        #if os(macOS)
+        store.bringToMain(w)
+        #endif
+    }
+}
