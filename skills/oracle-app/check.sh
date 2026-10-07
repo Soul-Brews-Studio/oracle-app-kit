@@ -70,7 +70,7 @@ may_relaunch() {
 # launches — by full path (LaunchServices knows many copies: every worktree build registers one)
 mkdir -p $K/build; MARK=$K/build/.check-$N; : > $MARK; OURS=0
 if [[ -z $(running) ]] && (( ! NOLAUNCH )) && [ -d "$A" ]; then
-  if lock_held; then bad "not launched — install in progress by $(cat $LOCK_DIR/who 2>/dev/null)" "while kill -0 $(cat $LOCK_DIR/pid 2>/dev/null) 2>/dev/null; do sleep 5; done; zsh $0 ${(@q)ARGV_ALL}"
+  if lock_held; then bad "not launched — install in progress by $(cat $LOCK_DIR/who 2>/dev/null)" "while kill -0 $(cat $LOCK_DIR/pid 2>/dev/null) 2>/dev/null; do sleep 5; done; zsh $0 ${(j: :)${(@q)ARGV_ALL}}"
   else launch -oracleSection status; OURS=1; sleep 10; fi    # the copy this run started is not a human's
 fi
 RUN=$(running)

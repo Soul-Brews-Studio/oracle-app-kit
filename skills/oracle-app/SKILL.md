@@ -37,7 +37,7 @@ Never work in `$KIT`'s main checkout. Cut a worktree:
 | need | check | when missing (the human does this once per Mac) |
 |---|---|---|
 | Xcode + xcodegen | `xcodebuild -version && xcodegen --version` | `xcode-select --install; brew install xcodegen` |
-| Rust (the build finds it here too) | `PATH="/opt/homebrew/opt/rustup/bin:$HOME/.cargo/bin:$PATH" command -v cargo` | `brew install rustup && rustup-init -y` |
+| Rust (the build finds it here too) | `PATH="/opt/homebrew/opt/rustup/bin:$HOME/.cargo/bin:$PATH" command -v cargo` | `brew install rustup && /opt/homebrew/opt/rustup/bin/rustup default stable` |
 | uv (draws the icon), ripgrep | `command -v uv rg` | `brew install uv ripgrep` |
 | signing team | the `OU=` of the signing certificate (below) | Xcode → Settings → Accounts → sign in |
 | Screen Recording | `swift -e 'import CoreGraphics; print(CGPreflightScreenCaptureAccess())'` prints `true` | System Settings → Privacy & Security → Screen Recording → the terminal |
@@ -85,8 +85,10 @@ unless `--team=` is given. The generator's ready line says where the team came f
    (no herdr: run `zsh $K/scripts/build.sh <Name> --install` in a second terminal.)
    rc 75 = another agent holds the install lock: it prints who and a wait command that ends when that agent's process
    ends. Never delete the lock by hand; a dead holder's lock is taken over automatically.
-5. **Check** (§3): `check.sh <Name> --deep --shots --relaunch` — the new app is yours to relaunch. Every row ✓, or
-   fix and re-run; each ✗ prints its own fix. Add `--ios` once OracleKit builds for iOS (#46): on main today it does
+5. **Check** (§3): `check.sh <Name> --deep --shots --relaunch` — the new app is yours to relaunch. It takes minutes
+   (the model loads, the memory is embedded), so run it in a herdr pane like step 4:
+   `herdr pane run <PANE> 'zsh '$K'/skills/oracle-app/check.sh <Name> --deep --shots --relaunch; RC=$?; herdr agent prompt <ME> "PANE <PANE> oracle-app check rc=$RC $(herdr pane read <PANE> --source recent-unwrapped --lines 30 | rg "^(✓|✗|—)" | tail -20)"'`.
+   Every row ✓, or fix and re-run; each ✗ prints its own fix. Add `--ios` once OracleKit builds for iOS (#46): on main today it does
    not (`HubViews.swift`, `GHIndex.swift`, `MapClusters.swift`, `Views.swift` use macOS-only API), so that row is ✗ for
    every app, the generated one included — not a defect of the new app.
 6. **PR.** Commit `Apps/<Name>/**`, `apps.yml`, `OracleApps.xcodeproj/project.pbxproj`, `design/icons/<Name>.png`, and

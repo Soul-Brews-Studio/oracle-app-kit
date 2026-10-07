@@ -38,7 +38,10 @@ R=${0:A:h}/..; R=${R:A}; D=$R/Apps/$N; low=${(L)N}
 [[ $SLUG == */* ]] || die "repo must be org/repo, got '$SLUG'"
 [[ $HEX =~ '^#[0-9a-fA-F]{6}$' ]] || die "colour must be #rrggbb, got '$HEX'"
 # these land inside Swift string literals and are read back by scripts/parity.sh — no '"' or '\'
-for v in "$SLUG" "$LP" "$TAG" "$SYM"; do [[ $v == *[[:cntrl:]\"\\]* ]] && die "no '\"', '\\' or control character (tab, newline) in the identity (got: ${(q)v}) — e.g.:  zsh $0 ${(@q)${(@)ARGS//[[:cntrl:]\"\\]/}}"; done
+# ASCII controls only, spelled out: [[:cntrl:]] is per-locale, and in UTF-8 it also hits joiners, ZWSP, soft hyphen,
+# bidi marks — characters a Swift literal takes fine (an emoji ZWJ sequence, Thai word breaks)
+cc=$'[\001-\037\177"\\\\]'
+for v in "$SLUG" "$LP" "$TAG" "$SYM"; do [[ $v == *${~cc}* ]] && die "no '\"', '\\' or ASCII control (tab, newline) in the identity (got: ${(q)v}) — e.g.:  zsh $0 ${(@q)${(@)ARGS//${~cc}/}}"; done
 [[ $LP == /* ]] || die "mac checkout path must be absolute, got '$LP' — the oracle's main checkout:  ghq list -p --exact $SLUG"
 [[ -n ${ORACLE_APP_SCRATCH:-} || -d $LP ]] || die "no checkout at $LP on this Mac — clone it:  ghq get -p $SLUG"
 [ -n "$SYM" ] || die "sf-symbol is empty — pass one, e.g. star.fill"
@@ -90,15 +93,16 @@ if [[ $okeys == *" $KEY "* ]]; then
 fi
 [[ ${(L)ohex} == *" ${(L)HEX} "* ]] && die "colour $HEX is already another app's — pick another"
 # a live listener check; scripts/parity.sh generates into a scratch copy and sets ORACLE_APP_SCRATCH=1 to skip it
+live() { lsof -nP -iTCP:$1 -sTCP:LISTEN -t >/dev/null 2>&1 }   # false when lsof is missing
 listening() {
   [[ -z ${ORACLE_APP_SCRATCH:-} ]] || return 1
   command -v lsof >/dev/null || die "lsof not found (macOS keeps it in /usr/sbin):  export PATH=\$PATH:/usr/sbin"
-  lsof -nP -iTCP:$1 -sTCP:LISTEN -t >/dev/null 2>&1
+  live $1
 }
 if [ -n "$PORT" ]; then
   [[ $PORT =~ '^[1-9][0-9]{0,4}$' ]] && (( PORT <= 65535 )) || die "port must be 1–65535, no leading zero, got '$PORT'"
   if [[ $oports == *" $PORT "* ]]; then
-    free=4791; while [[ $oports == *" $free "* ]] || listening $free; do free=$((free + 1)); done
+    free=4791; while [[ $oports == *" $free "* ]] || live $free; do free=$((free + 1)); done   # a suggestion must be free HERE, scratch or not
     die "port $PORT is already another app's MCP port — a free one (the last --port wins):  zsh $0 ${(q)ARGS[@]} --port=$free"
   fi
   # the app's own port is exempt (it is the app listening); any other port must be free
