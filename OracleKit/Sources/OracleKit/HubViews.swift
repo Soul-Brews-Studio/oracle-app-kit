@@ -5,7 +5,7 @@ import AppKit
 // MARK: - Oracles (the landing app) — sidebar: all herdr sessions · detail: every oracle as a card
 // Same look as the oracle apps: ARRA-style sidebar, cards like the Work view.
 
-enum HubPick: Hashable { case all, search, trace, settings, session(String) }
+enum HubPick: Hashable { case all, search, trace, map, settings, session(String) }
 
 enum HubStyle {
     static let accent = Color(hex: "#9b8cff")
@@ -35,7 +35,7 @@ struct HubRootView: View {
     @ObservedObject var store: HubStore
     @Binding var menuBar: Bool
     @State private var pick: HubPick = UserDefaults.standard.string(forKey: "hubSession").map { HubPick.session($0) }   // -hubSession <name> (tests)
-        ?? ["search": HubPick.search, "trace": .trace, "settings": .settings][UserDefaults.standard.string(forKey: "hubPage") ?? ""] ?? .all   // -hubPage search|trace|settings
+        ?? ["search": HubPick.search, "trace": .trace, "map": .map, "settings": .settings][UserDefaults.standard.string(forKey: "hubPage") ?? ""] ?? .all   // -hubPage search|trace|map|settings
     @ObservedObject private var index = GHIndex.shared
     @State private var focusTick = 0
     var body: some View {
@@ -47,7 +47,8 @@ struct HubRootView: View {
             case .all: OracleBoard(store: store)
             case .search: IndexSearchView(store: store, index: index, focusTick: focusTick)
             case .trace: TraceView(name: "ARRA Oracles", accent: HubStyle.accent)
-            case .settings: SettingsView(title: "ARRA Oracles", accent: HubStyle.accent, indexes: [index]) { pick = .trace }
+            case .map: FleetMapPage(accent: HubStyle.accent)
+            case .settings: SettingsView(title: "ARRA Oracles", accent: HubStyle.accent, indexes: [index, FleetMap.shared.index]) { pick = .trace }
             case .session(let name): SessionSpaces(store: store, session: name)
             }
         }
@@ -61,6 +62,13 @@ struct HubRootView: View {
             let slugs = Array(Set(store.oracles.compactMap { $0.checkout.flatMap(GHIndex.slug(fromCheckout:)) })).sorted()
             if !slugs.isEmpty, let why = index.staleReason {
                 await index.index(repos: slugs, vaults: store.oracles.compactMap(\.checkout), why: "automatic at launch — \(why)")
+            }
+            // #37: the fleet map's layout, in the background, the first time (later the Map page keeps it fresh)
+            let fleet = FleetMap.shared
+            if #available(macOS 26, *), fleet.index.layout.meta == nil, MapLayout.engine != nil {   // the map itself needs macOS 26
+                await fleet.load(why: "launch: no fleet layout yet")
+                await fleet.index.layout.fit(docs: fleet.index.docs, space: fleet.index.space, why: "launch: no fleet layout yet")
+                await fleet.index.clusters.refresh(layout: fleet.index.layout, docs: fleet.index.docs)
             }
         }
     }
@@ -91,6 +99,9 @@ struct HubSidebar: View {
             NavRow(symbol: "list.bullet.rectangle", title: "Trace", badge: nil, on: pick == .trace, accent: HubStyle.accent, sub: true) { pick = .trace }
                 .padding(.horizontal, 12)
                 .help("Every query asked of the hub's index — search and MCP — and a cloud of what is searched")
+            NavRow(symbol: "circle.hexagongrid", title: "Map", badge: nil, on: pick == .map, accent: HubStyle.accent, sub: true) { pick = .map }
+                .padding(.horizontal, 12)
+                .help("Every oracle's memory in one space — a query to any oracle lights it up")
             NavRow(symbol: "gearshape", title: "Settings", badge: nil, on: pick == .settings, accent: HubStyle.accent) { pick = .settings }
                 .padding(.horizontal, 12)
             Text("Sessions").font(.custom("Avenir Next", size: 13).weight(.medium)).foregroundStyle(.secondary)

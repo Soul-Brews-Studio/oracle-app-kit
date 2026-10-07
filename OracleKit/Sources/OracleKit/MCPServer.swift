@@ -69,18 +69,31 @@ public final class MCPServer: ObservableObject {
 
     // MARK: HTTP, just enough
 
-    struct Request { let method: String; let path: String; let headers: [String: String]; let body: Data }
+    struct Request {
+        let method: String; let path: String; let headers: [String: String]; let body: Data
+        /// Why the request can't be read (answered 400, then closed); nil for a good one.
+        var bad: String? = nil
+    }
+    static let maxHeader = 64 << 10, maxBody = 8 << 20
 
-    /// A complete request from what has arrived, or nil while headers or body are still coming.
+    /// A complete request from what has arrived, or nil while headers or body are still coming. A request that can
+    /// never be read — a Content-Length below 0 or past 8 MB, a header block past 64 KB — comes back with `bad` set,
+    /// instead of slicing the buffer with it (a negative length crashed the app, from any local process).
     nonisolated static func parse(_ d: Data) -> Request? {
         let d = Data(d)
-        guard let end = d.range(of: Data("\r\n\r\n".utf8)) else { return nil }
+        func bad(_ why: String) -> Request { Request(method: "", path: "", headers: [:], body: Data(), bad: why) }
+        guard let end = d.range(of: Data("\r\n\r\n".utf8)) else { return d.count > maxHeader ? bad("the header block is over 64 KB") : nil }
+        guard end.lowerBound <= maxHeader else { return bad("the header block is over 64 KB") }
         var lines = String(decoding: d[..<end.lowerBound], as: UTF8.self).components(separatedBy: "\r\n")
         let first = lines.removeFirst().split(separator: " ")
-        guard first.count >= 2 else { return nil }
+        guard first.count >= 2 else { return bad("no request line") }
         var headers: [String: String] = [:]
         for l in lines { if let i = l.firstIndex(of: ":") { headers[l[..<i].lowercased()] = l[l.index(after: i)...].trimmingCharacters(in: .whitespaces) } }
-        let length = Int(headers["content-length"] ?? "0") ?? 0
+        let length: Int
+        if let h = headers["content-length"] {
+            guard let n = Int(h), n >= 0, n <= maxBody else { return bad("Content-Length must be a number from 0 to 8 MB") }
+            length = n
+        } else { length = 0 }
         guard d.count - end.upperBound >= length else { return nil }
         return Request(method: String(first[0]), path: String(first[1]), headers: headers, body: d[end.upperBound..<(end.upperBound + length)])
     }
@@ -96,7 +109,7 @@ public final class MCPServer: ObservableObject {
                 var buf = buffer
                 if let data { buf.append(data) }
                 if let r = Self.parse(buf) { self?.handle(r, c); return }
-                if done || error != nil || buf.count > 8 << 20 { c.cancel(); return }
+                if done || error != nil || buf.count > Self.maxHeader + Self.maxBody { c.cancel(); return }
                 self?.receive(c, buf)
             }
         }
@@ -113,6 +126,10 @@ public final class MCPServer: ObservableObject {
     // MARK: JSON-RPC
 
     private func handle(_ r: Request, _ c: NWConnection) {
+        if let why = r.bad {
+            HubLog.shared.add(.error, "MCP: refused a request — \(why)")
+            respond(c, 400, ["error": why]); return
+        }
         if r.method == "GET", r.path == "/health" {
             respond(c, 200, ["status": "ok", "name": name, "version": AppVersion.calver, "tools": Self.tools.compactMap { $0["name"] }]); return
         }
