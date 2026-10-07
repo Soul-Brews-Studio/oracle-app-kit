@@ -8,11 +8,15 @@
 # Exit 0 = shot taken.
 set -u
 R=${0:A:h}/..; R=${R:A}; source $R/scripts/install-lock.sh
+ARGV_ALL=("$@")
 APP=${1:?usage: shot.sh <App> [out.png] [-- launch args… | --as-is]}; shift
 OUT=$APP.png; ASIS=0
 [[ ${1:-} != "" && ${1:-} != -- && ${1:-} != --as-is ]] && { OUT=$1; shift; }
 [[ ${1:-} == --as-is ]] && { ASIS=1; shift; }
 [[ ${1:-} == -- ]] && shift
+# a locked screen cannot be captured (screencapture: "could not create image from window") — say so, not "permission"
+LOCKED=$(swift -e 'import CoreGraphics; let d = CGSessionCopyCurrentDictionary() as? [String: Any] ?? [:]; print((d["CGSSessionScreenIsLocked"] as? Int) ?? 0)' 2>/dev/null)
+[[ $LOCKED == 1 ]] && { print -r -- "✗ the screen is locked — a window cannot be captured; unlock it, then:  zsh $0 ${(@q)ARGV_ALL}"; exit 3; }
 if (( ! ASIS )); then
   lock_held && { print -r -- "✗ not relaunching $APP: install in progress by $(cat $LOCK_DIR/who 2>/dev/null) — retry when done, or use --as-is"; exit 75; }
   pkill -x "$APP"; for i in {1..50}; do pgrep -x "$APP" >/dev/null || break; sleep 0.2; done
