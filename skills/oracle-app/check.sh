@@ -70,6 +70,9 @@ P=$(zsh $K/scripts/parity.sh 2>&1); [[ $? == 0 ]] && ok "parity       $(print -r
 if (( DEEP )); then
   # Memory then Map, each driven by a launch argument; pass only on the line the app writes when the work is DONE,
   # read from the lines written after this launch (the log is appended across runs).
+  # A batch ends in "memory batch done — …" or, with nothing to embed, "up to date — nothing new …"; it ends early on
+  # "no embedder" / "another vector space" (logged as error) — stop waiting then. Other error lines (gh gave nothing) are not fatal.
+  FATAL='^[0-9:.]+ error  .*(no embedder|another vector space)'
   deep() {   # deep <section> <action> <done-regex> <timeout-s> [extra args…]
     local sec=$1 act=$2 re=$3 limit=$4; shift 4
     pkill -x "$N"; for i in {1..50}; do pgrep -x "$N" >/dev/null || break; sleep 0.2; done
@@ -78,14 +81,16 @@ if (( DEEP )); then
     local t=0 hit=""
     while (( t < limit )); do
       sleep 5; t=$((t + 5))
-      hit=$(tail -n +$((n0 + 1)) "$LOG" 2>/dev/null | rg -m1 "$re")
+      hit=$(tail -n +$((n0 + 1)) "$LOG" 2>/dev/null | rg -m1 -e "$re" -e "$FATAL")
       [[ -n $hit ]] && break
     done
     print -r -- "$hit"
   }
   Q=${(L)N}
-  B=$(deep memory batch 'memory batch done' 600 -memoryQuery "$Q")
-  [[ -n $B ]] && ok "Memory       ${B#* info   }" || bad "Memory       no 'memory batch done' within 10 min" "tail -30 \"$LOG\""
+  B=$(deep memory batch 'memory batch done|up to date — nothing new' 600 -memoryQuery "$Q")
+  if [[ $B == *" error  "* ]]; then bad "Memory       ${B#* error  }" "open \"$A\" --args -oracleSection memory    # the engine card says what is missing"
+  elif [[ -n $B ]]; then ok "Memory       ${B#* info   }"
+  else bad "Memory       no batch result within 10 min" "tail -30 \"$LOG\""; fi
   S=""; for i in {1..6}; do S=$(tail -n 400 "$LOG" | rg "search [a-z]+ .*\"$Q\" · query embedded" | tail -1); [[ -n $S ]] && break; sleep 5; done
   [[ -n $S ]] && ok "Memory query ${S#* search }" || bad "Memory query \"$Q\" not searched" "rg -n 'search' \"$LOG\" | tail -5"
   M=$(deep map layout 'map layout: [0-9]+ docs in' 300)
