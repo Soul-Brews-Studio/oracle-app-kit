@@ -1,4 +1,7 @@
 import Foundation
+#if os(macOS)
+import AppKit
+#endif
 #if canImport(WidgetKit)
 import WidgetKit
 #endif
@@ -76,6 +79,9 @@ public final class OracleStore: ObservableObject {
         Task.detached {
             _ = await Shell.run("herdr", ["--session", space.session, "workspace", "focus", space.workspaceId])
             await WezTerm.show(session: space.session, label: space.label)
+            // the terminal is now on the main display, raised; the app comes back on top of it (Nat: "bring the app on top")
+            try? await Task.sleep(for: .milliseconds(350))
+            await MainActor.run { NSApp.activate(ignoringOtherApps: true); NSApp.mainWindow?.orderFrontRegardless() }
         }
     }
     #endif

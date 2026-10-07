@@ -1249,10 +1249,6 @@ struct TerminalColumn: View {
     var active = true
     var activate: () -> Void = {}
     let close: () -> Void
-    @State private var text = ""
-    @State private var read: Date?
-    @State private var failed = false
-    @AppStorage("oracle.drawerFit") private var fit = true   // ☑ fit the drawer · ☐ bigger font, scroll (Nat's choice)
     var body: some View {
         let act = store.activity.first { $0.place == place }
         let shell = store.spaces.flatMap(\.panes).first { $0.place == place }   // a plain shell pane: no agent record
@@ -1276,6 +1272,21 @@ struct TerminalColumn: View {
             .background(active ? store.config.color.opacity(0.12) : Color.clear)
             .contentShape(Rectangle()).onTapGesture(perform: activate)   // click a header: that pane becomes the active one
             Divider()
+            PaneScreen(place: place)
+        }
+    }
+}
+
+/// One herdr pane drawn as its screen, read live every second: the oracle apps' drawer and the hub's space drawer.
+/// `place` = "<session>:<pane>" or a pane id in the default session.
+struct PaneScreen: View {
+    let place: String
+    @State private var text = ""
+    @State private var read: Date?
+    @State private var failed = false
+    @AppStorage("oracle.drawerFit") private var fit = true   // ☑ fit the drawer · ☐ bigger font, scroll (Nat's choice)
+    var body: some View {
+        VStack(spacing: 0) {
             let shown = failed && text.isEmpty ? "can't read \(place) — is herdr running?\n  herdr pane list" : text
             Group { if fit {
             GeometryReader { geo in
