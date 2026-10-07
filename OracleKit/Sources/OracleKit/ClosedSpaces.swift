@@ -22,6 +22,7 @@ public struct ClosedSpace: Codable, Identifiable, Hashable, Sendable {
     public var repo: String? = nil       // the space's repo, as maw names it
     public var linked: Bool? = nil       // a worktree space hanging under its repo's main space
     public var group: UUID? = nil        // closed together with its main space (`workspace close --group`)
+    public var number: Int? = nil        // where it sat in the session: herdr numbers a reopened space last
 }
 
 public enum ClosedSpaces {
@@ -79,7 +80,17 @@ public enum ClosedSpaces {
     }
 }
 
+/// Where a reopened space is listed: herdr numbers it last, the hub keeps its old place. Keyed session:spaceId.
+@MainActor private var reopenedPlacement: [String: Int] = [:]
+
 extension HubStore {
+    var placement: [String: Int] {
+        get { reopenedPlacement }
+        set { reopenedPlacement = newValue }
+    }
+    /// A space's number for ordering: the old number for a reopened space, herdr's otherwise.
+    public func listNumber(_ s: HubSpace) -> Int { reopenedPlacement[s.session + ":" + s.spaceId] ?? s.number }
+
     /// The agents in one space, read live: `herdr --session S agent list`, kept to that workspace.
     public func agents(in s: HubSpace) async -> [ClosedAgent]? {
         guard let out = await Shell.run("herdr", ["--session", s.session, "agent", "list"]),
@@ -101,7 +112,7 @@ extension HubStore {
         for sp in [s] + children {
             let cwd = await firstPane(session: sp.session, workspace: sp.spaceId)?.cwd ?? sp.checkout ?? NSHomeDirectory()
             recs.append(ClosedSpace(id: UUID(), session: sp.session, label: sp.label, cwd: cwd, closedAt: Date(),
-                                    agents: agents[sp.id] ?? [], repo: sp.repo, linked: sp.linked, group: group))
+                                    agents: agents[sp.id] ?? [], repo: sp.repo, linked: sp.linked, group: group, number: sp.number))
         }
         let before = ClosedSpaces.load()
         ClosedSpaces.save(recs + before)
@@ -129,6 +140,7 @@ extension HubStore {
         guard r.ok, let ws = (result?["workspace"] as? [String: Any])?["workspace_id"] as? String else {
             return "herdr: \(ClosedSpaces.reason(r.json)) — run:  herdr " + args.map { $0.contains(" ") ? "'\($0)'" : $0 }.joined(separator: " ")
         }
+        if let n = c.number { placement[c.session + ":" + ws] = n }   // the hub lists it where it was
         var pane = await firstPane(session: c.session, workspace: ws)?.id
         var failed: [String] = []
         for (i, a) in c.agents.enumerated() {

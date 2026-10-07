@@ -382,7 +382,7 @@ struct SessionSpaces: View {
     @State private var reopenError: String?
     var body: some View {
         let s = store.sessions.first { $0.name == session }
-        let spaces = store.spaces.filter { $0.session == session }.sorted { $0.number < $1.number }
+        let spaces = store.spaces.filter { $0.session == session }.sorted { store.listNumber($0) < store.listNumber($1) }
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(alignment: .firstTextBaseline, spacing: 10) {
