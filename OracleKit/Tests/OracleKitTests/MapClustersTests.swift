@@ -50,6 +50,30 @@ final class MapClustersTests: XCTestCase {
         XCTAssertEqual(g.groups[0].examples?.count, 1)   // three examples asked, all texts of a group are the same one
     }
 
+    func testZeroRowsAreNeverSeeds() {
+        // one doc without a vector first: farthest-first must not seed on it (it would win every round)
+        let (P, _) = planted(3, each: 100, dim: 32)
+        let X = [Float](repeating: 0, count: 32) + P
+        let (labels, _) = MapClusters.sphericalKMeans(X, n: 301, dim: 32, k: 3)
+        XCTAssertEqual(Set(labels.dropFirst()).count, 3, "the three planted groups are still found")
+    }
+
+    func testSeededRegroupKeepsGroups() {
+        // 300 docs grouped, 30 more added: started from the old centres, the old groups stay and carry their titles
+        let (X, _) = planted(3, each: 110, dim: 32)
+        let ids = (0..<330).map { "d\($0)" }
+        let m = 300, old = MapClusters.group(Array(X.prefix(m * 32)), n: m, dim: 32, texts: Array(repeating: "", count: m), shown: Array(repeating: "", count: m))
+        let seed = MapClusters.seed(oldIds: Array(ids.prefix(m)), labels: old.labels, groups: old.groups, leafLabels: old.leafLabels,
+                                    leaves: old.leaves, newIds: ids, X: X, dim: 32)
+        XCTAssertNotNil(seed)
+        let new = MapClusters.group(X, n: 330, dim: 32, texts: Array(repeating: "", count: 330), shown: Array(repeating: "", count: 330), seed: seed)
+        var g = new.groups
+        let titled = old.groups.map { var x = $0; x.title = "T\(x.id)"; x.model = "apple-fm"; return x }
+        // 8 regions at least, on 3 planted groups: a planted group is split somewhere, and that split may move a little
+        let kept = MapClusters.carry(into: &g, labels: new.labels, ids: ids, from: titled, labels: old.labels, ids: Array(ids.prefix(m)))
+        XCTAssertGreaterThanOrEqual(kept * 5, old.groups.count * 4, "\(kept) of \(old.groups.count) titles kept")
+    }
+
     func testTitlesCarryOnlyWhenMembersStay() {
         let ids = (0..<100).map { "d\($0)" }
         let old = [MapClusters.Group(id: 0, count: 50, keywords: ["a"], title: "Old A", model: "apple-fm"),
@@ -108,6 +132,26 @@ final class MapClustersTests: XCTestCase {
         }
         let t0 = Date()
         let n = ids.count
+        if let add = Int(ProcessInfo.processInfo.environment["MAP_REAL_CARRY"] ?? "") {   // #35: N docs added, then a re-group
+            let m = n - add, Xm = Array(X.prefix(m * dim)), tm = Array(texts.prefix(m)), sm = Array(shown.prefix(m))
+            let before = await Task.detached { MapClusters.group(Xm, n: m, dim: dim, texts: tm, shown: sm) }.value
+            let oldIds = Array(ids.prefix(m))
+            let after = await Task.detached { () -> MapClusters.Grouping in
+                let seed = MapClusters.seed(oldIds: oldIds, labels: before.labels, groups: before.groups, leafLabels: before.leafLabels,
+                                            leaves: before.leaves, newIds: ids, X: X, dim: dim)
+                return MapClusters.group(X, n: n, dim: dim, texts: texts, shown: shown, seed: seed)
+            }.value
+            var old = before.groups.map { var x = $0; x.title = "T\(x.id)"; x.model = "apple-fm"; return x }
+            var oldLeaves = before.leaves.map { var x = $0; x.title = "L\(x.id)"; x.model = "apple-fm"; return x }
+            var g = after.groups, l = after.leaves
+            let kept = MapClusters.carry(into: &g, labels: after.labels, ids: ids, from: old, labels: before.labels, ids: Array(ids.prefix(m)))
+                + MapClusters.carry(into: &l, labels: after.leafLabels, ids: ids, from: oldLeaves, labels: before.leafLabels, ids: Array(ids.prefix(m)))
+            old = []; oldLeaves = []
+            let total = g.count + l.count
+            let out = "\(name): +\(add) docs → regions \(before.groups.count)→\(after.groups.count), leaves \(before.leaves.count)→\(after.leaves.count): relabelled \(total - kept) of \(total) (kept \(kept))\n"
+            try out.write(toFile: (ProcessInfo.processInfo.environment["MAP_REAL_OUT"] ?? NSTemporaryDirectory() + "map-carry.txt"), atomically: true, encoding: .utf8)
+            print(out); return
+        }
         let g = await Task.detached { MapClusters.group(X, n: n, dim: dim, texts: texts, shown: shown) }.value
         let secs = Date().timeIntervalSince(t0)
         var out = String(format: "%@: %d docs → %d regions (k %d at the elbow), %d leaves in %.1f s (%@)\n", name, n, g.groups.count, g.k, g.leaves.count, secs, g.timing)

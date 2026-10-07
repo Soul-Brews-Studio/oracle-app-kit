@@ -84,9 +84,7 @@ public struct SettingsView: View {
                         Task { await i.layout.fit(docs: i.docs, space: i.space, why: "Rebuild map layout button") }
                     }
                     .disabled(i.layout.running || i.docs.count < 10 || MapLayout.engine == nil)
-                    Button("Relabel groups") { i.clusters.relabel() }
-                        .disabled(i.clusters.running || !i.clusters.titling.isEmpty || i.clusters.groups.isEmpty)
-                        .help("Name every map group again with Apple's on-device model")
+                    RelabelGroupsButton(clusters: i.clusters)
                 }
                 .controlSize(.small).buttonStyle(.bordered).handCursor().padding(.vertical, 6)
             }
@@ -394,6 +392,16 @@ struct MapLayoutRow: View {
             return s
         }()
         EngineRow(name: "Map layout", value: value, good: layout.problem != nil ? false : nil)
+    }
+}
+
+/// Relabel groups — its own view, so it follows the grouping and titling as they run.
+struct RelabelGroupsButton: View {
+    @ObservedObject var clusters: MapClusters
+    var body: some View {
+        Button("Relabel groups") { clusters.relabel() }
+            .disabled(!clusters.canRelabel)
+            .help(ClusterTitler.unavailable.map { "Needs Apple's model: \($0)" } ?? "Name every map group again with Apple's on-device model")
     }
 }
 

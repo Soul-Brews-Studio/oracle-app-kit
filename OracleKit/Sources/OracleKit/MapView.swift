@@ -47,6 +47,8 @@ public struct MapView: View {
                         scene.build(into: &content, layout: layout, docs: index.docs)
                         _ = content.subscribe(to: SceneEvents.Update.self) { _ in scene.frame() }
                     } update: { _ in }
+                    // a new layout (a re-fit, docs placed) is a new scene: rows and positions changed together
+                    .id("\(layout.meta?.built.timeIntervalSince1970 ?? 0)·\(layout.xyz.count)")
                     .realityViewCameraControls(.orbit)
                     .onContinuousHover(coordinateSpace: .local) { phase in
                         if case .active(let p) = phase { scene.pointer = p } else { scene.pointer = nil; scene.hoverDoc = nil; scene.setHand(false) }
@@ -84,14 +86,14 @@ public struct MapView: View {
             .padding(.horizontal, 28).padding(.bottom, 14)
         }
         .onChange(of: layout.xyz.count) { scene.needsRebuild = true }
-        .onChange(of: clusters.labels.count) { scene.setGroups(clusters.labels, leaves: clusters.leafLabels) }
+        .onChange(of: clusters.revision) { scene.setGroups(clusters.labels, leaves: clusters.leafLabels, ids: clusters.layoutIds) }
         // #36: every query asked of this memory — a page, the map, another oracle over MCP — fires its hits
         .onChange(of: trace.entries.count) { _, _ in
             guard let e = trace.entries.last, e.index == index.name else { return }
             let rows = e.top.compactMap { layout.row(of: $0.id) }
             scene.fire(rows: rows, color: MapScene.callerColor(e.caller, source: e.source, accent: accent), label: Self.who(e))
         }
-        .onChange(of: scene.built) { scene.setGroups(clusters.labels, leaves: clusters.leafLabels) }
+        .onChange(of: scene.built) { scene.setGroups(clusters.labels, leaves: clusters.leafLabels, ids: clusters.layoutIds) }
         .animation(.easeOut(duration: 0.18), value: scene.selectedRow)
         .animation(.easeOut(duration: 0.18), value: showGroups)
         .onAppear {   // esc: clear the selection, then the lit hits
@@ -115,7 +117,7 @@ public struct MapView: View {
                 await layout.fit(docs: index.docs, space: index.space, why: why)
             }
             await clusters.refresh(layout: layout, docs: index.docs)
-            scene.setGroups(clusters.labels, leaves: clusters.leafLabels)
+            scene.setGroups(clusters.labels, leaves: clusters.leafLabels, ids: clusters.layoutIds)
             if UserDefaults.standard.bool(forKey: "mapGroups") { showGroups = true }   // -mapGroups YES (tests)
             if !Self.actionDone, let q = UserDefaults.standard.string(forKey: "mapQuery"), !q.isEmpty {   // -mapQuery <text> (tests)
                 Self.actionDone = true
@@ -412,6 +414,7 @@ final class MapScene: ObservableObject {
     private var layout: MapLayout?
     private var content: RealityViewCameraContent?
     private var frames = 0
+    private var builtIds: [String] = []
     private var pendingZoom: Float?
     private var builtAt = Date()
     private var last = Date()
@@ -434,7 +437,11 @@ final class MapScene: ObservableObject {
     }
 
     func build(into content: inout RealityViewCameraContent, layout: MapLayout, docs: [IndexDoc]) {
-        self.content = content; self.layout = layout
+        self.content = content; self.layout = layout; builtIds = layout.ids
+        // a rebuild (new layout): what pointed at rows of the old one goes
+        selectedRow = nil; hoverRow = nil; hoverDoc = nil; lit = []; firings = []; fireEntities = []; target = nil
+        litEntity = nil; lines = nil; hoverGlow = nil; selGlow = nil; selLines = nil; pulseEntity = nil; webEntity = nil
+        groupOf = []; leafOf = []; groupCentre = [:]; leafCentre = [:]; labelAt = [:]; leafAt = [:]
         root = Entity()
         root.scale = SIMD3(repeating: Self.scale)
         let zoom = UserDefaults.standard.double(forKey: "mapZoom")   // -mapZoom 2.4 (tests: the leaves' names), once the camera has framed
@@ -652,9 +659,10 @@ final class MapScene: ObservableObject {
         if let e = Self.instanced(Array(pts.indices), xyz: pts, mesh: MeshResource.generateSphere(radius: 0.0028), material: m) { root.addChild(e); pulseEntity = e }
     }
 
-    /// Groups from MapClusters: each region's and each leaf's centre on the map, for their floating names.
-    func setGroups(_ labels: [Int], leaves: [Int]) {
-        guard labels.count == xyz.count else { return }
+    /// Groups from MapClusters: each region's and each leaf's centre on the map, for their floating names — only when
+    /// they were made for the rows this scene shows (after a re-fit the scene is rebuilt first, then they match).
+    func setGroups(_ labels: [Int], leaves: [Int], ids: [String]) {
+        guard labels.count == xyz.count, ids == builtIds else { return }
         groupOf = labels; groupCentre = Self.centres(labels, xyz)
         leafOf = leaves.count == xyz.count ? leaves : []; leafCentre = Self.centres(leafOf, xyz)
     }

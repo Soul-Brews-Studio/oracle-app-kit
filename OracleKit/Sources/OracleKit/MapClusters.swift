@@ -5,9 +5,10 @@ import NaturalLanguage
 /// The map's groups (issue #35): docs clustered in the 768-d space (spherical k-means — cosine, deterministic) on two
 /// levels — about a dozen regions (k at the elbow of 8…16), each split again into leaves (~80 on a big memory) that
 /// the map names when zoomed in. A group is named by its c-TF-IDF keywords (the words frequent in it and rare
-/// elsewhere), then titled by the on-device model (ClusterTitler) in the background. Cached in <index>.clusters.json:
-/// a doc placed since the fit joins its nearest group; a re-fit groups again, and a group keeps its title when it
-/// shares 80 % of its members with an old one, so only the changed groups are titled again.
+/// elsewhere), then titled by the on-device model (ClusterTitler) in the background. Cached in <index>.groups.json
+/// (apps before v3 keep their own <index>.clusters.json, so the two never overwrite each other): after a change
+/// without a re-fit every doc keeps its groups and a new one joins its nearest; a re-fit groups again, and a group
+/// keeps its title when it shares 80 % of its members with an old one, so only the changed groups are titled again.
 @MainActor
 public final class MapClusters: ObservableObject {
     public struct Group: Codable, Sendable, Identifiable {
@@ -22,7 +23,7 @@ public final class MapClusters: ObservableObject {
         public var parent: Int?
         /// The texts nearest the group's centre — the model reads them with the keywords.
         public var examples: [String]?
-        public var name: String { title ?? keywords.prefix(3).joined(separator: " · ") }
+        public var name: String { title ?? (keywords.isEmpty ? "\(count) memories" : keywords.prefix(3).joined(separator: " · ")) }
     }
     struct File: Codable {
         var built: Date; var n: Int; var labels: [Int]; var groups: [Group]; var version: Int?
@@ -42,6 +43,10 @@ public final class MapClusters: ObservableObject {
     @Published public private(set) var titling = ""
     /// When the titles were last finished.
     @Published public private(set) var titled: Date?
+    /// Bumps whenever the labels change (a regroup, docs placed or gone) — the map's copy of them follows it.
+    @Published public private(set) var revision = 0
+    /// The layout ids the labels belong to (row i of `labels` is the doc `layoutIds[i]`).
+    public var layoutIds: [String] { ids }
     private let url: URL
     private var built: Date?
     private var version = 0
@@ -51,7 +56,7 @@ public final class MapClusters: ObservableObject {
     private var saving: Task<Void, Never>?
 
     init(stem: URL) {
-        url = URL(fileURLWithPath: stem.path + ".clusters.json")
+        url = URL(fileURLWithPath: stem.path + ".groups.json")
         let d = JSONDecoder(); d.dateDecodingStrategy = .iso8601
         if let data = try? Data(contentsOf: url), let f = try? d.decode(File.self, from: data) {
             groups = f.groups; labels = f.labels; built = f.built; version = f.version ?? 1
@@ -65,30 +70,31 @@ public final class MapClusters: ObservableObject {
             .map { ($0.key, $0.value.count) }.sorted { $0.1 > $1.1 }
     }
 
-    /// The groups for the layout. Kept when made for this layout; docs placed since join their nearest group;
-    /// anything else (a re-fit, a new version) groups everything again. Then untitled groups are titled in the
+    /// The groups for the layout. Kept when made for this layout — by id, so docs placed since or gone move nothing
+    /// else; anything else (a re-fit, a new version) groups everything again. Then untitled groups are titled in the
     /// background — a plain relaunch finds them all titled and asks the model nothing.
     public func refresh(layout: MapLayout, docs: [IndexDoc]) async {
         guard let meta = layout.meta, !running, layout.ids.count >= 50 else { return }
-        if built == meta.built, version == Self.version, labels.count == leafLabels.count, labels.count == ids.count {
-            if labels.count == layout.ids.count { startTitling(); return }
-            if labels.count < layout.ids.count, ids.elementsEqual(layout.ids.prefix(ids.count)) {
-                await assign(layout: layout, docs: docs); startTitling(); return
-            }
+        if built == meta.built, version == Self.version, !labels.isEmpty, labels.count == leafLabels.count, labels.count == ids.count {
+            if ids != layout.ids { await realign(layout: layout, docs: docs) }
+            startTitling(); return
         }
         await regroup(layout: layout, docs: docs, built: meta.built)
         startTitling()
     }
 
-    /// Settings → Relabel groups: every group is titled again.
+    /// Settings → Relabel groups: every group is titled again. Each keeps its title until the new one arrives, and
+    /// nothing happens while the model can't answer.
     public func relabel() {
-        guard !running, !(groups.isEmpty && leaves.isEmpty) else { return }
-        generation += 1; titleTask?.cancel(); titleTask = nil
-        for i in groups.indices { groups[i].title = nil; groups[i].model = nil }
-        for i in leaves.indices { leaves[i].title = nil; leaves[i].model = nil }
+        guard !running, titleTask == nil, !(groups.isEmpty && leaves.isEmpty) else { return }
+        if let why = ClusterTitler.unavailable { HubLog.shared.add(.error, "map groups: relabel needs Apple's model — \(why)"); return }
+        for i in groups.indices { groups[i].model = nil }
+        for i in leaves.indices { leaves[i].model = nil }
         HubLog.shared.add(.info, "map groups: relabel asked — \(groups.count + leaves.count) groups to title")
         startTitling()
     }
+    /// Relabel can run: groups, the model, no grouping or titling under way.
+    public var canRelabel: Bool { !running && titling.isEmpty && !(groups.isEmpty && leaves.isEmpty) && ClusterTitler.unavailable == nil }
 
     private func regroup(layout: MapLayout, docs: [IndexDoc], built b: Date) async {
         let byId = Dictionary(docs.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
@@ -102,54 +108,68 @@ public final class MapClusters: ObservableObject {
         for r in rows {
             if let r, r.vec.count == dim {
                 X.append(contentsOf: r.vec)
-                // a session piece is named by what was said (its snippet), not the session's title; a /command says nothing
-                let said = r.snippet.hasPrefix("/") ? "" : r.snippet
+                // a session piece is named by what was said (its snippet), not the session's title; of a /command, what follows it
+                let said = r.snippet.hasPrefix("/") ? String(r.snippet.drop { !$0.isWhitespace }) : r.snippet
                 texts.append(r.kind == "history" ? said : r.title + " " + r.snippet)
                 shown.append(r.kind == "history" ? said : r.title)
             } else { X.append(contentsOf: [Float](repeating: 0, count: dim)); texts.append(""); shown.append("") }
         }
         let n = rows.count, newIds = layout.ids
         let oldGroups = groups, oldLabels = labels, oldLeaves = leaves, oldLeafLabels = leafLabels, oldIds = ids
+        let warm = version == Self.version
         let t0 = Date()
-        let r = await Task.detached(priority: .utility) { Self.group(X, n: n, dim: dim, texts: texts, shown: shown) }.value
+        let r = await Task.detached(priority: .utility) { () -> Grouping in
+            // a re-fit starts from the groups it had, so they stay (and keep their titles) unless the docs moved
+            let seed = warm ? Self.seed(oldIds: oldIds, labels: oldLabels, groups: oldGroups, leafLabels: oldLeafLabels, leaves: oldLeaves,
+                                         newIds: newIds, X: X, dim: dim) : nil
+            return Self.group(X, n: n, dim: dim, texts: texts, shown: shown, seed: seed)
+        }.value
         var g = r.groups, l = r.leaves
         let kept = Self.carry(into: &g, labels: r.labels, ids: newIds, from: oldGroups, labels: oldLabels, ids: oldIds)
             + Self.carry(into: &l, labels: r.leafLabels, ids: newIds, from: oldLeaves, labels: oldLeafLabels, ids: oldIds)
         groups = g; labels = r.labels; leaves = l; leafLabels = r.leafLabels; ids = newIds
-        built = b; version = Self.version
+        built = b; version = Self.version; revision += 1
         save()
         HubLog.shared.add(.info, String(format: "map groups: %d docs in %d regions (k %d at the elbow) and %d leaves in %.1f s (%@) — %d titles kept",
                                         n, g.count, r.k, l.count, Date().timeIntervalSince(t0), r.timing, kept))
         running = false
     }
 
-    /// Docs placed since the fit join the region, then the leaf of that region, whose centre (the members' mean,
+    /// The layout changed without a re-fit (docs placed among their neighbours, docs gone): every doc keeps its region
+    /// and leaf, by id; a new one joins the region, then the leaf of that region, whose centre (the members' mean,
     /// normalised) is closest in cosine. No re-grouping, no new titles.
-    private func assign(layout: MapLayout, docs: [IndexDoc]) async {
+    private func realign(layout: MapLayout, docs: [IndexDoc]) async {
+        let target = layout.ids
         let byId = Dictionary(docs.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
-        let vecs = layout.ids.map { byId[$0]?.vec ?? [] }
+        let vecs = target.map { byId[$0]?.vec ?? [] }
         guard let dim = vecs.first(where: { !$0.isEmpty })?.count else { return }
-        let start = labels.count, top = labels, leaf = leafLabels
+        var was: [String: (Int, Int)] = [:]
+        was.reserveCapacity(ids.count)
+        for (i, id) in ids.enumerated() { was[id] = (labels[i], leafLabels[i]) }
         let regions = groups.map(\.id), leafParent = leaves.map { ($0.id, $0.parent ?? -1) }
         let k = (regions.max() ?? 0) + 1, L = (leafParent.map(\.0).max() ?? 0) + 1
-        let (newTop, newLeaf) = await Task.detached(priority: .utility) { () -> ([Int], [Int]) in
+        let gen = generation, before = ids.count
+        let (top, leaf, fresh) = await Task.detached(priority: .utility) { () -> ([Int], [Int], Int) in
+            var top = [Int](repeating: -1, count: target.count), leaf = [Int](repeating: -1, count: target.count)
+            for (i, id) in target.enumerated() { if let w = was[id] { top[i] = w.0; leaf[i] = w.1 } }
             let C = Self.centres(vecs, labels: top, k: k, dim: dim), LC = Self.centres(vecs, labels: leaf, k: L, dim: dim)
-            var a: [Int] = [], b: [Int] = []
-            for i in start..<vecs.count {
+            var fresh = 0
+            for i in target.indices where top[i] < 0 {
                 let g = Self.nearest(vecs[i], in: C, dim: dim, among: regions)
                 let mine = leafParent.filter { $0.1 == g }.map(\.0)
-                a.append(g); b.append(Self.nearest(vecs[i], in: LC, dim: dim, among: mine.isEmpty ? leafParent.map(\.0) : mine))
+                top[i] = g; leaf[i] = Self.nearest(vecs[i], in: LC, dim: dim, among: mine.isEmpty ? leafParent.map(\.0) : mine); fresh += 1
             }
-            return (a, b)
+            return (top, leaf, fresh)
         }.value
-        guard labels.count == start else { return }   // grouped again meanwhile
-        var g = groups, l = leaves
-        for x in newTop { if let j = g.firstIndex(where: { $0.id == x }) { g[j].count += 1 } }
-        for x in newLeaf { if let j = l.firstIndex(where: { $0.id == x }) { l[j].count += 1 } }
-        groups = g; leaves = l
-        labels += newTop; leafLabels += newLeaf; ids += layout.ids[start...]
+        guard gen == generation, !running, layout.ids == target else { return }   // moved meanwhile: the next refresh redoes it
+        var topCount: [Int: Int] = [:], leafCount: [Int: Int] = [:]
+        for x in top { topCount[x, default: 0] += 1 }
+        for x in leaf { leafCount[x, default: 0] += 1 }
+        groups = groups.map { var x = $0; x.count = topCount[x.id] ?? 0; return x }.filter { $0.count > 0 }
+        leaves = leaves.map { var x = $0; x.count = leafCount[x.id] ?? 0; return x }.filter { $0.count > 0 }
+        labels = top; leafLabels = leaf; ids = target; revision += 1
         save()
-        HubLog.shared.add(.info, "map groups: \(newTop.count) placed docs joined their nearest groups — relabelled 0 of \(g.count + l.count)")
+        HubLog.shared.add(.info, "map groups: \(fresh) new docs joined their nearest groups, \(before + fresh - target.count) gone — relabelled 0 of \(groups.count + leaves.count)")
     }
 
     /// Titles every group the model has not named yet, one at a time in the background (~1 s each), regions first.
@@ -216,14 +236,52 @@ public final class MapClusters: ObservableObject {
         var timing = ""
     }
 
+    /// Where a re-grouping starts: the old regions' centres (k × dim) and, per region, its old leaves' centres —
+    /// each the mean of its old members' vectors now.
+    struct Seed: Sendable { var k: Int; var regions: [Float]; var leaves: [[Float]] }
+
+    /// The seed from an old grouping, when at least half the docs were in it (else a fresh grouping is better).
+    nonisolated static func seed(oldIds: [String], labels: [Int], groups: [Group], leafLabels: [Int], leaves: [Group],
+                                 newIds: [String], X: [Float], dim: Int) -> Seed? {
+        guard !groups.isEmpty, oldIds.count == labels.count, labels.count == leafLabels.count else { return nil }
+        let regionAt = Dictionary(uniqueKeysWithValues: groups.map(\.id).sorted().enumerated().map { ($1, $0) })
+        let leafIds = leaves.map(\.id).sorted(), leafAt = Dictionary(uniqueKeysWithValues: leafIds.enumerated().map { ($1, $0) })
+        var was: [String: (Int, Int)] = [:]
+        was.reserveCapacity(oldIds.count)
+        for (i, id) in oldIds.enumerated() { was[id] = (labels[i], leafLabels[i]) }
+        var top = [Int](repeating: -1, count: newIds.count), leaf = [Int](repeating: -1, count: newIds.count), known = 0
+        for (i, id) in newIds.enumerated() {
+            guard let w = was[id], let r = regionAt[w.0] else { continue }
+            top[i] = r; leaf[i] = leafAt[w.1] ?? -1; known += 1
+        }
+        guard known * 2 >= newIds.count else { return nil }
+        let k = regionAt.count
+        let C = centres(X, n: newIds.count, labels: top, k: k, dim: dim), LC = centres(X, n: newIds.count, labels: leaf, k: leafIds.count, dim: dim)
+        var perRegion = [[Float]](repeating: [], count: k)
+        for l in leaves { if let j = leafAt[l.id], let p = l.parent, let r = regionAt[p] { perRegion[r] += LC[(j * dim)..<((j + 1) * dim)] } }
+        return Seed(k: k, regions: C, leaves: perRegion)
+    }
+
+    /// The k × dim centres of labelled rows of a flat matrix (a label < 0 is skipped).
+    nonisolated static func centres(_ X: [Float], n: Int, labels: [Int], k: Int, dim: Int) -> [Float] {
+        var C = [Float](repeating: 0, count: k * dim)
+        X.withUnsafeBufferPointer { x in C.withUnsafeMutableBufferPointer { c in
+            for i in 0..<n where labels[i] >= 0 && labels[i] < k {
+                vDSP_vadd(c.baseAddress! + labels[i] * dim, 1, x.baseAddress! + i * dim, 1, c.baseAddress! + labels[i] * dim, 1, vDSP_Length(dim))
+            }
+        } }
+        normaliseRows(&C, k: k, dim: dim)
+        return C
+    }
+
     /// Regions at the elbow, each split into leaves (about n / 80 docs a leaf on a big memory; a region under 40 docs
     /// stays one leaf), then keywords and the texts nearest each centre.
-    nonisolated static func group(_ X: [Float], n: Int, dim: Int, texts: [String], shown: [String]) -> Grouping {
+    nonisolated static func group(_ X: [Float], n: Int, dim: Int, texts: [String], shown: [String], seed: Seed? = nil) -> Grouping {
         var clock = Date(), timing: [String] = []
         func lap(_ what: String) { timing.append(String(format: "%@ %.1f s", what, Date().timeIntervalSince(clock))); clock = Date() }
-        let k = elbow(X, n: n, dim: dim)
-        lap("elbow")
-        let (top, C) = sphericalKMeans(X, n: n, dim: dim, k: k)
+        let k = seed?.k ?? elbow(X, n: n, dim: dim)
+        lap(seed == nil ? "elbow" : "seeded")
+        let (top, C) = sphericalKMeans(X, n: n, dim: dim, k: k, start: seed?.regions)
         lap("regions")
         let target = Double(min(80, max(24, Int((Double(n) / 8).squareRoot()))))
         var members = [[Int]](repeating: [], count: k)
@@ -231,12 +289,13 @@ public final class MapClusters: ObservableObject {
         var leaf = [Int](repeating: 0, count: n), parentOf: [Int] = [], LC: [Float] = []
         for g in 0..<k where !members[g].isEmpty {
             let m = members[g]
-            let kg = m.count < 40 ? 1 : max(2, min(12, Int((Double(m.count) * target / Double(n)).rounded())))
+            let start = seed.map { $0.leaves[g] } ?? [], seeded = start.count / dim
+            let kg = m.count < 40 ? 1 : seeded >= 2 ? seeded : max(2, min(12, Int((Double(m.count) * target / Double(n)).rounded())))
             let sl: [Int], sc: [Float]
             if kg == 1 { sl = [Int](repeating: 0, count: m.count); sc = Array(C[(g * dim)..<((g + 1) * dim)]) } else {
                 var sub = [Float](); sub.reserveCapacity(m.count * dim)
                 for i in m { sub.append(contentsOf: X[(i * dim)..<((i + 1) * dim)]) }
-                let (raw, c) = sphericalKMeans(sub, n: m.count, dim: dim, k: kg)
+                let (raw, c) = sphericalKMeans(sub, n: m.count, dim: dim, k: kg, start: seeded == kg ? start : nil)
                 sl = mergeTiny(raw, sub, dim: dim, centroids: c, k: kg); sc = c
             }
             let base = parentOf.count
@@ -316,23 +375,9 @@ public final class MapClusters: ObservableObject {
     /// Spherical k-means on unit vectors: assign by the largest dot product (one sgemm per pass), centroids =
     /// normalised member means. Seeded farthest-first, so the same input gives the same groups. Returns the label
     /// per row and the k × dim centroids.
-    nonisolated static func sphericalKMeans(_ X: [Float], n: Int, dim: Int, k: Int, iters: Int = 15) -> (labels: [Int], centroids: [Float]) {
+    nonisolated static func sphericalKMeans(_ X: [Float], n: Int, dim: Int, k: Int, iters: Int = 15, start: [Float]? = nil) -> (labels: [Int], centroids: [Float]) {
         var C = [Float](repeating: 0, count: k * dim)
-        // farthest-first: start at row 0, then repeatedly the row least similar to every chosen centroid
-        var best = [Float](repeating: -.infinity, count: n)
-        var pick = 0
-        for c in 0..<k {
-            for j in 0..<dim { C[c * dim + j] = X[pick * dim + j] }
-            var low: Float = .infinity, lowRow = 0
-            for i in 0..<n {
-                var s: Float = 0
-                X.withUnsafeBufferPointer { x in C.withUnsafeBufferPointer { cc in
-                    vDSP_dotpr(x.baseAddress! + i * dim, 1, cc.baseAddress! + c * dim, 1, &s, vDSP_Length(dim)) } }
-                best[i] = max(best[i], s)
-                if best[i] < low { low = best[i]; lowRow = i }
-            }
-            pick = lowRow
-        }
+        if let start, start.count == k * dim { C = start } else { seedFarthestFirst(X, n: n, dim: dim, k: k, into: &C) }
         var labels = [Int](repeating: 0, count: n)
         var S = [Float](repeating: 0, count: n * k)   // n × k similarities
         for _ in 0..<iters {
@@ -352,6 +397,28 @@ public final class MapClusters: ObservableObject {
             if changed == 0 { break }
         }
         return (labels, C)
+    }
+
+    nonisolated static func seedFarthestFirst(_ X: [Float], n: Int, dim: Int, k: Int, into C: inout [Float]) {
+        // farthest-first: start at the first row, then repeatedly the row least similar to every chosen centroid. A row
+        // without a vector (all zeros: cosine 0 to everything) is never a seed, or it would win every later round.
+        var best = [Float](repeating: -.infinity, count: n)
+        X.withUnsafeBufferPointer { x in
+            for i in 0..<n { var q: Float = 0; vDSP_svesq(x.baseAddress! + i * dim, 1, &q, vDSP_Length(dim)); if q == 0 { best[i] = .infinity } }
+        }
+        var pick = best.firstIndex { $0 != .infinity } ?? 0
+        for c in 0..<k {
+            for j in 0..<dim { C[c * dim + j] = X[pick * dim + j] }
+            var low: Float = .infinity, lowRow = 0
+            for i in 0..<n {
+                var s: Float = 0
+                X.withUnsafeBufferPointer { x in C.withUnsafeBufferPointer { cc in
+                    vDSP_dotpr(x.baseAddress! + i * dim, 1, cc.baseAddress! + c * dim, 1, &s, vDSP_Length(dim)) } }
+                best[i] = max(best[i], s)
+                if best[i] < low { low = best[i]; lowRow = i }
+            }
+            pick = lowRow
+        }
     }
 
     nonisolated static func normaliseRows(_ C: inout [Float], k: Int, dim: Int) {
