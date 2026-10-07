@@ -121,10 +121,20 @@
     setTimeout(() => document.addEventListener('click', () => m.remove(), { once: true }), 0);
   }
 
+  // The panel that holds THIS photo's post. Coming from the feed, the feed's own right rail (Birthdays, Contacts) is
+  // also role=complementary and comes first in the DOM, so querySelector picked the wrong one (Nat: header chip
+  // missing after a click from the feed, present after a refresh). The post's panel has the Like/Comment buttons
+  // (named by aria-label) or comment articles; the rail has neither.
+  function sidePanel() {
+    const all = [...document.querySelectorAll('[role="complementary"]')];
+    return all.find(p => p.querySelector('[aria-label^="Comment on"], [aria-label^="React with Like"], [aria-label^="Leave a comment"], [role="article"]'))
+      || (all.length === 1 ? all[0] : null);
+  }
+
   // photo/video pages: the author and caption sit in the right panel (role=complementary); the document title is
   // just "Facebook", and the time links there belong to comments (measured on Nat's photo URL, 2026-10-07)
   async function pageDetails() {
-    const side = document.querySelector('[role="complementary"]');
+    const side = sidePanel();
     const more = side && [...side.querySelectorAll('[role="button"]')].find(b => /^(see more|ดูเพิ่มเติม)$/i.test(b.innerText.trim()));
     if (more) { more.click(); await tick(300); }
     // the right column also holds the top bar (messenger, notifications, YOUR account link), so the first link is not
@@ -235,7 +245,7 @@
     c.setAttribute('data-oracle-head', '1');
     line.append(c);
   }
-  function addHeaderChip() { headerChip(document.querySelector('[role="complementary"]'), pageDetails); }
+  function addHeaderChip() { headerChip(sidePanel(), pageDetails); }
 
   // 🔗 inline after every comment's Reply (Nat via the right pane, 2026-10-07): sends THAT comment — its link,
   // text and the links in it. Reply lives in an <li> inside a wrapper div; the chip is that wrapper's next sibling in the same flex row.
