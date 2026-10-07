@@ -33,7 +33,7 @@ LP=$(sed -n 's/.*OracleConfig.mac("\([^"]*\)").*/\1/p' $C | head -1)
 KEY=$(sed -n 's/^ *PRODUCT_BUNDLE_IDENTIFIER: co\.laris\.oracle\.\([a-z0-9-]*\)$/\1/p' $D/app.yml | head -1)
 PORT=$(sed -n 's/.*port: \([0-9][0-9]*\).*/\1/p' $D/${N}App.swift | head -1)
 RULE=${(L)${SLUG#*/}}; RULE=${RULE%-oracle}; RULE=${RULE//[_.]/-}   # = HubParse.appKey(forRepo:) (case-insensitive -oracle)
-REGEN="zsh $K/scripts/new-oracle-app.sh $N $SLUG '$LP' '$HEX' $SYM \"$TAG\" --update"
+REGEN="zsh $K/scripts/new-oracle-app.sh ${(q)N} ${(q)SLUG} ${(q)LP} ${(q)HEX} ${(q)SYM} ${(q)TAG} --update"
 
 # portal key — the hub matches an app to its oracle by this
 [[ $KEY == $RULE ]] && ok "portal key   co.laris.oracle.$KEY ($SLUG)" || bad "portal key   co.laris.oracle.$KEY, but the portal looks for $RULE ($SLUG)" "$REGEN --key=$RULE"
@@ -93,7 +93,7 @@ else bad "MCP :$PORT not answering" "lsof -nP -iTCP:$PORT -sTCP:LISTEN" "tail -2
 TQ="$HOME/Library/Logs/ARRA Oracles/$N-queries.jsonl"; q0=0; [ -f "$TQ" ] && q0=$(wc -l < "$TQ"); MQ="check ${(L)N} $$"
 MR=$(curl -s -m 30 -X POST 127.0.0.1:$PORT/mcp -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' \
   -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"memory_search\",\"arguments\":{\"query\":\"$MQ\"}}}")
-TR=$(tail -n +$((q0 + 1)) "$TQ" 2>/dev/null | rg -F "\"caller\"" | tail -1)
+TR=$(tail -n +$((q0 + 1)) "$TQ" 2>/dev/null | jq -c --arg q "$MQ" 'select(.query == $q and .source == "mcp" and (.caller // "") != "")' 2>/dev/null | tail -1)
 if [[ $MR == *'"result"'* && $MR != *'"isError":true'* ]]; then ok "MCP search   memory_search answered"; else bad "MCP search   memory_search failed: ${MR[1,160]}" "tail -20 \"$LOG\""; fi
 [[ -n $TR ]] && ok "Trace        query recorded, caller $(print -r -- $TR | sed -n 's/.*"caller":"\([^"]*\)".*/\1/p')" || bad "Trace        no query recorded in $TQ" "tail -3 \"$TQ\""
 
@@ -136,9 +136,12 @@ if (( DEEP )); then
     elif [[ $B == *" error  "* ]]; then bad "Memory       ${B#* error  }" "open \"$A\" --args -oracleSection memory    # the engine card says what is missing"
     elif [[ -n $B ]]; then ok "Memory       ${B#* info   }"
     else bad "Memory       no batch result within 10 min" "tail -30 \"$LOG\""; fi
-    S=""; for i in {1..6}; do S=$(tail -n +$((N0 + 1)) "$LOG" | rg "search [a-z]+ .*\"$Q\" · query embedded" | tail -1); [[ -n $S ]] && break; sleep 5; done
+    S=""; if [[ $B != LOCKED ]]; then   # a batch that never ran has no query to read (N0 would still be 0)
+      for i in {1..6}; do S=$(tail -n +$((N0 + 1)) "$LOG" | rg "search [a-z]+ .*\"$Q\" · query embedded" | tail -1); [[ -n $S ]] && break; sleep 5; done
+    fi
     hits=$(print -r -- "$S" | sed -n 's/.*ranked \([0-9,]*\) in.*/\1/p' | tr -d ,); best=$(print -r -- "$S" | sed -n 's/.*best \([0-9]*\)%.*/\1/p')
-    if [[ -n $S ]] && (( ${hits:-0} > 0 && ${best:-0} > 0 )); then ok "Memory query ${S#* search }"
+    if [[ $B == LOCKED ]]; then :
+    elif [[ -n $S ]] && (( ${hits:-0} > 0 && ${best:-0} > 0 )); then ok "Memory query ${S#* search }"
     elif [[ -n $S ]]; then bad "Memory query \"$Q\" found nothing (ranked ${hits:-0}, best ${best:-0}%)" "open \"$A\" --args -oracleSection memory   # is the index empty?"
     else bad "Memory query \"$Q\" not searched" "rg -n 'search' \"$LOG\" | tail -5"; fi
     M=$(deep map layout 'map layout: [0-9]+ docs in|map: [0-9]+ points in' 300)

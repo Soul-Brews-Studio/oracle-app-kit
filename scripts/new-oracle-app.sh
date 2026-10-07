@@ -9,10 +9,13 @@
 #            Default: the portal's rule, the repo name minus "-oracle", lower-cased (DustBoy-Phd-Oracle → dustboy-phd).
 #   --port   the app's MCP memory server. Default: the next port from 4791 that no other Apps/*/*App.swift uses
 #            and nothing on this Mac listens on.
-#   --team   Apple signing team for the App Group. Default: $ORACLE_APP_TEAM, else project.yml's DEVELOPMENT_TEAM.
+#   --team   Apple signing team (Team ID) for the App Group. Default: --update keeps the app's own; else
+#            $ORACLE_APP_TEAM; else project.yml's DEVELOPMENT_TEAM if a certificate on this Mac has it, else this Mac's
+#            only certificate's team (several: refuses and prints one command per team).
 #   --update rewrites the generated files of an existing app; keeps <Name>Extras.swift, the icon, and — unless given
 #            again — its key, port and team (read back from its app.yml / App.swift / entitlements).
-# Needs: zsh, sed, lsof (/usr/sbin), xcodegen (regen), uv (icon: draws one, or resizes design/icons/<Name>.png).
+# Needs: zsh, sed, lsof (/usr/sbin), security + openssl (team), xcodegen (regen), uv (icon: draws one, or resizes
+# design/icons/<Name>.png).
 # Refuses before writing anything.
 set -e
 die() { print -r -- "✗ $*"; exit 2; }
@@ -27,7 +30,7 @@ while (( $# )); do
     *) pos+=("$1") ;;
   esac; shift
 done
-KEY=${key_opt:-}; PORT=${port_opt:-}; TEAM=${team_opt:-}; OLDPORT=""; KEYSRC=${key_opt:+--key}
+KEY=${key_opt:-}; PORT=${port_opt:-}; TEAM=${team_opt:-}; OLDPORT=""; KEYSRC=${key_opt:+--key}; TEAMSRC=${team_opt:+--team}
 (( $#pos >= 5 && $#pos <= 6 )) || die "usage: new-oracle-app.sh <Name> <org/repo> <mac checkout path> <#hex> <sf-symbol> [\"<tagline>\"] [--update] [--key=k] [--port=n] [--team=id] [--no-regen]"
 N=$pos[1]; SLUG=$pos[2]; LP=$pos[3]; HEX=$pos[4]; SYM=$pos[5]; TAG=${pos[6]:-"$N oracle"}
 R=${0:A:h}/..; R=${R:A}; D=$R/Apps/$N; low=${(L)N}
@@ -45,7 +48,7 @@ for v in "$SLUG" "$LP" "$TAG" "$SYM"; do [[ $v == *[\"\\]* ]] && die "no '\"' or
 if (( UPDATE )); then
   [ -n "$KEY" ]  || { KEY=$(sed -n 's/^ *PRODUCT_BUNDLE_IDENTIFIER: co\.laris\.oracle\.\([a-z0-9-]*\)$/\1/p' $D/app.yml 2>/dev/null | head -1); KEYSRC=${KEY:+Apps/$N/app.yml}; }
   OLDPORT=$(sed -n 's/.*port: \([0-9][0-9]*\).*/\1/p' $D/${N}App.swift 2>/dev/null | head -1); [ -n "$PORT" ] || PORT=$OLDPORT
-  [ -n "$TEAM" ] || TEAM=$(sed -n 's/.*<string>\([A-Z0-9]*\)\.co\.laris\.oracle\.[a-z0-9-]*<\/string>.*/\1/p' $D/${N}.entitlements 2>/dev/null | head -1)
+  [ -n "$TEAM" ] || { TEAM=$(sed -n 's/.*<string>\([A-Z0-9]*\)\.co\.laris\.oracle\.[a-z0-9-]*<\/string>.*/\1/p' $D/${N}.entitlements 2>/dev/null | head -1); TEAMSRC=${TEAM:+Apps/$N/$N.entitlements}; }
 fi
 # the portal's rule (HubParse.appKey): repo minus "-oracle", lower-cased, "_" and "." → "-" (a bundle id has no "_")
 if [ -z "$KEY" ]; then KEY=${(L)${SLUG#*/}}; KEY=${KEY%-oracle}; KEY=${KEY//[_.]/-}; KEYSRC="the repo name $SLUG"; fi
@@ -55,10 +58,24 @@ if [[ ! $KEY =~ '^[a-z0-9][a-z0-9-]*$' ]]; then   # a digit first is legal in a 
   fix=${${(L)KEY}//[^a-z0-9-]/-}; fix=${fix#${fix%%[a-z0-9]*}}; [ -n "$fix" ] || fix=$low
   die "key '$KEY' (from $KEYSRC) may hold only a-z, 0-9 and '-', not first — e.g.:  zsh $0 ${(q)again[@]} --key=$fix"
 fi
-[ -n "$TEAM" ] || TEAM=${ORACLE_APP_TEAM:-}
-[ -n "$TEAM" ] || TEAM=$(sed -n 's/^ *DEVELOPMENT_TEAM: *//p' $R/project.yml | head -1)
-[[ $TEAM =~ '^[A-Z0-9]{10}$' ]] || die "no usable signing team ('$TEAM') — your certificate's Team ID (OU):
-    export ORACLE_APP_TEAM=\$(security find-certificate -c 'Apple Development' -p | openssl x509 -noout -subject | sed -n 's/.*OU *= *\([A-Z0-9]*\).*/\1/p')"
+source $R/scripts/team.sh
+[ -n "$TEAM" ] || { TEAM=${ORACLE_APP_TEAM:-}; TEAMSRC=${TEAM:+ORACLE_APP_TEAM}; }
+if [ -z "$TEAM" ]; then
+  pteam=$(project_team)
+  if [[ -n ${ORACLE_APP_SCRATCH:-} ]]; then TEAM=$pteam; TEAMSRC=project.yml   # scratch generation: no keychain
+  else
+    teams=(${(f)"$(cert_teams)"})
+    if (( ${teams[(Ie)$pteam]} )); then TEAM=$pteam; TEAMSRC="project.yml, a certificate on this Mac"
+    elif (( $#teams == 1 )); then TEAM=$teams[1]; TEAMSRC="this Mac's only signing certificate"
+    elif (( $#teams == 0 )); then die "no signing certificate on this Mac — Xcode → Settings → Accounts → sign in, then:  zsh $0 ${(q)ARGS[@]}"
+    else die "several signing teams on this Mac (${teams[*]}), none is project.yml's $pteam — pick one:$(for t in $teams; do print -rn -- $'\n'"    zsh $0 ${(q)ARGS[@]} --team=$t"; done)"
+    fi
+  fi
+fi
+if [[ ! $TEAM =~ '^[A-Z0-9]{10}$' ]]; then   # the last --team wins, so the printed line overrides whatever was wrong
+  sug=$(cert_teams | head -1)
+  die "team '$TEAM' (from $TEAMSRC) is not a 10-character Team ID — e.g.:  zsh $0 ${(q)ARGS[@]} --team=${sug:-\$(security find-certificate -c 'Apple Development' -p | openssl x509 -noout -subject | sed -n 's/.*OU *= *\([A-Z0-9]*\).*/\1/p')}"
+fi
 # what every OTHER app already holds: bundle keys, MCP ports, colours
 others=(); for a in $R/Apps/*/app.yml(N); do [[ ${a:h:t} == $N ]] || others+=(${a:h:t}); done
 okeys=" "; oports=" "; ohex=" "
@@ -79,14 +96,20 @@ listening() {
   lsof -nP -iTCP:$1 -sTCP:LISTEN -t >/dev/null 2>&1
 }
 if [ -n "$PORT" ]; then
-  [[ $PORT =~ '^[0-9]+$' ]] || die "port must be a number, got '$PORT'"
-  [[ $oports == *" $PORT "* ]] && die "port $PORT is already another app's MCP port — give --port=<another>"
+  [[ $PORT =~ '^[1-9][0-9]*$' ]] && (( PORT <= 65535 )) || die "port must be 1–65535, no leading zero, got '$PORT'"
+  if [[ $oports == *" $PORT "* ]]; then
+    free=4791; while [[ $oports == *" $free "* ]] || listening $free; do free=$((free + 1)); done
+    die "port $PORT is already another app's MCP port — a free one (the last --port wins):  zsh $0 ${(q)ARGS[@]} --port=$free"
+  fi
   # the app's own port is exempt (it is the app listening); any other port must be free
   if [[ $PORT != ${OLDPORT:-} ]] && listening $PORT; then die "something already listens on :$PORT —  lsof -nP -iTCP:$PORT -sTCP:LISTEN"; fi
 else
   PORT=4791; while [[ $oports == *" $PORT "* ]] || listening $PORT; do PORT=$((PORT + 1)); done
 fi
-if [ ! -d $D/Assets.xcassets/AppIcon.appiconset ] && ! command -v uv >/dev/null; then
+if (( REGEN )) && ! command -v xcodegen >/dev/null; then
+  die "xcodegen is needed to regenerate the project:  brew install xcodegen   (or add --no-regen and run scripts/regen.sh later)"
+fi
+if [[ -z ${ORACLE_APP_SCRATCH:-} ]] && [ ! -d $D/Assets.xcassets/AppIcon.appiconset ] && ! command -v uv >/dev/null; then
   die "uv is needed to make the icon:  brew install uv"
 fi
 GROUP="$TEAM.co.laris.oracle.$KEY"
@@ -95,7 +118,7 @@ mkdir -p $D/Widget $D/Share $D/Assets.xcassets
 [ -f $D/Assets.xcassets/Contents.json ] || print -r -- '{"info":{"version":1,"author":"xcode"}}' > $D/Assets.xcassets/Contents.json
 # the icon: design/icons/<Name>.png (a Codex / imagegen emblem) resized when present, else drawn
 icon_from=(); [ -f $R/design/icons/$N.png ] && icon_from=(--from $R/design/icons/$N.png)
-[ -d $D/Assets.xcassets/AppIcon.appiconset ] || uv run --quiet --with pillow python $R/scripts/make_icon.py $D/Assets.xcassets/AppIcon.appiconset $HEX ${N[1]} $icon_from
+[ -d $D/Assets.xcassets/AppIcon.appiconset ] || [ -n "${ORACLE_APP_SCRATCH:-}" ] || uv run --quiet --with pillow python $R/scripts/make_icon.py $D/Assets.xcassets/AppIcon.appiconset $HEX ${N[1]} $icon_from
 cat > $D/${N}Config.swift <<SWIFT
 import OracleKit
 
@@ -347,5 +370,4 @@ final class ShareViewController: OracleShareViewController {
 }
 SWIFT
 (( REGEN )) && zsh $R/scripts/regen.sh
-TEAMSRC=${team_opt:+--team}; [ -n "$TEAMSRC" ] || { [[ $TEAM == ${ORACLE_APP_TEAM:-} ]] && TEAMSRC=ORACLE_APP_TEAM; }; [ -n "$TEAMSRC" ] || TEAMSRC="project.yml — set ORACLE_APP_TEAM if your certificate's OU differs"
 echo "ready Apps/$N (+ ${N}Widget, ${N}Share) · key $KEY · co.laris.oracle.$KEY · MCP :$PORT · team $TEAM ($TEAMSRC)"
