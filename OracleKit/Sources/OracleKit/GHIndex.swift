@@ -259,19 +259,55 @@ public final class GHIndex: ObservableObject {
     }
 
     private func load() {
-        guard let d = try? Data(contentsOf: path), var f = try? JSONDecoder().decode(File.self, from: d), f.model == Self.model else { return }
-        if let dim = f.dim, dim > 0, let raw = try? Data(contentsOf: vectorsPath), raw.count == f.docs.count * dim * 4 {
+        guard let f = Self.read(path: path, vectorsPath: vectorsPath) else { return }
+        docs = f.docs.filter { !$0.vec.isEmpty }; built = f.built; space = f.space; ledger = f.ledger ?? [:]
+        seedCache()
+        repos = Array(Set(docs.filter { $0.kind != "note" }.map(\.repo))).sorted()
+    }
+    /// An index file with its vectors (nil when missing, of another model, or when the vectors file does not hold
+    /// exactly one vector per doc — a save caught between its two files reads as nothing, never as empty docs).
+    private nonisolated static func read(path: URL, vectorsPath: URL) -> File? {
+        guard let d = try? Data(contentsOf: path), var f = try? JSONDecoder().decode(File.self, from: d), f.model == model else { return nil }
+        if let dim = f.dim, dim > 0, !f.docs.isEmpty {
+            guard let raw = try? Data(contentsOf: vectorsPath), raw.count == f.docs.count * dim * 4 else { return nil }
             raw.withUnsafeBytes { (buf: UnsafeRawBufferPointer) in
                 let all = buf.bindMemory(to: Float.self)
                 for i in f.docs.indices { f.docs[i].vec = Array(all[(i * dim)..<((i + 1) * dim)]) }
             }
         }
-        docs = f.docs.filter { !$0.vec.isEmpty }; built = f.built; space = f.space; ledger = f.ledger ?? [:]
-        seedCache()
+        return f
+    }
+
+    /// Another index's docs, read off the main actor without opening it (the fleet map reads every oracle's history
+    /// this way, #37): the docs that have vectors, without their embedded texts (the map never needs them).
+    /// The owning app may be saving it right now (vectors first, then the JSON): a read that sees the two files change
+    /// under it, or not match, is tried again, three times at most.
+    public nonisolated static func readDocs(name: String) -> (docs: [IndexDoc], built: Date?, space: String?)? {
+        let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("ARRA Oracles", isDirectory: true)
+        let path = dir.appendingPathComponent(name + ".json"), vectors = path.deletingPathExtension().appendingPathExtension("vectors")
+        func stamp() -> [Date?] { [path, vectors].map { (try? FileManager.default.attributesOfItem(atPath: $0.path)[.modificationDate]) as? Date } }
+        for attempt in 0..<3 {
+            let before = stamp()
+            if let f = read(path: path, vectorsPath: vectors), stamp() == before {
+                return (f.docs.filter { !$0.vec.isEmpty }.map { var d = $0; d.text = nil; return d }, f.built, f.space)
+            }
+            guard FileManager.default.fileExists(atPath: path.path), attempt < 2 else { break }
+            Thread.sleep(forTimeInterval: 0.4)
+        }
+        return nil
+    }
+
+    /// The fleet map's union (#37): docs gathered from other indexes. In memory only — this index is never saved.
+    func adopt(_ docs: [IndexDoc], space: String?, built: Date?) {
+        memoryOnly = true
+        self.docs = docs; self.space = space; self.built = built
         repos = Array(Set(docs.filter { $0.kind != "note" }.map(\.repo))).sorted()
     }
+    private var memoryOnly = false
+
     /// Writes off the main actor, one save after another (a later save waits for the earlier one).
     private func save() {
+        guard !memoryOnly else { return }
         layout.reconcile(docs: docs)   // positions follow the docs: gone ones dropped, new ones placed among their neighbours
         let snapshot = docs, built = built, space = space, path = path, vectorsPath = vectorsPath, previous = saving, model = Self.model
         let ledger = ledger.isEmpty ? nil : ledger
@@ -760,9 +796,11 @@ public final class GHIndex: ObservableObject {
         HubLog.shared.add(.search, String(format: "%@%@ \"%@\" · query embedded in %.0f ms (%@) · ranked %@ in %.1f ms · best %.0f%%",
                                           source, caller.map { " (\($0))" } ?? "", q, embedMs, via, grouped(pool.count), rankMs,
                                           Double(found.first?.score ?? 0) * 100))
-        TraceLog.shared.add(.init(at: Date(), source: source, index: name, query: q, filter: filter.isEmpty ? "all" : filter,
-                                  embedMs: embedMs, rankMs: rankMs, pool: pool.count, via: via,
-                                  top: found.prefix(5).map { .init(id: $0.doc.id, title: $0.doc.title, score: $0.score) }, caller: caller))
+        let entry = TraceLog.Entry(at: Date(), source: source, index: name, query: q, filter: filter.isEmpty ? "all" : filter,
+                                   embedMs: embedMs, rankMs: rankMs, pool: pool.count, via: via,
+                                   top: found.prefix(5).map { .init(id: $0.doc.id, title: $0.doc.title, score: $0.score) }, caller: caller)
+        TraceLog.shared.add(entry)
+        if !memoryOnly { QueryBroadcast.post(index: name, source: source, trace: entry.id) }   // #37: the fleet map fires (it reads the entry)
         return found
     }
 

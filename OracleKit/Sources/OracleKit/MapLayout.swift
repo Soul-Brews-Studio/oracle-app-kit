@@ -171,6 +171,7 @@ public final class MapLayout: ObservableObject {
     public func reconcile(docs: [IndexDoc]) -> Int {
         guard meta != nil, !xyz.isEmpty, !running else { return 0 }
         let present = Set(docs.map(\.id))
+        let had = ids.count
         if ids.contains(where: { !present.contains($0) }) {   // drop rows whose docs are gone (compact, keep order)
             var keepXYZ: [SIMD3<Float>] = [], keepIds: [String] = [], keepKNN: [Int32] = []
             var remap = [Int32](repeating: -1, count: ids.count)
@@ -184,7 +185,10 @@ public final class MapLayout: ObservableObject {
             index = Dictionary(uniqueKeysWithValues: ids.enumerated().map { ($1, $0) })
         }
         let fresh = docs.filter { index[$0.id] == nil }
-        guard !fresh.isEmpty else { return 0 }
+        guard !fresh.isEmpty else {
+            if ids.count < had { meta?.n = ids.count; save() }   // only drops: still saved, or the gone rows come back at launch
+            return 0
+        }
         let t0 = Date()
         // the existing docs' vectors, in `ids` order, for the neighbour search
         let byId = Dictionary(docs.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })

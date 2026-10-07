@@ -14,6 +14,7 @@ struct HubApp: App {
         MapLayoutEngine.install()   // Map page: UMAP in-process (Apple's Rust crate)
         ModelLoad.shared.retry = { Task { await BundledANE.load(mode: UserDefaults.standard.string(forKey: "hub.engineMode") ?? "ane") } }
         MCPServer.serve(name: "arra-oracles", port: 4790) { GHIndex.shared }   // agents search the fleet's issues, PRs and notes
+        QueryListener.shared.start()   // #37: every oracle app's queries fire the fleet map
         if let ane = ANEMonitor() { ANEMeter.shared.reader = { ane.read().map { ($0.utilizationPercent, $0.bandwidthGBs) } } }
     }
     var body: some Scene { HubScene(store: store, menuBar: $menuBar) }
