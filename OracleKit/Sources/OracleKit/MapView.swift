@@ -88,7 +88,8 @@ public struct MapView: View {
         .onChange(of: layout.xyz.count) { scene.needsRebuild = true }
         .onChange(of: clusters.revision) { scene.setGroups(clusters.labels, leaves: clusters.leafLabels, ids: clusters.layoutIds) }
         // #36: every query asked of this memory — a page, the map, another oracle over MCP — fires its hits
-        .onChange(of: trace.entries.count) { _, _ in
+        // keyed on the newest entry, not the count: TraceLog keeps 500, so past that the count stops changing
+        .onChange(of: trace.entries.last?.id) { _, _ in
             guard let e = trace.entries.last, e.index == index.name else { return }
             let rows = e.top.compactMap { layout.row(of: $0.id) }
             scene.fire(rows: rows, color: MapScene.callerColor(e.caller, source: e.source, accent: accent), label: Self.who(e))
