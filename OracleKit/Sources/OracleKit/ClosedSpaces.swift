@@ -64,6 +64,17 @@ public enum ClosedSpaces {
         }
     }
 
+    /// A name `herdr agent start` accepts, made from any label; nil when nothing usable is left.
+    static func validName(_ raw: String) -> String? {
+        var out = ""
+        for ch in raw.lowercased() {
+            if ch.isASCII, ch.isLetter || ch.isNumber || ch == "-" || ch == "_" { out.append(ch) } else if !out.hasSuffix("-") { out.append("-") }
+        }
+        while let f = out.first, !(f.isLetter) { out.removeFirst() }
+        while out.hasSuffix("-") { out.removeLast() }
+        return out.isEmpty ? nil : String(out.prefix(32))
+    }
+
     /// herdr's own words for a failed call.
     static func reason(_ json: [String: Any]?) -> String {
         ((json?["error"] as? [String: Any])?["message"] as? String) ?? "no answer from herdr"
@@ -96,10 +107,13 @@ extension HubStore {
         guard let out = await Shell.run("herdr", ["--session", s.session, "agent", "list"]),
               let d = try? JSONSerialization.jsonObject(with: Data(out.utf8)) as? [String: Any],
               let list = (d["result"] as? [String: Any])?["agents"] as? [[String: Any]] else { return nil }
-        return list.filter { ($0["workspace_id"] as? String) == s.spaceId }.map { a in
-            ClosedAgent(name: a["name"] as? String ?? a["pane_id"] as? String ?? "agent",
-                        kind: a["agent"] as? String ?? "agent",
-                        sessionId: (a["agent_session"] as? [String: Any])?["value"] as? String)
+        let mine = list.filter { ($0["workspace_id"] as? String) == s.spaceId }
+        return mine.enumerated().map { i, a in
+            let kind = a["agent"] as? String ?? "agent"
+            // herdr names: lowercase letter first, then [a-z0-9_-], 1–32. An unnamed agent gets <space>-<kind>[-n].
+            let name = (a["name"] as? String).flatMap { ClosedSpaces.validName($0) }
+                ?? ClosedSpaces.validName("\(s.label)-\(kind)" + (mine.count > 1 ? "-\(i + 1)" : "")) ?? "\(kind)-\(i + 1)"
+            return ClosedAgent(name: name, kind: kind, sessionId: (a["agent_session"] as? [String: Any])?["value"] as? String)
         }
     }
 
