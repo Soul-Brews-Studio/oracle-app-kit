@@ -251,7 +251,8 @@ public final class FleetMap: ObservableObject {
     func setOracles(_ m: [String: String]) { oracleOf = m }
 
     /// The installed app of an oracle (co.laris.oracle.<name>), for "Open in Pulse".
-    public static func app(of oracle: String) -> URL? { HubParse.installedApps()[oracle.lowercased()] }
+    /// The installed app of an oracle, by the key its bundle id carries ("Boon_v2" → co.laris.oracle.boon-v2).
+    public static func app(of oracle: String) -> URL? { HubParse.installedApps()[HubParse.appKey(forRepo: oracle)] }
 }
 
 /// The hub's Map page: the fleet's union, read in the background (again when a member changed), then the same map as

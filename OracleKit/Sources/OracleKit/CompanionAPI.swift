@@ -190,7 +190,10 @@ public enum CompanionAPI {
         public var id: Int
         public var count: Int
         public var keywords: [String]
-        public init(id: Int, count: Int, keywords: [String]) { self.id = id; self.count = count; self.keywords = keywords }
+        public var title: String?           // the group's name, as the Mac's Map shows it (Apple's on-device model, #35); nil until titled
+        public init(id: Int, count: Int, keywords: [String], title: String? = nil) {
+            self.id = id; self.count = count; self.keywords = keywords; self.title = title
+        }
     }
 
     /// The Map as the Mac laid it out. Row i of every array is the same doc.

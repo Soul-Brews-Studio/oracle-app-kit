@@ -48,6 +48,9 @@ final class CompanionMacPayloadTests: XCTestCase {
         try roundTrip(CompanionAPI.MemoryStatus(items: 10, byKind: ["history": 7, "note": 3], sessions: 2, engine: "bundled CoreML/ANE", built: t0, hasMap: true), "MemoryStatus")
         try roundTrip(CompanionAPI.MemoryStatus(items: 0, byKind: [:], sessions: 0, engine: nil, built: nil, hasMap: false), "MemoryStatus, empty memory")
         try roundTrip(CompanionAPI.MapGroup(id: 3, count: 40, keywords: ["heart", "ble"]), "MapGroup")
+        try roundTrip(CompanionAPI.MapGroup(id: 4, count: 12, keywords: ["ตรวจ"], title: "ตรวจสอบใหม่จริง"), "MapGroup, titled")
+        XCTAssertNil(try CompanionAPI.decoder.decode(CompanionAPI.MapGroup.self, from: Data(#"{"id":1,"count":2,"keywords":[]}"#.utf8)).title,
+                     "an older Mac sends no title")
         try roundTrip(CompanionAPI.MapData(ids: ["a", "b"], kinds: ["history", "note"], titles: ["one", "two"],
                                            xyz: MapLayout.pack([SIMD3(0.1, -0.2, 0.3), SIMD3(1, 2, 3)]),
                                            knn: Data([1, 0, 0, 0, 255, 255, 255, 255]), k: 1, labels: [0, 1],
