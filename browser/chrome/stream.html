@@ -1,0 +1,22 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Live — what Nat sees on Facebook</title>
+<style>
+  body { margin: 0; background: #0a0a0f; color: #e4e6eb; font: 14px system-ui, sans-serif; }
+  header { position: sticky; top: 0; padding: 14px 20px; background: #0a0a0f; border-bottom: 1px solid #2a2a35; display: flex; gap: 14px; align-items: baseline; }
+  header b { font-size: 16px; } header .s { opacity: .6; font-size: 12px; } header .live { color: #66bb6a; }
+  main { max-width: 750px; margin: 0 auto; padding: 10px 20px 60px; }
+  .ev { padding: 12px 0; border-bottom: 1px solid #1c1c26; } .ev.fresh { animation: in .6s ease-out; }
+  @keyframes in { from { background: rgba(171,71,188,.25); } to { background: transparent; } }
+  .h { display: flex; gap: 10px; align-items: baseline; } .t { opacity: .5; font: 12px ui-monospace, monospace; }
+  .k { font: 600 11px ui-monospace, monospace; padding: 1px 7px; border-radius: 8px; background: #1e1e2a; color: #e1bee7; }
+  .k.seen { color: #a5d6a7; } .k.comment-seen { color: #90caf9; } .k.nav { color: #8a8d91; }
+  .a { font-weight: 600; } .x { white-space: pre-wrap; margin: 6px 0 4px; line-height: 1.45; }
+  a { color: #64b5f6; font-size: 12px; text-decoration: none; word-break: break-all; } a:hover { text-decoration: underline; }
+  .empty { opacity: .6; padding: 30px 0; }
+  .st { font: 600 11px ui-monospace, monospace; padding: 1px 7px; border-radius: 8px; } .st.new { background: #1f3a24; color: #a5d6a7; }
+  .st.same { background: #1c2733; color: #90caf9; } .st.updated { background: #3a2a14; color: #ffcc80; }
+</style>
+<header><b>🔮 Live</b><span class="live" id="state">connecting…</span><span class="s" id="count"></span></header>
+<main id="list"><div class="empty">Nothing yet. On a Facebook tab, click <b>REC off</b> (bottom-left badge) to start recording that tab.</div></main>
+<script src="stream.js"></script>

@@ -1,0 +1,137 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>oracle-fb bridge — live</title>
+<style>
+  body { margin: 0; background: #0a0a0f; color: #e4e6eb; font: 14px system-ui, sans-serif; }
+  header { position: sticky; top: 0; padding: 14px 20px; background: #0a0a0f; border-bottom: 1px solid #2a2a35; display: flex; gap: 14px; align-items: baseline; }
+  header b { font-size: 16px; } header .s { opacity: .6; font-size: 12px; } header .live { color: #66bb6a; }
+  main { max-width: 750px; margin: 0 auto; padding: 10px 20px 60px; }
+  .ev { padding: 12px 0; border-bottom: 1px solid #1c1c26; } .ev.fresh { animation: in .6s ease-out; }
+  @keyframes in { from { background: rgba(171,71,188,.25); } to { background: transparent; } }
+  .h { display: flex; gap: 10px; align-items: baseline; } .t { opacity: .5; font: 12px ui-monospace, monospace; }
+  .k { font: 600 11px ui-monospace, monospace; padding: 1px 7px; border-radius: 8px; background: #1e1e2a; color: #e1bee7; }
+  .k.seen, .k.post { color: #a5d6a7; } .k.post { background: #1f2a1f; } .k.comment-seen { color: #90caf9; } .k.nav { color: #8a8d91; }
+  .a { font-weight: 600; } .x { white-space: pre-wrap; margin: 6px 0 4px; line-height: 1.45; }
+  a { color: #64b5f6; font-size: 12px; text-decoration: none; word-break: break-all; } a:hover { text-decoration: underline; }
+  .empty { opacity: .6; padding: 30px 0; }
+  nav { display: flex; gap: 6px; margin-left: auto; } nav button { border: 0; border-radius: 10px; padding: 5px 12px; background: #1e1e2a; color: #b0b3b8; font: 600 12px system-ui; cursor: pointer; }
+  nav button.on { background: rgba(171,71,188,.85); color: #fff; }
+  .tree { font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; padding: 14px 0; border-bottom: 1px solid #1c1c26; }
+  .tree .id { color: #e1bee7; font-weight: 600; } .tree .ty { color: #8a8d91; } .tree .who { color: #a5d6a7; } .tree .g { color: #90caf9; }
+  .tree .body { white-space: pre-wrap; font-family: system-ui, sans-serif; font-size: 14px; color: #e4e6eb; margin: 6px 0 6px 2ch; border-left: 2px solid #2a2a35; padding-left: 10px; }
+  .tree .br { color: #4a4a58; } .tree .c { font-family: system-ui, sans-serif; color: #e4e6eb; } .tree a { font-size: 12px; }
+  .st { font: 600 11px ui-monospace, monospace; padding: 1px 7px; border-radius: 8px; } .st.new { background: #1f3a24; color: #a5d6a7; }
+  .st.same { background: #1c2733; color: #90caf9; } .st.updated { background: #3a2a14; color: #ffcc80; }
+</style>
+<header><b>🔮 bridge · live</b><span class="live" id="state">connecting…</span><span class="s" id="count"></span><nav><button id="tLive" class="on">Live</button><button id="tTree">Tree (graph)</button></nav></header>
+<main id="tree" style="display:none"></main>
+<main id="list"><div class="empty">Nothing yet. Open Facebook: every post that gets a 🔮 chip arrives here. REC (bottom-left badge) adds comments, clicks and page changes.</div></main>
+<script>
+// The bridge's own viewer (http://127.0.0.1:4747/): what the surrogate recorded, as text, newest on top. Polls the bridge every second (127.0.0.1 only).
+const B = '';   // served by the bridge itself: same origin
+const $ = (id) => document.getElementById(id);
+let last = 0, shown = 0;
+const clock = (ms) => new Date(ms).toLocaleTimeString('en-GB');
+function card(e, fresh) {
+  const d = document.createElement('div'); d.className = 'ev' + (fresh ? ' fresh' : '');
+  const h = document.createElement('div'); h.className = 'h';
+  const t = document.createElement('span'); t.className = 't'; t.textContent = clock(e.ts);
+  const k = document.createElement('span'); k.className = 'k ' + e.kind; k.textContent = e.kind;
+  const a = document.createElement('span'); a.className = 'a';
+  a.textContent = e.kind === 'nav' ? (e.text || e.key) : (e.author || (e.post ? 'on ' + e.post.slice(0, 60) : ''));
+  h.append(t, k, a); if (e.media) h.append(Object.assign(document.createElement('span'), { className: 't', textContent: `${e.media} media` }));
+  if (e.status) {   // new / same / updated: what the bridge made of this capture
+    const s = document.createElement('span'); s.className = 'st ' + e.status;
+    s.textContent = e.status === 'updated' ? `UPDATED v${e.v} · ${(e.changes || []).join(', ')}` : e.status === 'same' ? `same v${e.v}` : 'NEW';
+    s.title = e.node || ''; h.append(s);
+  }
+  d.append(h);
+  if (e.text && e.kind !== 'nav') d.append(Object.assign(document.createElement('div'), { className: 'x', textContent: e.text }));
+  const href = e.link || (/^https?:/.test(e.key) ? e.key : '') || e.url;
+  if (href) { const l = document.createElement('a'); l.href = href; l.target = '_blank'; l.textContent = href; d.append(l); }
+  return d;
+}
+async function tick() {
+  try {
+    const first = !last;
+    // POST, so Chrome attaches our Origin (the bridge only answers the extension or the token holder)
+    const rows = await fetch(`${B}/stream`, { method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(first ? { limit: 60 } : { since: last, limit: 100 }) }).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
+    $('state').textContent = '● live'; $('state').style.color = '#66bb6a';
+    const list = first ? rows.slice().reverse() : rows;   // first page arrives newest-first
+    if (list.length && $('list').querySelector('.empty')) $('list').textContent = '';
+    for (const e of list) { $('list').prepend(card(e, !first)); last = Math.max(last, e.id); shown++; }
+    $('count').textContent = `${shown} shown`;
+  } catch { $('state').textContent = '○ bridge not running — bun …/oracle-app-kit/browser/bridge/server.ts'; $('state').style.color = '#ef5350'; }
+}
+// first the last 60 (one /stream call), then the bridge PUSHES each new event down one long POST /live response
+async function live() {
+  await tick();
+  try {
+    const res = await fetch(`${B}/live`, { method: 'POST' });
+    if (!res.ok) throw new Error(res.status);
+    $('state').textContent = '● live (pushed by the bridge)';
+    const reader = res.body.getReader(), dec = new TextDecoder(); let buf = '';
+    while (true) {
+      const { value, done } = await reader.read(); if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let i; while ((i = buf.indexOf('\n\n')) >= 0) {
+        const msg = buf.slice(0, i); buf = buf.slice(i + 2);
+        if (!msg.startsWith('data: ')) continue;
+        if ($('list').querySelector('.empty')) $('list').textContent = '';
+        $('list').prepend(card(JSON.parse(msg.slice(6)), true)); shown++; $('count').textContent = `${shown} shown`;
+      }
+    }
+  } catch {}
+  $('state').textContent = '○ stream dropped — retrying'; $('state').style.color = '#ef5350';
+  setTimeout(live, 2000);   // the bridge restarted or went away: reconnect
+}
+live();
+
+// ── Tree (graph): each post is a node id; under it its author, group, media, links, shares and the comment tree ──
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const ln = (href, text) => href ? `<a href="${esc(href)}" target="_blank">${esc(text || href)}</a>` : '';
+function commentHtml(c, pre, last) {
+  const br = pre + (last ? '└─ ' : '├─ '), next = pre + (last ? '   ' : '│  ');
+  let h = `<div><span class="br">${esc(br)}</span><span class="id">${esc(c.id)}</span> <span class="who">${esc(c.author?.label || '?')}</span>${c.author ? ` <span class="ty">${esc(c.author.id)}</span>` : ''}</div>`;
+  if (c.text) h += `<div><span class="br">${esc(next)}</span><span class="c">${esc(c.text)}</span></div>`;
+  c.replies.forEach((r, i) => { h += commentHtml(r, next, i === c.replies.length - 1); });
+  return h;
+}
+function postHtml(p) {
+  const rows = [];
+  if (p.author) rows.push(`authored by <span class="who">${esc(p.author.label || '?')}</span> <span class="ty">${esc(p.author.id)}</span>`);
+  if (p.group) rows.push(`in <span class="g">${esc(p.group.id)}</span> ${ln(p.group.url, '↗')}`);
+  for (const m of p.media) rows.push(`has_media <span class="id">${esc(m.id)}</span>${m.album ? ` <span class="ty">in ${esc(m.album)}</span>` : ''} ${ln(m.url, '↗')}`);
+  for (const l of p.links) rows.push(`links_to ${ln(l.url, l.id.replace(/^url:/, ''))}`);
+  for (const s of p.shares) rows.push(`shares <span class="id">${esc(s.id)}</span> ${ln(s.url, '↗')}`);
+  if (p.by_me.length) rows.push(`<span class="ty">me:nat ${esc([...new Set(p.by_me)].join(', '))}</span>`);
+  let h = `<div class="tree"><div><span class="id">${esc(p.id)}</span> <span class="ty">${esc(p.type)} · seen ${p.seen}× · ${new Date(p.last_seen).toLocaleTimeString('en-GB')}</span> ${ln(p.url, 'open ↗')}</div>`;
+  if (p.versions?.length) {   // v1 … vN: when it was collected and what each update added
+    const last = p.versions[p.versions.length - 1];
+    h += `<div><span class="st ${p.versions.length > 1 ? 'updated' : 'new'}">v${last.v}</span> <span class="ty">${p.versions.map(x => `v${x.v} ${new Date(x.ts).toLocaleTimeString('en-GB')}${x.changes.length ? ' (' + esc(x.changes.join(', ')) + ')' : ''}`).join(' → ')} · content ${esc(last.hash)}</span></div>`;
+  }
+  if (p.text) h += `<div class="body">${esc(p.text)}</div>`;
+  const all = rows.length + (p.comments.length ? 1 : 0);
+  rows.forEach((r, i) => { h += `<div><span class="br">${i === all - 1 ? '└─ ' : '├─ '}</span>${r}</div>`; });
+  if (p.comments.length) {
+    h += `<div><span class="br">└─ </span>comments (${p.comments.length})</div>`;
+    p.comments.forEach((c, i) => { h += commentHtml(c, '   ', i === p.comments.length - 1); });
+  }
+  return h + '</div>';
+}
+let treeTimer = 0;
+async function loadTree() {
+  const rows = await fetch(`${B}/tree`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{"limit":30}' }).then(r => r.json()).catch(() => null);
+  $('tree').innerHTML = rows ? (rows.length ? rows.map(postHtml).join('') : '<div class="empty">no posts yet</div>') : '<div class="empty">bridge not reachable</div>';
+}
+const showTab = (tree) => {
+  $('tree').style.display = tree ? '' : 'none'; $('list').style.display = tree ? 'none' : '';
+  $('tTree').className = tree ? 'on' : ''; $('tLive').className = tree ? '' : 'on';
+  if (tree) loadTree();
+};
+$('tLive').onclick = () => showTab(false); $('tTree').onclick = () => showTab(true);
+// a new event re-draws the tree (at most every 1.5 s) while it is showing
+new MutationObserver(() => { if ($('tree').style.display !== 'none') { clearTimeout(treeTimer); treeTimer = setTimeout(loadTree, 1500); } }).observe($('list'), { childList: true });
+
+</script>
