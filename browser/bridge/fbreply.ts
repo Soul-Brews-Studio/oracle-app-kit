@@ -13,6 +13,17 @@ let args = Bun.argv.slice(2), to = '', tab: number | undefined;
 const ti = args.indexOf('--to'); if (ti >= 0) { to = args[ti + 1] || ''; args.splice(ti, 2); }   // --to Chrome/153 : which browser types it
 const tj = args.indexOf('--tab'); if (tj >= 0) { tab = Number(args[tj + 1]); args.splice(tj, 2); }   // --tab 123 : type into that exact tab
 const [a, b, ...rest] = args;
+if (a === '--status') {
+  const r = await call('/status');
+  if (!r) { console.error(`✗ bridge NOT running\n  bun ${import.meta.dir}/server.ts`); process.exit(1); }
+  const t = (ms: number) => new Date(ms).toTimeString().slice(0, 8);
+  console.log(`bridge   127.0.0.1:${r.body.port}  up ${r.body.up}s   extension id ${r.body.extension}`);
+  if (!r.body.browsers.length) console.log('no browser has connected yet — reload the extension: chrome://extensions/?id=' + r.body.extension);
+  for (const b of r.body.browsers) console.log(b.connected
+    ? `${b.browser.padEnd(11)} ✓ connected      since ${t(b.since)}   ${b.version || 'version ? (older build — reload the extension)'}`
+    : `${b.browser.padEnd(11)} ✗ NOT connected  last seen ${t(b.lastSeen)}   ${b.version || ''}   → chrome://extensions/?id=${r.body.extension}  (reload) and open a Facebook tab`);
+  process.exit(0);
+}
 if (a === '--tabs') {
   const r = await call('/tabs');
   if (!r) { console.error(`✗ bridge not running\n  bun ${import.meta.dir}/server.ts`); process.exit(1); }
@@ -26,7 +37,7 @@ if (a === '--list') {
   for (const t of r.body) console.log(`${t.id}  ${t.comments.length} comments  ${t.title}\n        ${t.url}`);
   process.exit(0);
 }
-if (!a || !b || !rest.length) { console.error('usage: fbreply [--to Chrome/153] [--tab 123] <thread> <c1|comment_id> <text…>\n       fbreply --list\n       fbreply --tabs'); process.exit(2); }
+if (!a || !b || !rest.length) { console.error('usage: fbreply --status\n       fbreply [--to Chrome/153] [--tab 123] <thread> <c1|comment_id> <text…>\n       fbreply --list\n       fbreply --tabs'); process.exit(2); }
 const r = await call('/reply', { thread: a, comment: b, text: rest.join(' '), to, tab });
 if (!r) { console.error(`✗ bridge not running\n  bun ${import.meta.dir}/server.ts`); process.exit(1); }
 if (r.status !== 200) { console.error(`✗ ${r.body.error}${r.body.fix ? `\n  ${r.body.fix}` : ''}${r.body.have ? `\n  comments: ${r.body.have.join(' ')}` : ''}`); process.exit(1); }

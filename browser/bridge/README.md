@@ -14,6 +14,7 @@ Run it (a long job — put it in a herdr pane):
 
 Reply to a comment (ids come from the thread file / `--list`):
 
+    bun fbreply.ts --status                      # which browsers are connected or not (+ extension version)
     bun fbreply.ts --list
     bun fbreply.ts --tabs                        # every Facebook tab, in every connected browser (id per browser)
     bun fbreply.ts <thread> c2 "your reply"      # goes back to the tab the thread was forwarded from

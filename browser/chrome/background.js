@@ -78,7 +78,7 @@ function retryBridge() {
 function connectBridge() {
   if (bridge && bridge.readyState <= 1) return;
   try { bridge = new WebSocket(`ws://${BRIDGE}/ws`); } catch { showBridge(false); return; }
-  bridge.onopen = () => { retryMs = 1500; showBridge(true); };
+  bridge.onopen = () => { retryMs = 1500; showBridge(true); try { bridge.send(JSON.stringify({ type: 'hello', version: chrome.runtime.getManifest().version_name, id: chrome.runtime.id })); } catch {} };
   bridge.onmessage = (e) => { try { const m = JSON.parse(e.data); if (m.type === 'reply') handleReply(m); else if (m.type === 'tabs') listTabs(m); } catch {} };
   bridge.onclose = () => { bridge = null; showBridge(false); retryBridge(); };
   bridge.onerror = () => showBridge(false);

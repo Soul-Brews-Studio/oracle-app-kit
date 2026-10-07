@@ -24,6 +24,12 @@ const exts = new Set<any>();                // every connected extension (Chrome
 const waiting = new Map<string, (r: any) => void>();
 const uaOf = (e: any) => String(e.data.ua);
 const browserName = (e: any) => (uaOf(e).match(/Chrome\/[\d.]+/) || ['browser'])[0].replace(/(\d+)\..*/, '$1');   // Chrome/153
+// every browser the bridge has met: connected now, or when it was last seen (kept across restarts)
+const SEEN = join(HOME, 'seen.json');
+const seen: Record<string, { version: string; since: number; lastSeen: number; connected: boolean }> = existsSync(SEEN) ? JSON.parse(readFileSync(SEEN, 'utf8')) : {};
+for (const k in seen) seen[k].connected = false;   // a fresh bridge has nobody yet
+const saveSeen = () => writeFileSync(SEEN, JSON.stringify(seen, null, 1));
+const BOOT = Date.now();
 const newest = (list: any[]) => list.sort((a, b) => b.data.at - a.data.at)[0];
 function ask(ext: any, msg: any, ms = 20_000) {   // one request over a socket, answered by {type:'result', rid}
   const rid = crypto.randomUUID();
@@ -52,6 +58,10 @@ Bun.serve({
     if (u.pathname === '/threads') {
       if (!fromCli(req)) return json({ error: 'token' }, 403);
       return json(readdirSync(DIR).filter(f => f.endsWith('.json')).map(f => JSON.parse(readFileSync(join(DIR, f), 'utf8'))));
+    }
+    if (u.pathname === '/status') {   // fbreply --status
+      if (!fromCli(req)) return json({ error: 'token' }, 403);
+      return json({ up: Math.round((Date.now() - BOOT) / 1000), port: PORT, extension: EXT_ID, browsers: Object.entries(seen).map(([browser, v]) => ({ browser, ...v })) });
     }
     if (u.pathname === '/tabs') {   // every Facebook tab, in every connected browser
       if (!fromCli(req)) return json({ error: 'token' }, 403);
@@ -86,10 +96,22 @@ Bun.serve({
     return json({ error: 'not found' }, 404);
   },
   websocket: {
-    open(ws) { exts.add(ws); console.log(`extension connected (${exts.size})`); },
-    close(ws) { exts.delete(ws); console.log(`extension gone (${exts.size})`); },
+    open(ws) {
+      exts.add(ws); console.log(`extension connected (${exts.size})`);
+      const b = browserName(ws), now = Date.now();
+      seen[b] = { version: seen[b]?.version || '', since: now, lastSeen: now, connected: true }; saveSeen();
+    },
+    close(ws) {
+      exts.delete(ws); console.log(`extension gone (${exts.size})`);
+      const b = browserName(ws);
+      if (seen[b] && ![...exts].some(e => browserName(e) === b)) { seen[b].connected = false; seen[b].lastSeen = Date.now(); saveSeen(); }
+    },
     message(_ws, m) {
-      try { const r = JSON.parse(String(m)); if (r.type === 'result') { waiting.get(r.rid)?.(r); waiting.delete(r.rid); } } catch {}
+      try {
+        const r = JSON.parse(String(m));
+        if (r.type === 'result') { waiting.get(r.rid)?.(r); waiting.delete(r.rid); }
+        else if (r.type === 'hello') { const b = browserName(_ws); if (seen[b]) { seen[b].version = String(r.version || ''); saveSeen(); } }
+      } catch {}
     },
   },
 });
