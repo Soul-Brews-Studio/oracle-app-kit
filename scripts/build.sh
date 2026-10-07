@@ -38,7 +38,7 @@ for s in $schemes; do
   (( r )) && { rg 'error:' $log | sed "s|^$R/||" | sort -u | head -12; echo "  full log: $R/$log"; }
 done
 (( INSTALL && $#built )) || exit $rc
-lock_take "zsh $R/scripts/build.sh ${(j: :)${(q)@}}" || exit 75
+lock_take "${ORACLE_APP_TEAM:+ORACLE_APP_TEAM=${(q)ORACLE_APP_TEAM} }zsh $R/scripts/build.sh ${(j: :)${(q)@}}" || exit 75
 trap lock_drop EXIT; trap 'lock_drop; exit 130' INT TERM HUP
 for s in $built; do
   app=$s; [[ $s == Oracles ]] && app="ARRA Oracles"

@@ -25,6 +25,8 @@ KIT=$(ghq list -p --exact Soul-Brews-Studio/oracle-app-kit)
 SLUG=$(git remote get-url origin | sed -E 's#(\.git)?$##; s#.*github\.com[:/]##')    # the oracle's org/repo
 ORACLE=$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')   # its MAIN checkout, even from a worktree:
 [ -d "$ORACLE" ] || echo "run this inside the oracle's repo"                     # this path is baked into the app
+# --repo=org/repo (building for another oracle): SLUG=org/repo; ORACLE=$(ghq list -p --exact "$SLUG")
+#   (clone it first: ghq get -p "$SLUG"); read colour / symbol / tagline from $ORACLE/CLAUDE.md, not from here
 ```
 
 Never work in `$KIT`'s main checkout. Cut a worktree:
@@ -67,11 +69,12 @@ unless `--team=` is given. The generator's ready line says where the team came f
    (open the PNG) before going on.
 3. **Generate** — `--opt=value` is one word in zsh and bash alike:
    ```bash
-   zsh $K/scripts/new-oracle-app.sh <Name> $SLUG "$ORACLE" '<#hex>' <sf.symbol> "<tagline>" \
+   zsh $K/scripts/new-oracle-app.sh <Name> $SLUG "$ORACLE" '<#hex>' <sf.symbol> '<tagline>' \
        ${KEY:+--key=$KEY} ${ORACLE_APP_TEAM:+--team=$ORACLE_APP_TEAM}
    zsh $K/scripts/parity.sh           # the generator still matches every app — ✓ for each, or stop
    ```
-   It prints the key, bundle id, MCP port (next free from 4791) and team.
+   Single-quote the tagline (an apostrophe is `'\''`): a `$` or backtick copied from a CLAUDE.md line must not
+   run in your shell. It prints the key, bundle id, MCP port (next free from 4791) and team.
 4. **Build + install the new app only** — the portal finds it by bundle id, it needs no rebuild. Minutes, so in a
    herdr pane, never a blocking call:
    ```bash

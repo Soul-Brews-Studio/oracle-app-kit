@@ -93,7 +93,7 @@ else bad "MCP :$PORT not answering" "lsof -nP -iTCP:$PORT -sTCP:LISTEN" "tail -2
 TQ="$HOME/Library/Logs/ARRA Oracles/$N-queries.jsonl"; q0=0; [ -f "$TQ" ] && q0=$(wc -l < "$TQ"); MQ="check ${(L)N} $$"
 MR=$(curl -s -m 30 -X POST 127.0.0.1:$PORT/mcp -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' \
   -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"memory_search\",\"arguments\":{\"query\":\"$MQ\"}}}")
-TR=$(tail -n +$((q0 + 1)) "$TQ" 2>/dev/null | jq -c --arg q "$MQ" 'select(.query == $q and .source == "mcp" and (.caller // "") != "")' 2>/dev/null | tail -1)
+TR=$(tail -n +$((q0 + 1)) "$TQ" 2>/dev/null | rg -F "\"query\":\"$MQ\"" | rg -F '"source":"mcp"' | rg -F '"caller":"' | tail -1)   # this exact query, via MCP, with a caller
 if [[ $MR == *'"result"'* && $MR != *'"isError":true'* ]]; then ok "MCP search   memory_search answered"; else bad "MCP search   memory_search failed: ${MR[1,160]}" "tail -20 \"$LOG\""; fi
 [[ -n $TR ]] && ok "Trace        query recorded, caller $(print -r -- $TR | sed -n 's/.*"caller":"\([^"]*\)".*/\1/p')" || bad "Trace        no query recorded in $TQ" "tail -3 \"$TQ\""
 
