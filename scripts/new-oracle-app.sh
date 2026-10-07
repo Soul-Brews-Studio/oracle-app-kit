@@ -227,7 +227,7 @@ targets:
           export PATH="/opt/homebrew/opt/rustup/bin:\$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:\$PATH"
           if ! command -v cargo >/dev/null; then
             echo "error: cargo not found: the Memory page's embedder builds its tokenizer with Rust. Install it, then build again:"
-            echo "error:   brew install rustup && rustup-init -y && . ~/.cargo/env"
+            echo "error:   brew install rustup && /opt/homebrew/opt/rustup/bin/rustup default stable"
             exit 1
           fi
           cd "\$SRCROOT/ANEEmbed/tokenizer-ffi" && cargo build --release --locked

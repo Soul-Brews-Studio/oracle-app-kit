@@ -81,9 +81,6 @@ fi
 if [[ $RUN == *" /Applications/$N.app/"* ]]; then ok "running      ${RUN%% *} from /Applications"
 elif [[ -n $RUN ]]; then bad "running from elsewhere: ${RUN#* }" "pgrep -fl '$N.app/Contents/MacOS'   # whose copy? ask before quitting it, then: open \"$A\""
 else bad "not running" "open \"$A\"; tail -20 \"$LOG\""; fi
-CR=()
-for c in $HOME/Library/Logs/DiagnosticReports/{$N,${N}Widget,${N}Share}-*(N); do [[ $c -nt $MARK ]] && CR+=($c); done
-(( $#CR )) && bad "crashed      ${CR[1]}" "head -60 '${CR[1]}'" || ok "no crash     app, widget or share since launch"
 
 # MCP memory server — this app's own (another app answering on the port is a ✗)
 H=$(curl -s -m 3 127.0.0.1:$PORT/health)
@@ -106,7 +103,7 @@ elif [[ -n $WP ]]; then bad "widget registered from $WP, not /Applications" "plu
 else bad "widget co.laris.oracle.$KEY.widget not registered" "open \"$A\"; sleep 5; pluginkit -m -v -i co.laris.oracle.$KEY.widget"; fi
 
 # the generator still produces what every app is
-PO=$(zsh $K/scripts/parity.sh 2>&1); [[ $? == 0 ]] && ok "parity       $(print -r -- $PO | rg -c '^✓') apps match the generator" || bad "parity" ${(f)PO}
+PO=$(zsh $K/scripts/parity.sh 2>&1); [[ $? == 0 ]] && ok "parity       $(print -r -- $PO | rg -c '^✓') apps match the generator" || bad "parity — an app differs from what the generator writes (diff below); regenerate it, or rerun parity:" ${(f)PO} "$REGEN" "zsh $K/scripts/parity.sh"
 
 if (( DEEP )); then
   # Memory then Map, each driven by a launch argument. Pass only on the line the app writes when the work is DONE, read
@@ -127,6 +124,7 @@ if (( DEEP )); then
       sleep 5; t=$((t + 5))
       hit=$(tail -n +$((n0 + 1)) "$LOG" 2>/dev/null | rg -m1 -e "$re" -e "$FATAL")
       [[ -n $hit ]] && break
+      [[ -z $(running) ]] && { hit="EXITED"; break; }   # crashed or quit: no point waiting out the limit
     done
     print -r -- "$hit"
   }
@@ -134,6 +132,7 @@ if (( DEEP )); then
     Q=${(L)N}
     deep memory batch '^[0-9:.]+ info   (memory batch done|up to date — nothing new in )' 600 -memoryQuery "$Q" > $MARK.out; B=$(<$MARK.out)
     if [[ $B == LOCKED ]]; then bad "Memory       not run: install in progress by $(cat $LOCK_DIR/who 2>/dev/null)" "zsh $0 $N --deep --relaunch"
+    elif [[ $B == EXITED ]]; then bad "Memory       $N exited during the batch" "ls -t ~/Library/Logs/DiagnosticReports/{$N,${N}Widget,${N}Share}-*(N) | head -1; tail -30 \"$LOG\""
     elif [[ $B == *" error  "* ]]; then bad "Memory       ${B#* error  }" "open \"$A\" --args -oracleSection memory    # the engine card says what is missing"
     elif [[ -n $B ]]; then ok "Memory       ${B#* info   }"
     else bad "Memory       no batch result within 10 min" "tail -30 \"$LOG\""; fi
@@ -141,13 +140,14 @@ if (( DEEP )); then
       for i in {1..6}; do S=$(tail -n +$((N0 + 1)) "$LOG" | rg "search [a-z]+ .*\"$Q\" · query embedded" | tail -1); [[ -n $S ]] && break; sleep 5; done
     fi
     hits=$(print -r -- "$S" | sed -n 's/.*ranked \([0-9,]*\) in.*/\1/p' | tr -d ,); best=$(print -r -- "$S" | sed -n 's/.*best \([0-9]*\)%.*/\1/p')
-    if [[ $B == LOCKED ]]; then :
+    if [[ $B == LOCKED || $B == EXITED ]]; then :
     elif [[ -n $S ]] && (( ${hits:-0} > 0 && ${best:-0} > 0 )); then ok "Memory query ${S#* search }"
     elif [[ -n $S ]]; then bad "Memory query \"$Q\" found nothing (ranked ${hits:-0}, best ${best:-0}%)" "open \"$A\" --args -oracleSection memory   # is the index empty?"
     else bad "Memory query \"$Q\" not searched" "rg -n 'search' \"$LOG\" | tail -5"; fi
     M=$(deep map layout 'map layout: [0-9]+ docs in|map: [0-9]+ points in' 300)
     mn=$(print -r -- "$M" | sed -En 's/.*map( layout)?: ([0-9]+) (docs|points).*/\2/p')   # -E: BSD sed has no \| in basic regex
     if [[ $M == LOCKED ]]; then bad "Map          not run: install in progress by $(cat $LOCK_DIR/who 2>/dev/null)" "zsh $0 $N --deep --relaunch"
+    elif [[ $M == EXITED ]]; then bad "Map          $N exited while drawing the map" "ls -t ~/Library/Logs/DiagnosticReports/{$N,${N}Widget,${N}Share}-*(N) | head -1; tail -30 \"$LOG\""
     elif [[ -n $M ]] && (( ${mn:-0} > 0 )); then ok "Map          ${M#* info   }"
     elif [[ -n $M ]]; then bad "Map          drew no points: ${M#* info   }" "open \"$A\" --args -oracleSection memory   # embed first (--deep runs the batch)"
     else bad "Map          no layout drawn within 5 min" "rg -n 'map' \"$LOG\" | tail -5"; fi
@@ -170,5 +170,9 @@ if (( IOS )); then
     && ok "iOS compiles" || bad "iOS build failed" "rg 'error:' $K/build/ios-$N.log | sort -u | head"
 fi
 
+# crashes count over the WHOLE run — --deep and --shots relaunch the app and load the model
+CR=()
+for c in $HOME/Library/Logs/DiagnosticReports/{$N,${N}Widget,${N}Share}-*(N); do [[ $c -nt $MARK ]] && CR+=($c); done
+(( $#CR )) && bad "crashed      ${CR[1]}" "head -60 '${CR[1]}'" || ok "no crash     app, widget or share since launch"
 rm -f $MARK $MARK.out
 (( fail )) && { print -r -- "— $N: not all green"; exit 1; } || { print -r -- "— $N: all green"; exit 0; }

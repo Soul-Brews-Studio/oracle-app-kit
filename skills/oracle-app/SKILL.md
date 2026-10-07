@@ -87,7 +87,8 @@ unless `--team=` is given. The generator's ready line says where the team came f
    ends. Never delete the lock by hand; a dead holder's lock is taken over automatically.
 5. **Check** (§3): `check.sh <Name> --deep --shots --relaunch` — the new app is yours to relaunch. It takes minutes
    (the model loads, the memory is embedded), so run it in a herdr pane like step 4:
-   `herdr pane run <PANE> 'zsh '$K'/skills/oracle-app/check.sh <Name> --deep --shots --relaunch; RC=$?; herdr agent prompt <ME> "PANE <PANE> oracle-app check rc=$RC $(herdr pane read <PANE> --source recent-unwrapped --lines 30 | rg "^(✓|✗|—)" | tail -20)"'`.
+   `herdr pane run <PANE> 'zsh '$K'/skills/oracle-app/check.sh <Name> --deep --shots --relaunch; RC=$?; herdr agent prompt <ME> "PANE <PANE> oracle-app check rc=$RC $(herdr pane read <PANE> --source recent-unwrapped --lines 60 | rg -v "^✓" | tail -40)"'`
+   (only the green rows are dropped: every ✗ keeps the indented command that fixes it).
    Every row ✓, or fix and re-run; each ✗ prints its own fix. Add `--ios` once OracleKit builds for iOS (#46): on main today it does
    not (`HubViews.swift`, `GHIndex.swift`, `MapClusters.swift`, `Views.swift` use macOS-only API), so that row is ✗ for
    every app, the generated one included — not a defect of the new app.
