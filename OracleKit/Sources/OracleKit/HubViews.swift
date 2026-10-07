@@ -375,6 +375,7 @@ struct SessionSpaces: View {
     @State private var confirmStop = false
     @State private var stopping = false
     @State private var stopError: String?
+    @State private var resume: (resumes: [String: Int], lost: [String])?
     var body: some View {
         let s = store.sessions.first { $0.name == session }
         let spaces = store.spaces.filter { $0.session == session }.sorted { $0.number < $1.number }
@@ -385,7 +386,10 @@ struct SessionSpaces: View {
                     Text(s?.running == true ? "running · \(spaces.count) spaces" : "stopped").font(.callout).foregroundStyle(.secondary)
                     Spacer()
                     if s?.running == true {
-                        Button(stopping ? "Stopping…" : "Stop session", role: .destructive) { confirmStop = true }
+                        Button(stopping ? "Stopping…" : "Stop session", role: .destructive) {
+                            resume = nil; confirmStop = true
+                            Task { resume = await store.resumeCheck(session) }
+                        }
                             .controlSize(.small).disabled(stopping).handCursor()
                             .help("herdr session stop \(session) — ends every pane in it")
                         Button("Open in WezTerm") { store.openSession(session) }.controlSize(.small)
@@ -435,7 +439,11 @@ struct SessionSpaces: View {
             .map { "\($0.label) (\(HubParse.word($0.status)))" }
         var t = "Ends \(spaces.count) spaces, \(panes) panes and \(agents) agents."
         if !busy.isEmpty { t += "\nStill active: " + busy.joined(separator: ", ") + "." }
-        return t + "\nWorktrees and transcripts stay; the oracles come back as resumable."
+        guard let r = resume else { return t + "\nChecking which agents will resume…" }
+        let back = r.resumes.sorted { $0.key < $1.key }.map { "\($0.value) \($0.key)" }.joined(separator: ", ")
+        t += "\nReopen resumes " + (back.isEmpty ? "no agents" : back) + " where they were."
+        if !r.lost.isEmpty { t += "\nNo saved session, back as a plain shell: " + r.lost.joined(separator: ", ") + "." }
+        return t
     }
 }
 

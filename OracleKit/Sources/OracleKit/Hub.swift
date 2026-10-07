@@ -210,8 +210,24 @@ public final class HubStore: ObservableObject {
         Task.detached { await WezTerm.show(session: name) }
     }
 
-    /// Stop a whole session: its server and every pane in it end. Worktrees and transcripts stay on disk,
-    /// so its oracles come back as resumable. nil when it stopped; otherwise the error with the command to run.
+    /// Which agents a reopen brings back. herdr (0.9.1) saves each pane's `agent_session` when the session stops
+    /// and relaunches that agent resumed on reopen — claude and codex alike; a pane whose agent never reported
+    /// a session id comes back as a bare shell. Read live from `herdr --session S agent list`.
+    public func resumeCheck(_ name: String) async -> (resumes: [String: Int], lost: [String])? {
+        guard let out = await Shell.run("herdr", ["--session", name, "agent", "list"]),
+              let d = try? JSONSerialization.jsonObject(with: Data(out.utf8)) as? [String: Any],
+              let agents = (d["result"] as? [String: Any])?["agents"] as? [[String: Any]] else { return nil }
+        var resumes: [String: Int] = [:], lost: [String] = []
+        for a in agents {
+            let kind = a["agent"] as? String ?? "agent"
+            if (a["agent_session"] as? [String: Any])?["value"] is String { resumes[kind, default: 0] += 1 }
+            else { lost.append("\(a["name"] as? String ?? a["pane_id"] as? String ?? "?") (\(kind))") }
+        }
+        return (resumes, lost)
+    }
+
+    /// Stop a whole session: its server and every pane in it end. herdr resumes each recorded agent on reopen
+    /// (see `resumeCheck`). nil when it stopped; otherwise the error with the command to run.
     public func stopSession(_ name: String) async -> String? {
         let out = await Shell.run("herdr", ["session", "stop", name], timeout: 20)
         await refresh()
