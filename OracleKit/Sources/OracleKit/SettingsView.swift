@@ -295,8 +295,10 @@ struct TraceView: View {
         }
         .frame(maxWidth: Self.testWidth ?? .infinity, alignment: .leading)
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { w in
-            if (w < 700) != narrow { HubLog.shared.add(.info, "trace page: \(Int(w)) pt wide — \(w < 700 ? "narrow" : "wide") layout") }
-            width = w
+            // hysteresis: the layout flips only past 680 / 720, so a width near the edge cannot make it flip-flop
+            let next: CGFloat = narrow ? (w > 720 ? w : min(w, 699)) : (w < 680 ? w : max(w, 700))
+            if (next < 700) != narrow { HubLog.shared.add(.info, "trace page: \(Int(w)) pt wide — \(next < 700 ? "narrow" : "wide") layout") }
+            if abs(next - width) > 0.5 { width = next }
         }
         .task { await trace.loadPast() }
     }

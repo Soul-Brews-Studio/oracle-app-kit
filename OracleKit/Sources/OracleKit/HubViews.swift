@@ -34,7 +34,8 @@ public struct HubScene: Scene {
 struct HubRootView: View {
     @ObservedObject var store: HubStore
     @Binding var menuBar: Bool
-    @State private var pick: HubPick = ["search": HubPick.search, "trace": .trace, "settings": .settings][UserDefaults.standard.string(forKey: "hubPage") ?? ""] ?? .all   // -hubPage search|trace|settings
+    @State private var pick: HubPick = UserDefaults.standard.string(forKey: "hubSession").map { HubPick.session($0) }   // -hubSession <name> (tests)
+        ?? ["search": HubPick.search, "trace": .trace, "settings": .settings][UserDefaults.standard.string(forKey: "hubPage") ?? ""] ?? .all   // -hubPage search|trace|settings
     @ObservedObject private var index = GHIndex.shared
     @State private var focusTick = 0
     var body: some View {
@@ -380,7 +381,50 @@ struct SessionSpaces: View {
     @State private var starting = false
     @State private var folded: Set<String> = []   // main spaces whose worktree rows are hidden; key = session:repo
     @State private var reopenError: String?
+    @State private var open: HubSpace?           // the space whose panes the drawer shows
+    @State private var grown: CGFloat = 0
+    @State private var esc: Any?
+    @AppStorage("hub.drawerWidth") private var drawerWidth: Double = 620
     var body: some View {
+        HStack(spacing: 0) {
+            list
+            if let sp = open {
+                Divider()
+                SpaceDrawer(space: sp, accent: HubStyle.accent) { closeDrawer() }
+                    .frame(width: drawerWidth)
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
+            }
+        }
+        .onDisappear { closeDrawer() }
+        .task {   // -hubOpenSpace <label> (tests): open that space's drawer once the spaces are known
+            guard let want = UserDefaults.standard.string(forKey: "hubOpenSpace") else { return }
+            for _ in 0..<100 { if let sp = store.spaces.first(where: { $0.session == session && $0.label == want }) { openDrawer(sp); return }
+                               try? await Task.sleep(for: .milliseconds(200)) }
+        }
+    }
+
+    /// A click on a space row: its panes in a drawer on the right, like an oracle app's Work drawer. The window
+    /// grows by the drawer's width and gives it back on close; esc closes.
+    private func openDrawer(_ sp: HubSpace) {
+        if open?.id == sp.id { closeDrawer(); return }
+        if open == nil {
+            let dx = CGFloat(drawerWidth) + 1; grown += dx
+            DispatchQueue.main.async { Drawer.grow(by: dx) }
+            esc = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { e in
+                if e.keyCode == 53, open != nil { closeDrawer(); return nil }
+                return e
+            }
+        }
+        withAnimation(.easeOut(duration: 0.18)) { open = sp }
+    }
+    private func closeDrawer() {
+        guard open != nil || grown > 0 else { return }
+        withAnimation(.easeOut(duration: 0.18)) { open = nil }
+        if grown > 0 { let dx = grown; grown = 0; DispatchQueue.main.async { Drawer.grow(by: -dx) } }
+        if let m = esc { NSEvent.removeMonitor(m); esc = nil }
+    }
+
+    @ViewBuilder private var list: some View {
         let s = store.sessions.first { $0.name == session }
         let byNumber = store.spaces.filter { $0.session == session }.sorted { store.listNumber($0) < store.listNumber($1) }
         let spaces = Self.treeOrder(byNumber)
@@ -428,7 +472,8 @@ struct SessionSpaces: View {
                             SpaceLine(space: sp, app: sp.repo.map { store.apps[HubParse.displayName($0).lowercased()] } ?? nil, store: store,
                                       children: kids,
                                       fold: kids.isEmpty ? nil : Binding(get: { folded.contains(key) },
-                                                                          set: { if $0 { folded.insert(key) } else { folded.remove(key) } }))
+                                                                          set: { if $0 { folded.insert(key) } else { folded.remove(key) } }),
+                                      selected: open?.id == sp.id, onOpen: { openDrawer(sp) })
                         }
                     }
                 }
@@ -439,6 +484,7 @@ struct SessionSpaces: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .navigationTitle(session)
+        .onChange(of: session) { _, _ in closeDrawer() }
         .confirmationDialog("Stop \(session)?", isPresented: $confirmStop, titleVisibility: .visible) {
             Button("Stop \(session)", role: .destructive) {
                 stopping = true; stopError = nil
@@ -518,6 +564,8 @@ struct SpaceLine: View {
     let store: HubStore
     var children: [HubSpace] = []        // worktree spaces under this main space: closing it closes them too
     var fold: Binding<Bool>? = nil       // main space with worktrees: hide / show its rows
+    var selected = false                 // its panes are in the drawer
+    var onOpen: (() -> Void)? = nil      // a click on the row (not on a button): open its panes in the drawer
     @State private var hover = false
     @State private var confirmClose = false
     @State private var agents: [String: [ClosedAgent]]?
@@ -575,8 +623,12 @@ struct SpaceLine: View {
         } message: { Text(closeMessage) }
         .padding(.vertical, 7).padding(.horizontal, 10)
         .padding(.leading, space.linked ? 14 : 0)
-        .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(hover ? Color.primary.opacity(0.05) : Color.clear))
-        .onHover { hover = $0 }
+        .background(RoundedRectangle(cornerRadius: 9, style: .continuous)
+            .fill(selected ? HubStyle.accent.opacity(0.16) : hover ? Color.primary.opacity(0.05) : Color.clear))
+        .contentShape(Rectangle())
+        .onTapGesture { onOpen?() }
+        .onHover { h in hover = h; if onOpen != nil { if h { NSCursor.pointingHand.push() } else { NSCursor.pop() } } }
+        .help(onOpen == nil ? "" : "Click to see its panes live (esc closes)")
     }
 
     private var closeMessage: String {
@@ -588,6 +640,79 @@ struct SpaceLine: View {
         let lines = a.map { "\($0.name) (\($0.kind))" + ($0.sessionId == nil ? " — no saved session, cannot resume" : "") }
         t += "Ends: " + lines.joined(separator: ", ") + ".\nSaved first, so Reopen under \"Recently closed\" brings them back resumed"
         return t + (children.isEmpty ? "." : " — the main space first, then each worktree.")
+    }
+}
+
+/// A space's panes, live: chips to pick one (agent name or shell, its state), and that pane's screen read every
+/// second. The panes come from `herdr --session <s> pane list --workspace <space>`.
+struct SpaceDrawer: View {
+    let space: HubSpace
+    let accent: Color
+    let close: () -> Void
+    struct Pane: Identifiable, Hashable { let id: String; let agent: String?; let status: String; let cwd: String; let focused: Bool }
+    @State private var panes: [Pane] = []
+    @State private var pick: String?
+    @State private var problem: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 8) {
+                HubGlyph(status: space.status)
+                Text(space.label).font(.callout.weight(.semibold)).foregroundStyle(accent).lineLimit(1)
+                Text(space.session + " · " + space.spaceId).font(.caption.monospaced()).foregroundStyle(.secondary)
+                Spacer(minLength: 6)
+                Text("esc").font(.caption.monospaced()).foregroundStyle(.tertiary)
+                Button(action: close) { Image(systemName: "xmark").font(.callout.weight(.semibold)) }
+                    .buttonStyle(.plain).foregroundStyle(.secondary).handCursor().help("Close (esc)")
+            }
+            .padding(.horizontal, 14).padding(.vertical, 11)
+            if panes.count > 1 {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(panes) { p in
+                            Button { pick = p.id } label: {
+                                HStack(spacing: 5) {
+                                    Circle().fill(p.status == "working" ? Color.green : p.status == "blocked" ? Color.red : p.status == "done" ? Color.orange : Color.secondary)
+                                        .frame(width: 6, height: 6)
+                                    Text(p.agent ?? "shell").font(.caption.weight(pick == p.id ? .semibold : .regular))
+                                    Text(p.id).font(.caption2.monospaced()).foregroundStyle(.tertiary)
+                                }
+                                .padding(.horizontal, 8).padding(.vertical, 4)
+                                .background(Capsule().fill(pick == p.id ? accent.opacity(0.22) : Color.primary.opacity(0.06)))
+                            }
+                            .buttonStyle(.plain).handCursor().help((p.cwd as NSString).abbreviatingWithTildeInPath)
+                        }
+                    }
+                    .padding(.horizontal, 14).padding(.bottom, 8)
+                }
+            }
+            Divider()
+            if let pick { PaneScreen(place: space.session + ":" + pick).id(pick) }
+            else {
+                Text(problem ?? "reading the panes…").font(.callout).foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .background(Color(red: 0.06, green: 0.06, blue: 0.08))
+        .task(id: space.id) { await load() }
+    }
+
+    /// The space's panes; the agent pane first (the one working, else the focused one), shells after.
+    private func load() async {
+        panes = []; pick = nil; problem = nil
+        guard let out = await Shell.run("herdr", ["--session", space.session, "pane", "list", "--workspace", space.spaceId], timeout: 4),
+              let d = out.data(using: .utf8), let o = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
+              let list = (o["result"] as? [String: Any])?["panes"] as? [[String: Any]] else {
+            problem = "can't list the panes — herdr --session \(space.session) pane list --workspace \(space.spaceId)"; return
+        }
+        panes = list.compactMap { p in
+            (p["pane_id"] as? String).map { Pane(id: $0, agent: p["agent"] as? String, status: p["agent_status"] as? String ?? "unknown",
+                                                cwd: p["cwd"] as? String ?? "", focused: p["focused"] as? Bool ?? false) }
+        }
+        let rank: (Pane) -> Int = { p in p.agent == nil ? 3 : p.status == "working" ? 0 : p.status == "blocked" || p.status == "done" ? 1 : 2 }
+        panes.sort { rank($0) != rank($1) ? rank($0) < rank($1) : ($0.focused && !$1.focused) }
+        pick = panes.first?.id
+        if panes.isEmpty { problem = "no panes in this space" }
     }
 }
 
