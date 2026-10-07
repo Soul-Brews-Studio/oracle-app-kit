@@ -372,22 +372,49 @@ struct RestingRow: View {
 struct SessionSpaces: View {
     @ObservedObject var store: HubStore
     let session: String
+    @State private var confirmStop = false
+    @State private var stopping = false
+    @State private var stopError: String?
+    @State private var resume: (resumes: [String: Int], lost: [String])?
+    @State private var closed: [ClosedSpace] = []
+    @State private var starting = false
+    @State private var folded: Set<String> = []   // main spaces whose worktree rows are hidden; key = session:repo
+    @State private var reopenError: String?
     var body: some View {
         let s = store.sessions.first { $0.name == session }
-        let spaces = store.spaces.filter { $0.session == session }.sorted { $0.number < $1.number }
+        let byNumber = store.spaces.filter { $0.session == session }.sorted { store.listNumber($0) < store.listNumber($1) }
+        let spaces = Self.treeOrder(byNumber)
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(alignment: .firstTextBaseline, spacing: 10) {
                     Text(session).font(.system(size: 30, weight: .bold, design: .rounded))
                     Text(s?.running == true ? "running · \(spaces.count) spaces" : "stopped").font(.callout).foregroundStyle(.secondary)
                     Spacer()
-                    if s?.running == true { Button("Open in WezTerm") { store.openSession(session) }.controlSize(.small) }
+                    if s?.running == true {
+                        Button(stopping ? "Stopping…" : "Stop session", role: .destructive) {
+                            resume = nil; confirmStop = true
+                            Task { resume = await store.resumeCheck(session) }
+                        }
+                            .controlSize(.small).tint(.red).disabled(stopping).handCursor()
+                            .help("herdr session stop \(session) — ends every pane in it")
+                        Button("Open in WezTerm") { store.openSession(session) }.controlSize(.small)
+                    }
+                }
+                if let e = stopError {
+                    Text(e).font(.callout).foregroundStyle(.orange).textSelection(.enabled)
                 }
                 if s?.running != true {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("This herdr session is not running. Open it in WezTerm, or from any terminal:").foregroundStyle(.secondary)
                         Text("herdr --session \(session)").font(.callout.monospaced()).textSelection(.enabled)
-                        Button("Open in WezTerm") { store.openSession(session) }.buttonStyle(.borderedProminent).controlSize(.small).handCursor()
+                        HStack(spacing: 8) {
+                            Button(starting ? "Starting…" : "Start in background") {
+                                starting = true; stopError = nil
+                                Task { stopError = await store.startSession(session); starting = false }
+                            }.buttonStyle(.borderedProminent).controlSize(.small).disabled(starting).handCursor()
+                                .help("herdr --session \(session) server, detached — no window; agents with a saved session resume")
+                            Button("Open in WezTerm") { store.openSession(session) }.controlSize(.small).handCursor()
+                        }
                     }
                     .padding(14)
                     .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -395,15 +422,93 @@ struct SessionSpaces: View {
                 }
                 VStack(spacing: 2) {
                     ForEach(spaces) { sp in
-                        SpaceLine(space: sp, app: sp.repo.map { store.apps[HubParse.displayName($0).lowercased()] } ?? nil, store: store)
+                        let key = sp.session + ":" + (sp.repo ?? "")
+                        let kids = sp.linked || sp.repo == nil ? [] : spaces.filter { $0.linked && $0.repo == sp.repo }
+                        if !(sp.linked && folded.contains(key)) {   // a worktree row hides while its main space is folded
+                            SpaceLine(space: sp, app: sp.repo.map { store.apps[HubParse.displayName($0).lowercased()] } ?? nil, store: store,
+                                      children: kids,
+                                      fold: kids.isEmpty ? nil : Binding(get: { folded.contains(key) },
+                                                                          set: { if $0 { folded.insert(key) } else { folded.remove(key) } }))
+                        }
                     }
                 }
+                if !closed.isEmpty { recentlyClosed(running: s?.running == true) }
             }
             .padding(28)
             .frame(maxWidth: 900, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .navigationTitle(session)
+        .confirmationDialog("Stop \(session)?", isPresented: $confirmStop, titleVisibility: .visible) {
+            Button("Stop \(session)", role: .destructive) {
+                stopping = true; stopError = nil
+                Task { stopError = await store.stopSession(session); stopping = false }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(stopWarning)
+        }
+        .onChange(of: session) { _, _ in stopError = nil; reopenError = nil; loadClosed() }
+        .onChange(of: store.lastRefresh) { _, _ in loadClosed() }
+        .onAppear { loadClosed() }
+    }
+
+    /// This session's closed spaces, newest first; inside one group the main space before its worktrees.
+    /// Main spaces in herdr order, each followed by its worktree spaces; a worktree whose main space has no
+    /// space open stays where herdr put it.
+    static func treeOrder(_ list: [HubSpace]) -> [HubSpace] {
+        let parents = Set(list.filter { !$0.linked && $0.repo != nil }.map { $0.repo! })
+        var out: [HubSpace] = []
+        for sp in list where sp.linked == false || sp.repo == nil || !parents.contains(sp.repo!) {
+            out.append(sp)
+            if !sp.linked, let r = sp.repo { out += list.filter { $0.linked && $0.repo == r } }
+        }
+        return out
+    }
+
+    private func loadClosed() {
+        closed = ClosedSpaces.load().filter { $0.session == session }
+            .sorted { ($0.closedAt, $0.linked == true ? 0 : 1) > ($1.closedAt, $1.linked == true ? 0 : 1) }
+    }
+
+    /// Spaces closed from this page: what they held, and Reopen (same cwd, each agent resumed).
+    private func recentlyClosed(running: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            WorkFormat.header("RECENTLY CLOSED", closed.count, note: running ? "reopen brings each agent back resumed" : "start the session to reopen")
+            ForEach(closed) { c in
+                HStack(spacing: 10) {
+                    Image(systemName: "arrow.uturn.backward").font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(c.label).font(.custom("Avenir Next", size: 14).weight(.medium)).lineLimit(1).truncationMode(.middle)
+                        Text(c.agents.isEmpty ? "no agents" : c.agents.map { "\($0.kind)\($0.sessionId == nil ? " (no session)" : "")" }.joined(separator: " · "))
+                            .font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(1)
+                    }
+                    Spacer(minLength: 8)
+                    Text(c.closedAt.formatted(date: .omitted, time: .shortened)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                    Button("Reopen") { reopenError = nil; Task { reopenError = await store.reopen(c); loadClosed() } }
+                        .controlSize(.small).disabled(!running).handCursor()
+                    Button("Forget") { store.forget(c); loadClosed() }.controlSize(.small).handCursor()
+                }
+                .padding(.vertical, 5).padding(.horizontal, 10)
+            }
+            if let e = reopenError { Text(e).font(.callout).foregroundStyle(.orange).textSelection(.enabled) }
+        }
+        .padding(.top, 10)
+    }
+
+    /// What stopping ends, counted from the live spaces — busy agents named first.
+    private var stopWarning: String {
+        let spaces = store.spaces.filter { $0.session == session }
+        let agents = spaces.reduce(0) { $0 + $1.agents }, panes = spaces.reduce(0) { $0 + $1.panes }
+        let busy = spaces.filter { ["working", "done", "blocked"].contains($0.status) }
+            .map { "\($0.label) (\(HubParse.word($0.status)))" }
+        var t = "Ends \(spaces.count) spaces, \(panes) panes and \(agents) agents."
+        if !busy.isEmpty { t += "\nStill active: " + busy.joined(separator: ", ") + "." }
+        guard let r = resume else { return t + "\nChecking which agents will resume…" }
+        let back = r.resumes.sorted { $0.key < $1.key }.map { "\($0.value) \($0.key)" }.joined(separator: ", ")
+        t += "\nReopen resumes " + (back.isEmpty ? "no agents" : back) + " where they were."
+        if !r.lost.isEmpty { t += "\nNo saved session, back as a plain shell: " + r.lost.joined(separator: ", ") + "." }
+        return t
     }
 }
 
@@ -411,15 +516,33 @@ struct SpaceLine: View {
     let space: HubSpace
     let app: URL?
     let store: HubStore
+    var children: [HubSpace] = []        // worktree spaces under this main space: closing it closes them too
+    var fold: Binding<Bool>? = nil       // main space with worktrees: hide / show its rows
     @State private var hover = false
+    @State private var confirmClose = false
+    @State private var agents: [String: [ClosedAgent]]?
+    @State private var closeError: String?
     var body: some View {
         HStack(spacing: 10) {
             if space.linked { Text("└").font(.callout.monospaced()).foregroundStyle(.tertiary) }
+            if let f = fold {   // fold the worktree rows under this main space
+                Button { withAnimation(.snappy) { f.wrappedValue.toggle() } } label: {
+                    Image(systemName: f.wrappedValue ? "chevron.right" : "chevron.down")
+                        .font(.system(size: 9, weight: .bold)).foregroundStyle(.secondary).frame(width: 10)
+                }.buttonStyle(.plain).handCursor().help(f.wrappedValue ? "Show its \(children.count) worktrees" : "Hide its worktrees")
+            }
             HubGlyph(status: space.status)
             VStack(alignment: .leading, spacing: 1) {
-                Text(space.label).font(.custom("Avenir Next", size: 15).weight(.medium)).lineLimit(1).truncationMode(.middle)
-                if let r = space.repo, r != space.label {
-                    Text(r).font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(1)
+                HStack(spacing: 6) {
+                    Text(space.label).font(.custom("Avenir Next", size: 15).weight(.medium)).lineLimit(1).truncationMode(.middle)
+                    if fold?.wrappedValue == true {
+                        Text("+\(children.count) \(children.count == 1 ? "worktree" : "worktrees")")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                // under the name: the branch, as herdr's sidebar shows it; the repo when the label does not say it
+                if let sub = [space.linked || space.repo == space.label ? nil : space.repo, space.branch].compactMap({ $0 }).joined(separator: " · ").nilIfEmpty {
+                    Text(sub).font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(1)
                 }
             }
             Spacer(minLength: 8)
@@ -428,12 +551,43 @@ struct SpaceLine: View {
             if app != nil, let r = space.repo {
                 Button("Open app") { store.openApp(HubParse.displayName(r).lowercased()) }.controlSize(.small).handCursor()
             }
-            Button("Show in herdr") { store.showInHerdr(space) }.controlSize(.small).handCursor()
+            Button("Show in herdr") { store.showInHerdr(space) }.controlSize(.small).tint(.secondary).handCursor()
+            Button("Close") {
+                agents = nil; closeError = nil; confirmClose = true
+                Task {
+                    var all: [String: [ClosedAgent]] = [:]
+                    for sp in [space] + children { all[sp.id] = await store.agents(in: sp) ?? [] }
+                    agents = all
+                }
+            }
+                .controlSize(.small).tint(.red).handCursor().help("Close this space only; the rest of \(space.session) keeps running")
         }
+        .overlay(alignment: .bottomLeading) {
+            if let e = closeError { Text(e).font(.caption).foregroundStyle(.orange).textSelection(.enabled).offset(y: 14) }
+        }
+        .confirmationDialog(children.isEmpty ? "Close \(space.label)?" : "Close \(space.label) and its \(children.count) worktree spaces?",
+                            isPresented: $confirmClose, titleVisibility: .visible) {
+            Button(children.isEmpty ? "Close space" : "Close the group (\(children.count + 1) spaces)", role: .destructive) {
+                let all = agents ?? [:]
+                Task { closeError = await store.closeSpace(space, children: children, agents: all) }
+            }.disabled(agents == nil)
+            Button("Cancel", role: .cancel) {}
+        } message: { Text(closeMessage) }
         .padding(.vertical, 7).padding(.horizontal, 10)
         .padding(.leading, space.linked ? 14 : 0)
         .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(hover ? Color.primary.opacity(0.05) : Color.clear))
         .onHover { hover = $0 }
+    }
+
+    private var closeMessage: String {
+        guard let all = agents else { return "Reading the agents in this space…" }
+        let a = ([space] + children).flatMap { all[$0.id] ?? [] }
+        var t = children.isEmpty ? "" : "herdr closes a repo's main space only together with its worktree spaces: "
+            + children.map(\.label).joined(separator: ", ") + ". The worktrees stay on disk.\n"
+        if a.isEmpty { return t + "No agents here; nothing to resume." }
+        let lines = a.map { "\($0.name) (\($0.kind))" + ($0.sessionId == nil ? " — no saved session, cannot resume" : "") }
+        t += "Ends: " + lines.joined(separator: ", ") + ".\nSaved first, so Reopen under \"Recently closed\" brings them back resumed"
+        return t + (children.isEmpty ? "." : " — the main space first, then each worktree.")
     }
 }
 
@@ -963,4 +1117,9 @@ struct EnginePicker: View {
             load.reload?(mode)
         }
     }
+}
+
+
+private extension String {
+    var nilIfEmpty: String? { isEmpty ? nil : self }
 }
