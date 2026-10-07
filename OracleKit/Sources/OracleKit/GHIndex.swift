@@ -43,6 +43,14 @@ public final class GHIndex: ObservableObject {
     @Published public private(set) var engine: Engine?
     @Published public private(set) var pending = 0            // known items still without a vector
     @Published public private(set) var lastRun: (embedded: Int, reused: Int, seconds: Double)?
+    // live telemetry for the page: what phase, how far, how fast (one point per batch)
+    @Published public private(set) var phase = "idle"          // idle · reading · embedding
+    @Published public private(set) var repoDone = 0
+    @Published public private(set) var repoTotal = 0
+    @Published public private(set) var textDone = 0
+    @Published public private(set) var textTotal = 0
+    @Published public private(set) var rateHistory: [Double] = []
+    @Published public private(set) var currentRepo = ""
 
     /// What the ANE service says about itself (GET /health) — the "Vector engine" card.
     public struct Engine: Sendable {
@@ -101,10 +109,13 @@ public final class GHIndex: ObservableObject {
             problem = "the ANE embed service is not answering on 127.0.0.1:11435 — start the ANEEmbed app (ane-oracle), then:  curl -s 127.0.0.1:11435/health"
             progress = ""; return
         }
+        phase = "reading"; repoTotal = slugs.count; repoDone = 0; textDone = 0; textTotal = 0; rateHistory = []
+        defer { phase = "idle"; currentRepo = "" }
         var fresh: [IndexDoc] = []
         var textOf: [String: String] = [:]   // the full text to embed (title + body prefix); only a snippet is kept
         for (i, repo) in slugs.enumerated() {
             progress = "reading \(repo) (\(i + 1)/\(slugs.count))"
+            currentRepo = repo; repoDone = i
             for kind in ["issue", "pr"] {
                 let fields = "number,title,body,state,url,updatedAt"
                 guard let out = await Shell.run("gh", [kind, "list", "-R", repo, "--state", "all", "-L", "300", "--json", fields], timeout: 40),
@@ -125,6 +136,7 @@ public final class GHIndex: ObservableObject {
         let old = Dictionary(docs.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         for i in fresh.indices { if let o = old[fresh[i].id], o.hash == fresh[i].hash, !o.vec.isEmpty { fresh[i].vec = o.vec } }
         let todo = fresh.indices.filter { fresh[$0].vec.isEmpty }
+        repoDone = slugs.count; phase = "embedding"; textTotal = todo.count
         let t0 = Date()
         var done = 0
         for chunk in stride(from: 0, to: todo.count, by: 32).map({ Array(todo[$0..<min($0 + 32, todo.count)]) }) {
@@ -136,6 +148,7 @@ public final class GHIndex: ObservableObject {
             for (k, idx) in chunk.enumerated() where k < vecs.count { fresh[idx].vec = vecs[k] }
             done += chunk.count
             let rate = Double(done) / max(0.001, Date().timeIntervalSince(t0))
+            textDone = done; rateHistory.append(rate); if rateHistory.count > 60 { rateHistory.removeFirst() }
             progress = "embedding on the ANE \(done)/\(todo.count) · \(Int(rate)) texts/s"
         }
         docs = fresh.filter { !$0.vec.isEmpty }

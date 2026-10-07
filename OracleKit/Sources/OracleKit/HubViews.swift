@@ -36,6 +36,7 @@ struct HubRootView: View {
     @Binding var menuBar: Bool
     @State private var pick: HubPick = UserDefaults.standard.string(forKey: "hubPage") == "search" ? .search : .all   // -hubPage search
     @StateObject private var index = GHIndex()
+    @State private var focusTick = 0
     var body: some View {
         NavigationSplitView {
             HubSidebar(store: store, pick: $pick, menuBar: $menuBar)
@@ -43,11 +44,14 @@ struct HubRootView: View {
         } detail: {
             switch pick {
             case .all: OracleBoard(store: store)
-            case .search: IndexSearchView(store: store, index: index)
+            case .search: IndexSearchView(store: store, index: index, focusTick: focusTick)
             case .session(let name): SessionSpaces(store: store, session: name)
             }
         }
         .tint(HubStyle.accent)
+        .background {   // ⌘K: search, from anywhere in the hub
+            Button("") { pick = .search; focusTick += 1 }.keyboardShortcut("k", modifiers: .command).opacity(0).allowsHitTesting(false)
+        }
         .onAppear { store.start() }
         .task {   // keep the ANE index fresh in the background: on launch when it is missing or older than 6 h
             for _ in 0..<20 where store.oracles.isEmpty { try? await Task.sleep(for: .milliseconds(500)) }
@@ -78,7 +82,7 @@ struct HubSidebar: View {
             NavRow(symbol: "square.grid.2x2", title: "All oracles", badge: "\(store.oracles.count)",
                    on: pick == .all, accent: HubStyle.accent) { pick = .all }
                 .padding(.horizontal, 12)
-            NavRow(symbol: "sparkle.magnifyingglass", title: "Search issues & PRs", badge: nil,
+            NavRow(symbol: "sparkle.magnifyingglass", title: "Search issues & PRs", badge: "⌘K",
                    on: pick == .search, accent: HubStyle.accent) { pick = .search }
                 .padding(.horizontal, 12)
             Text("Sessions").font(.custom("Avenir Next", size: 13).weight(.medium)).foregroundStyle(.secondary)
@@ -462,9 +466,11 @@ struct HubMenu: View {
 struct IndexSearchView: View {
     @ObservedObject var store: HubStore
     @ObservedObject var index: GHIndex
+    var focusTick = 0
     @State private var query = ""
     @State private var kind = "all"
     @State private var openOnly = false
+    @FocusState private var fieldFocused: Bool
     private var slugs: [String] { Array(Set(store.oracles.compactMap { $0.checkout.flatMap(GHIndex.slug(fromCheckout:)) })).sorted() }
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -474,7 +480,10 @@ struct IndexSearchView: View {
                 Text("Issues & PRs").font(.custom("Avenir Next", size: 34).weight(.bold))
                 Text("Every oracle's issues and pull requests, ready for meaning.").font(.callout).foregroundStyle(.secondary)
                 HStack(alignment: .top, spacing: 22) {
-                    CoverageRing(ready: index.docs.count, pending: index.pending, running: index.running)
+                    CoverageRing(ready: index.docs.count, pending: index.pending, running: index.running,
+                                 progress: index.phase == "embedding" ? Double(index.textDone) / Double(max(1, index.textTotal))
+                                         : index.phase == "reading" ? Double(index.repoDone) / Double(max(1, index.repoTotal)) : nil,
+                                 phase: index.phase)
                         .frame(width: 230)
                     VStack(alignment: .leading, spacing: 0) {
                         Label("Vector engine", systemImage: "cpu").font(.headline).foregroundStyle(HubStyle.accent).padding(.bottom, 8)
@@ -495,11 +504,11 @@ struct IndexSearchView: View {
                             Button { Task { await index.checkEngine() } } label: { Label("Refresh", systemImage: "arrow.clockwise").frame(maxWidth: .infinity) }
                                 .buttonStyle(.bordered).controlSize(.large).handCursor()
                         }
+                        if index.running || !index.rateHistory.isEmpty {
+                            LiveTelemetry(index: index).padding(.top, 10)
+                        }
                         if !index.progress.isEmpty {
-                            HStack(spacing: 6) {
-                                if index.running { ProgressView().controlSize(.small) }
-                                Text(index.progress).font(.caption.monospaced()).foregroundStyle(.secondary)
-                            }.padding(.top, 8)
+                            Text(index.progress).font(.caption.monospaced()).foregroundStyle(.secondary).padding(.top, 6)
                         }
                         if let p = index.problem { Text(p).font(.caption).foregroundStyle(.orange).textSelection(.enabled).padding(.top, 6) }
                     }
@@ -509,13 +518,17 @@ struct IndexSearchView: View {
                 }
                 HStack(spacing: 10) {
                     Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                    TextField("e.g. flood sensors, ontology of the fleet, ANE embedding speed…", text: $query)
-                        .textFieldStyle(.plain).font(.custom("Avenir Next", size: 16))
+                    TextField("Ask by meaning — flood sensors, ontology of the fleet, ANE speed…   ⌘K", text: $query)
+                        .textFieldStyle(.plain).font(.custom("Avenir Next", size: 16)).focused($fieldFocused)
                         .onSubmit { Task { await index.search(query, kind: kind == "all" ? nil : kind, openOnly: openOnly) } }
                     if index.searching { ProgressView().controlSize(.small) }
                 }
                 .padding(.horizontal, 14).padding(.vertical, 11)
                 .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.primary.opacity(0.06)))
+                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(fieldFocused ? HubStyle.accent : Color.primary.opacity(0.1), lineWidth: fieldFocused ? 1.5 : 1))
+                .shadow(color: fieldFocused ? HubStyle.accent.opacity(0.45) : .clear, radius: 14)
+                .animation(.easeOut(duration: 0.2), value: fieldFocused)
                 HStack(spacing: 12) {
                     Picker("", selection: $kind) { Text("All").tag("all"); Text("Issues").tag("issue"); Text("PRs").tag("pr") }
                         .pickerStyle(.segmented).frame(width: 230)
@@ -528,7 +541,11 @@ struct IndexSearchView: View {
             .padding(.horizontal, 28).padding(.top, 22).padding(.bottom, 12)
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 8) {
-                    ForEach(index.hits) { h in HitCard(hit: h) }
+                    ForEach(Array(index.hits.enumerated()), id: \.element.id) { i, h in
+                        HitCard(hit: h, rank: i)
+                            .transition(.asymmetric(insertion: .move(edge: .bottom).combined(with: .opacity), removal: .opacity))
+                            .animation(.spring(response: 0.45, dampingFraction: 0.85).delay(Double(i) * 0.03), value: index.hits.map(\.id))
+                    }
                     if index.hits.isEmpty && !query.isEmpty && !index.searching {
                         Text("press ↩ to search").font(.callout).foregroundStyle(.secondary).padding(.top, 8)
                     }
@@ -536,6 +553,8 @@ struct IndexSearchView: View {
                 .padding(.horizontal, 28).padding(.bottom, 24)
             }
         }
+        .onChange(of: focusTick) { fieldFocused = true }
+        .onAppear { if focusTick > 0 { fieldFocused = true } }
         .task {
             await index.checkEngine()
             if let q = UserDefaults.standard.string(forKey: "hubQuery"), !q.isEmpty, query.isEmpty {   // -hubQuery "…"
@@ -553,6 +572,7 @@ struct IndexSearchView: View {
 
 struct HitCard: View {
     let hit: IndexHit
+    var rank = 0
     @State private var hover = false
     var body: some View {
         let d = hit.doc
@@ -569,11 +589,24 @@ struct HitCard: View {
                     Spacer()
                 }
                 Text(d.title).font(.custom("Avenir Next", size: 15).weight(.medium)).lineLimit(2)
+                GeometryReader { g in   // the match, as a glowing bar
+                    let w = g.size.width * CGFloat(max(0, min(1, (hit.score - 0.4) / 0.5)))
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(Color.primary.opacity(0.06))
+                        Capsule().fill(LinearGradient(colors: [HubStyle.accent.opacity(0.5), HubStyle.accent], startPoint: .leading, endPoint: .trailing))
+                            .frame(width: w).shadow(color: HubStyle.accent.opacity(0.7), radius: 6)
+                    }
+                }
+                .frame(height: 3)
                 if !d.snippet.isEmpty { Text(d.snippet).font(.callout).foregroundStyle(.secondary).lineLimit(2) }
             }
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.primary.opacity(hover ? 0.08 : 0.045)))
+            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(hover ? HubStyle.accent.opacity(0.6) : Color.clear, lineWidth: 1))
+            .shadow(color: hover ? HubStyle.accent.opacity(0.35) : .clear, radius: 12)
+            .scaleEffect(hover ? 1.008 : 1)
+            .animation(.easeOut(duration: 0.15), value: hover)
         }
         .buttonStyle(.plain).handCursor()
         .onHover { hover = $0 }
@@ -581,26 +614,93 @@ struct HitCard: View {
     }
 }
 
-/// The coverage ring of Relic Studio's Embedding screen: ready vs pending.
+/// The coverage ring of Relic Studio's Embedding screen, alive: a glowing sweep spins while it works, the arc fills
+/// with the current phase (reading repos → embedding texts), and settles on coverage when done.
 struct CoverageRing: View {
     let ready: Int, pending: Int, running: Bool
+    var progress: Double? = nil
+    var phase = "idle"
+    @State private var spin = false
+    @State private var pulse = false
     var body: some View {
         let total = max(1, ready + pending)
         let cover = Double(ready) / Double(total)
+        let shown = progress ?? cover
         VStack(spacing: 14) {
             ZStack {
-                Circle().stroke(Color.primary.opacity(0.07), lineWidth: 16)
-                Circle().trim(from: 0, to: cover).stroke(HubStyle.accent.gradient, style: StrokeStyle(lineWidth: 16, lineCap: .round))
-                    .rotationEffect(.degrees(-90))
+                ForEach(0..<60, id: \.self) { i in   // tick marks
+                    Capsule().fill(Color.primary.opacity(i % 5 == 0 ? 0.28 : 0.1)).frame(width: 1.5, height: i % 5 == 0 ? 9 : 5)
+                        .offset(y: -108).rotationEffect(.degrees(Double(i) * 6))
+                }
+                Circle().stroke(Color.primary.opacity(0.07), lineWidth: 14).frame(width: 182, height: 182)
+                Circle().trim(from: 0, to: shown)
+                    .stroke(AngularGradient(colors: [HubStyle.accent.opacity(0.35), HubStyle.accent, Color.cyan], center: .center),
+                            style: StrokeStyle(lineWidth: 14, lineCap: .round))
+                    .rotationEffect(.degrees(-90)).frame(width: 182, height: 182)
+                    .shadow(color: HubStyle.accent.opacity(running ? 0.9 : 0.45), radius: running ? 16 : 8)
+                    .animation(.easeOut(duration: 0.4), value: shown)
+                if running {   // the scanning sweep
+                    Circle().trim(from: 0, to: 0.12)
+                        .stroke(LinearGradient(colors: [.clear, Color.cyan], startPoint: .leading, endPoint: .trailing), style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                        .frame(width: 212, height: 212)
+                        .rotationEffect(.degrees(spin ? 360 : 0))
+                        .animation(.linear(duration: 1.6).repeatForever(autoreverses: false), value: spin)
+                        .onAppear { spin = true }.onDisappear { spin = false }
+                }
                 VStack(spacing: 4) {
-                    Text(ready == 0 && pending == 0 ? "—" : String(format: "%.0f%%", cover * 100)).font(.system(size: 34, weight: .bold, design: .rounded))
-                    Text(running ? "embedding…" : (ready == 0 ? "awaiting first batch" : "coverage")).font(.caption).tracking(1.5).foregroundStyle(.secondary)
+                    Text(ready == 0 && pending == 0 && !running ? "—" : String(format: "%.0f%%", shown * 100))
+                        .font(.system(size: 38, weight: .heavy, design: .rounded)).monospacedDigit()
+                        .contentTransition(.numericText()).animation(.easeOut, value: Int(shown * 100))
+                    Text(running ? (phase == "reading" ? "READING REPOS" : "EMBEDDING ON ANE") : (ready == 0 ? "AWAITING FIRST BATCH" : "COVERAGE"))
+                        .font(.caption2.weight(.semibold)).tracking(1.8).foregroundStyle(running ? Color.cyan : .secondary)
+                        .opacity(running && pulse ? 0.45 : 1)
+                        .animation(running ? .easeInOut(duration: 0.8).repeatForever() : .default, value: pulse)
+                        .onAppear { pulse = true }
                 }
             }
-            .frame(width: 190, height: 190)
+            .frame(width: 230, height: 230)
             HStack(spacing: 26) {
-                VStack(spacing: 3) { Text("\(ready)").font(.headline.monospacedDigit()).foregroundStyle(.green); Text("READY").font(.caption2).tracking(1.5).foregroundStyle(.secondary) }
-                VStack(spacing: 3) { Text("\(pending)").font(.headline.monospacedDigit()).foregroundStyle(.orange); Text("PENDING").font(.caption2).tracking(1.5).foregroundStyle(.secondary) }
+                VStack(spacing: 3) { Text("\(ready)").font(.headline.monospacedDigit()).foregroundStyle(.green).contentTransition(.numericText()); Text("READY").font(.caption2).tracking(1.5).foregroundStyle(.secondary) }
+                VStack(spacing: 3) { Text("\(pending)").font(.headline.monospacedDigit()).foregroundStyle(.orange).contentTransition(.numericText()); Text("PENDING").font(.caption2).tracking(1.5).foregroundStyle(.secondary) }
+            }
+        }
+    }
+}
+
+/// Live telemetry while a batch runs: the repo being read, texts done, and a throughput sparkline (texts/s per batch).
+struct LiveTelemetry: View {
+    @ObservedObject var index: GHIndex
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(index.rateHistory.last.map { "\(Int($0))" } ?? "—").font(.system(size: 26, weight: .heavy, design: .rounded)).monospacedDigit()
+                    .foregroundStyle(Color.cyan).contentTransition(.numericText())
+                Text("texts/s on the ANE").font(.caption).foregroundStyle(.secondary)
+                Spacer()
+                if index.phase == "reading" {
+                    Text("repo \(index.repoDone + 1)/\(index.repoTotal) · \(index.currentRepo)").font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                } else if index.textTotal > 0 {
+                    Text("\(index.textDone)/\(index.textTotal) texts").font(.caption.monospaced()).foregroundStyle(.secondary)
+                }
+            }
+            Sparkline(values: index.rateHistory).frame(height: 34)
+        }
+    }
+}
+
+struct Sparkline: View {
+    let values: [Double]
+    var body: some View {
+        GeometryReader { g in
+            let top = max(1, values.max() ?? 1)
+            let pts = values.enumerated().map { i, v in
+                CGPoint(x: values.count < 2 ? 0 : g.size.width * CGFloat(i) / CGFloat(values.count - 1), y: g.size.height * (1 - CGFloat(v / top)))
+            }
+            ZStack {
+                Path { p in guard let f = pts.first else { return }; p.move(to: CGPoint(x: f.x, y: g.size.height)); pts.forEach { p.addLine(to: $0) }; p.addLine(to: CGPoint(x: pts.last!.x, y: g.size.height)) }
+                    .fill(LinearGradient(colors: [Color.cyan.opacity(0.35), .clear], startPoint: .top, endPoint: .bottom))
+                Path { p in guard let f = pts.first else { return }; p.move(to: f); pts.dropFirst().forEach { p.addLine(to: $0) } }
+                    .stroke(Color.cyan, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round)).shadow(color: Color.cyan.opacity(0.8), radius: 4)
             }
         }
     }
