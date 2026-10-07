@@ -32,8 +32,51 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 });
 
 // The Facebook content script (fb.js) asks for the same hand-off from its 🔮 Issue button.
-chrome.runtime.onMessage.addListener((msg, sender) => {
+chrome.runtime.onMessage.addListener((msg, sender, reply) => {
+  if (msg?.kind === 'thread') {   // content script → bridge (a whole thread is too big for a URL)
+    fetch(`http://${BRIDGE}/thread`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(msg.thread) })
+      .then(r => r.json()).then(r => reply(r)).catch(e => reply({ ok: false, error: `bridge not running: bun ${'~'}/…/oracle-app-kit/browser/bridge/server.ts (${e})` }));
+    return true;
+  }
   if (msg?.kind !== 'issue' || !sender.tab || !ORACLES.includes(msg.oracle)) return;
-  const q = query({ url: msg.url || '', title: msg.title || '', text: msg.text || '' });
+  const q = query({ url: msg.url || '', title: msg.title || '', text: msg.text || '', ...(msg.thread ? { thread: msg.thread } : {}) });
   chrome.tabs.update(sender.tab.id, { url: `oracle-${msg.oracle.toLowerCase()}://issue?${q}` });
 });
+
+// ── bridge: ~/oracle-app-kit/browser/bridge/server.ts on 127.0.0.1:4747 ─────────────────────────────────────────
+// FORWARD: a whole thread is too big for a URL, so the content script hands it here, we POST it to the bridge, and
+//          the app opens a draft that reads it from ~/.oracle-fb/threads/<id>.md.
+// BACK:    the bridge pushes {type:'reply'} over a WebSocket; we open/focus the post and have the page type the text
+//          into that comment's reply box. Nothing is ever submitted — a human presses Enter.
+const BRIDGE = '127.0.0.1:4747';
+let bridge = null;
+function connectBridge() {
+  if (bridge && bridge.readyState <= 1) return;
+  try { bridge = new WebSocket(`ws://${BRIDGE}/ws`); } catch { return; }
+  bridge.onmessage = (e) => { try { const m = JSON.parse(e.data); if (m.type === 'reply') handleReply(m); } catch {} };
+  bridge.onclose = () => { bridge = null; };
+  bridge.onerror = () => {};
+}
+connectBridge();
+chrome.alarms.create('bridge', { periodInMinutes: 0.5 });
+chrome.alarms.onAlarm.addListener((a) => { if (a.name === 'bridge') connectBridge(); });
+chrome.runtime.onStartup.addListener(connectBridge);
+chrome.runtime.onInstalled.addListener(connectBridge);
+
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+const postKey = (u) => { try { const x = new URL(u); return x.pathname + (x.searchParams.get('fbid') ? `?fbid=${x.searchParams.get('fbid')}` : ''); } catch { return u; } };
+async function handleReply(m) {
+  const answer = (r) => { try { bridge?.send(JSON.stringify({ type: 'result', rid: m.rid, ...r })); } catch {} };
+  try {
+    const tabs = (await chrome.tabs.query({ url: 'https://www.facebook.com/*' })).filter(t => postKey(t.url) === postKey(m.url));
+    let tab = tabs[0];
+    if (tab) { await chrome.tabs.update(tab.id, { active: true }); await chrome.windows.update(tab.windowId, { focused: true }); }
+    else tab = await chrome.tabs.create({ url: m.url, active: true });
+    let res = null;
+    for (let i = 0; i < 40 && !res; i++) {
+      try { res = await chrome.tabs.sendMessage(tab.id, { kind: 'fillReply', comment: m.comment, who: m.who, text: m.text }); }
+      catch { await sleep(500); }
+    }
+    answer(res || { ok: false, note: 'the page never answered (content script not loaded — reload the Facebook tab)' });
+  } catch (e) { answer({ ok: false, note: String(e) }); }
+}
