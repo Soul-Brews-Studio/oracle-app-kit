@@ -9,15 +9,17 @@ const call = (path: string, body?: unknown) => fetch(`http://127.0.0.1:${PORT}${
   method: body ? 'POST' : 'GET', headers: { 'x-fb-token': token, 'content-type': 'application/json' }, body: body ? JSON.stringify(body) : undefined,
 }).then(async r => ({ status: r.status, body: await r.json() as any })).catch(() => null);
 
-const [a, b, ...rest] = Bun.argv.slice(2);
+let args = Bun.argv.slice(2), to = '';
+const ti = args.indexOf('--to'); if (ti >= 0) { to = args[ti + 1] || ''; args.splice(ti, 2); }   // --to Chrome/153 : which browser types it
+const [a, b, ...rest] = args;
 if (a === '--list') {
   const r = await call('/threads');
   if (!r) { console.error(`✗ bridge not running\n  bun ${import.meta.dir}/server.ts`); process.exit(1); }
   for (const t of r.body) console.log(`${t.id}  ${t.comments.length} comments  ${t.title}\n        ${t.url}`);
   process.exit(0);
 }
-if (!a || !b || !rest.length) { console.error('usage: fbreply <thread> <c1|comment_id> <text…>\n       fbreply --list'); process.exit(2); }
-const r = await call('/reply', { thread: a, comment: b, text: rest.join(' ') });
+if (!a || !b || !rest.length) { console.error('usage: fbreply [--to Chrome/153] <thread> <c1|comment_id> <text…>\n       fbreply --list'); process.exit(2); }
+const r = await call('/reply', { thread: a, comment: b, text: rest.join(' '), to });
 if (!r) { console.error(`✗ bridge not running\n  bun ${import.meta.dir}/server.ts`); process.exit(1); }
 if (r.status !== 200) { console.error(`✗ ${r.body.error}${r.body.fix ? `\n  ${r.body.fix}` : ''}${r.body.have ? `\n  comments: ${r.body.have.join(' ')}` : ''}`); process.exit(1); }
 console.log(r.body.ok ? `✓ typed into ${b}'s reply box (${r.body.via || 'browser'}) — ${r.body.note || 'press Enter to post'}` : `✗ ${r.body.note}`);

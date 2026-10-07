@@ -48,14 +48,14 @@ Bun.serve({
     }
     if (u.pathname === '/reply' && req.method === 'POST') {
       if (!fromCli(req)) return json({ error: 'token' }, 403);
-      const { thread, comment, text } = await req.json() as any;
+      const { thread, comment, text, to } = await req.json() as any;
       const id = safeId(String(thread || ''));
       const file = join(DIR, `${id}.json`);
       if (!id || !existsSync(file)) return json({ error: `unknown thread ${thread}`, fix: `fbreply --list` }, 404);
       const t = JSON.parse(readFileSync(file, 'utf8'));
       const c = t.comments.find((x: any) => x.key === comment || String(x.id) === String(comment));
       if (!c) return json({ error: `no comment ${comment} in ${id}`, have: t.comments.map((x: any) => x.key) }, 404);
-      const ext = [...exts].sort((a, b) => b.data.at - a.data.at)[0];
+      const ext = [...exts].filter(e => !to || String(e.data.ua).includes(String(to))).sort((a, b) => b.data.at - a.data.at)[0];   // --to Chrome/153 picks one browser
       if (!ext) return json({ error: 'extension not connected', fix: 'open chrome://extensions/?id=' + EXT_ID + ' and click reload; check the bridge log for "extension connected"' }, 503);
       const rid = crypto.randomUUID();
       const done = new Promise<any>(res => { waiting.set(rid, res); setTimeout(() => res({ ok: false, note: 'timeout 60s — is the Facebook tab open?' }), 60_000); });
