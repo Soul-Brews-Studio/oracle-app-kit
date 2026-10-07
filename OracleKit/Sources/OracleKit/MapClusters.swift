@@ -1,82 +1,322 @@
 import Foundation
 import Accelerate
+import NaturalLanguage
 
-/// The map's groups (issue #35): docs clustered in the 768-d space (spherical k-means — cosine, deterministic),
-/// each group named by its c-TF-IDF keywords (the words that are frequent in it and rare elsewhere). Computed in
-/// the background after a layout, cached in <index>.clusters.json, recomputed when the layout is refitted.
+/// The map's groups (issue #35): docs clustered in the 768-d space (spherical k-means — cosine, deterministic) on two
+/// levels — about a dozen regions (k at the elbow of 8…16), each split again into leaves (~80 on a big memory) that
+/// the map names when zoomed in. A group is named by its c-TF-IDF keywords (the words frequent in it and rare
+/// elsewhere), then titled by the on-device model (ClusterTitler) in the background. Cached in <index>.clusters.json:
+/// a doc placed since the fit joins its nearest group; a re-fit groups again, and a group keeps its title when it
+/// shares 80 % of its members with an old one, so only the changed groups are titled again.
 @MainActor
 public final class MapClusters: ObservableObject {
     public struct Group: Codable, Sendable, Identifiable {
         public var id: Int
         public var count: Int
         public var keywords: [String]
-        public var name: String { keywords.prefix(3).joined(separator: " · ") }
+        /// The model's title; nil until titled, and when no model could title it (the keywords name it then).
+        public var title: String?
+        /// Who named it: "apple-fm", "apple-fm th", or "keywords · <why>"; nil = not tried yet.
+        public var model: String?
+        /// The region a leaf belongs to (nil on the top level).
+        public var parent: Int?
+        /// The texts nearest the group's centre — the model reads them with the keywords.
+        public var examples: [String]?
+        public var name: String { title ?? keywords.prefix(3).joined(separator: " · ") }
     }
-    struct File: Codable { var built: Date; var n: Int; var labels: [Int]; var groups: [Group]; var version: Int? }
-    static let version = 2   // bump when naming changes: cached groups are renamed
+    struct File: Codable {
+        var built: Date; var n: Int; var labels: [Int]; var groups: [Group]; var version: Int?
+        var leafLabels: [Int]?; var leaves: [Group]?; var ids: [String]?; var titled: Date?
+    }
+    static let version = 3   // bump when grouping or naming changes: cached groups are recomputed
 
     @Published public private(set) var groups: [Group] = []
-    /// group per layout row (same order as MapLayout.ids)
+    /// region per layout row (same order as MapLayout.ids)
     @Published public private(set) var labels: [Int] = []
+    /// The second level: each region split again; the map names these when zoomed in.
+    @Published public private(set) var leaves: [Group] = []
+    /// leaf per layout row
+    @Published public private(set) var leafLabels: [Int] = []
     @Published public private(set) var running = false
+    /// "titling 5 of 92" while the model names groups, empty otherwise.
+    @Published public private(set) var titling = ""
+    /// When the titles were last finished.
+    @Published public private(set) var titled: Date?
     private let url: URL
     private var built: Date?
     private var version = 0
+    private var ids: [String] = []        // the layout ids the labels belong to
+    private var generation = 0            // a new grouping stops the titling of the old one
+    private var titleTask: Task<Void, Never>?
+    private var saving: Task<Void, Never>?
 
     init(stem: URL) {
         url = URL(fileURLWithPath: stem.path + ".clusters.json")
         let d = JSONDecoder(); d.dateDecodingStrategy = .iso8601
         if let data = try? Data(contentsOf: url), let f = try? d.decode(File.self, from: data) {
             groups = f.groups; labels = f.labels; built = f.built; version = f.version ?? 1
+            leaves = f.leaves ?? []; leafLabels = f.leafLabels ?? []; ids = f.ids ?? []; titled = f.titled
         }
     }
 
-    /// Group the layout's docs when the layout is newer than the groups (or there are none). k grows with the
-    /// memory: about √(n/40), 8…24 groups.
+    /// How many groups each namer named ("apple-fm" 88, "keywords" 4) — Settings shows it.
+    public var namedBy: [(String, Int)] {
+        Dictionary(grouping: (groups + leaves).compactMap(\.model), by: { $0.hasPrefix("keywords") ? "keywords" : $0 })
+            .map { ($0.key, $0.value.count) }.sorted { $0.1 > $1.1 }
+    }
+
+    /// The groups for the layout. Kept when made for this layout; docs placed since join their nearest group;
+    /// anything else (a re-fit, a new version) groups everything again. Then untitled groups are titled in the
+    /// background — a plain relaunch finds them all titled and asks the model nothing.
     public func refresh(layout: MapLayout, docs: [IndexDoc]) async {
         guard let meta = layout.meta, !running, layout.ids.count >= 50 else { return }
-        if built == meta.built, labels.count == layout.ids.count, version == Self.version { return }
-        running = true
+        if built == meta.built, version == Self.version, labels.count == leafLabels.count, labels.count == ids.count {
+            if labels.count == layout.ids.count { startTitling(); return }
+            if labels.count < layout.ids.count, ids.elementsEqual(layout.ids.prefix(ids.count)) {
+                await assign(layout: layout, docs: docs); startTitling(); return
+            }
+        }
+        await regroup(layout: layout, docs: docs, built: meta.built)
+        startTitling()
+    }
+
+    /// Settings → Relabel groups: every group is titled again.
+    public func relabel() {
+        guard !running, !(groups.isEmpty && leaves.isEmpty) else { return }
+        generation += 1; titleTask?.cancel(); titleTask = nil
+        for i in groups.indices { groups[i].title = nil; groups[i].model = nil }
+        for i in leaves.indices { leaves[i].title = nil; leaves[i].model = nil }
+        HubLog.shared.add(.info, "map groups: relabel asked — \(groups.count + leaves.count) groups to title")
+        startTitling()
+    }
+
+    private func regroup(layout: MapLayout, docs: [IndexDoc], built b: Date) async {
         let byId = Dictionary(docs.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         let rows = layout.ids.map { byId[$0] }
         let dim = rows.first(where: { $0 != nil })??.vec.count ?? 0
-        guard dim > 0 else { running = false; return }
+        guard dim > 0 else { return }
+        running = true
+        generation += 1; titleTask?.cancel(); titleTask = nil; titling = ""
         var X = [Float](); X.reserveCapacity(rows.count * dim)
-        var texts: [String] = []
+        var texts: [String] = [], shown: [String] = []
         for r in rows {
-            // a session piece is named by what was said (its snippet), not the session's title; a /command says nothing
-            if let r, r.vec.count == dim { X.append(contentsOf: r.vec); texts.append(r.kind == "history" ? (r.snippet.hasPrefix("/") ? "" : r.snippet) : r.title + " " + r.snippet) }
-            else { X.append(contentsOf: [Float](repeating: 0, count: dim)); texts.append("") }
+            if let r, r.vec.count == dim {
+                X.append(contentsOf: r.vec)
+                // a session piece is named by what was said (its snippet), not the session's title; a /command says nothing
+                let said = r.snippet.hasPrefix("/") ? "" : r.snippet
+                texts.append(r.kind == "history" ? said : r.title + " " + r.snippet)
+                shown.append(r.kind == "history" ? said : r.title)
+            } else { X.append(contentsOf: [Float](repeating: 0, count: dim)); texts.append(""); shown.append("") }
         }
-        let n = rows.count
-        let k = min(24, max(8, Int((Double(n) / 40).squareRoot())))
+        let n = rows.count, newIds = layout.ids
+        let oldGroups = groups, oldLabels = labels, oldLeaves = leaves, oldLeafLabels = leafLabels, oldIds = ids
         let t0 = Date()
-        let result = await Task.detached(priority: .utility) { () -> ([Int], [[String]]) in
-            let labels = Self.sphericalKMeans(X, n: n, dim: dim, k: k)
-            let words = texts.map { SearchCloud.words($0) }
-            return (labels, Self.keywords(labels: labels, words: words, k: k))
-        }.value
-        labels = result.0
-        groups = (0..<k).map { g in Group(id: g, count: result.0.filter { $0 == g }.count, keywords: result.1[g]) }
-            .filter { $0.count > 0 }
-        built = meta.built; version = Self.version
+        let r = await Task.detached(priority: .utility) { Self.group(X, n: n, dim: dim, texts: texts, shown: shown) }.value
+        var g = r.groups, l = r.leaves
+        let kept = Self.carry(into: &g, labels: r.labels, ids: newIds, from: oldGroups, labels: oldLabels, ids: oldIds)
+            + Self.carry(into: &l, labels: r.leafLabels, ids: newIds, from: oldLeaves, labels: oldLeafLabels, ids: oldIds)
+        groups = g; labels = r.labels; leaves = l; leafLabels = r.leafLabels; ids = newIds
+        built = b; version = Self.version
         save()
-        HubLog.shared.add(.info, String(format: "map groups: %d docs in %d groups in %.1f s", n, groups.count, Date().timeIntervalSince(t0)))
+        HubLog.shared.add(.info, String(format: "map groups: %d docs in %d regions (k %d at the elbow) and %d leaves in %.1f s (%@) — %d titles kept",
+                                        n, g.count, r.k, l.count, Date().timeIntervalSince(t0), r.timing, kept))
         running = false
     }
 
+    /// Docs placed since the fit join the region, then the leaf of that region, whose centre (the members' mean,
+    /// normalised) is closest in cosine. No re-grouping, no new titles.
+    private func assign(layout: MapLayout, docs: [IndexDoc]) async {
+        let byId = Dictionary(docs.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        let vecs = layout.ids.map { byId[$0]?.vec ?? [] }
+        guard let dim = vecs.first(where: { !$0.isEmpty })?.count else { return }
+        let start = labels.count, top = labels, leaf = leafLabels
+        let regions = groups.map(\.id), leafParent = leaves.map { ($0.id, $0.parent ?? -1) }
+        let k = (regions.max() ?? 0) + 1, L = (leafParent.map(\.0).max() ?? 0) + 1
+        let (newTop, newLeaf) = await Task.detached(priority: .utility) { () -> ([Int], [Int]) in
+            let C = Self.centres(vecs, labels: top, k: k, dim: dim), LC = Self.centres(vecs, labels: leaf, k: L, dim: dim)
+            var a: [Int] = [], b: [Int] = []
+            for i in start..<vecs.count {
+                let g = Self.nearest(vecs[i], in: C, dim: dim, among: regions)
+                let mine = leafParent.filter { $0.1 == g }.map(\.0)
+                a.append(g); b.append(Self.nearest(vecs[i], in: LC, dim: dim, among: mine.isEmpty ? leafParent.map(\.0) : mine))
+            }
+            return (a, b)
+        }.value
+        guard labels.count == start else { return }   // grouped again meanwhile
+        var g = groups, l = leaves
+        for x in newTop { if let j = g.firstIndex(where: { $0.id == x }) { g[j].count += 1 } }
+        for x in newLeaf { if let j = l.firstIndex(where: { $0.id == x }) { l[j].count += 1 } }
+        groups = g; leaves = l
+        labels += newTop; leafLabels += newLeaf; ids += layout.ids[start...]
+        save()
+        HubLog.shared.add(.info, "map groups: \(newTop.count) placed docs joined their nearest groups — relabelled 0 of \(g.count + l.count)")
+    }
+
+    /// Titles every group the model has not named yet, one at a time in the background (~1 s each), regions first.
+    private func startTitling() {
+        guard titleTask == nil, !running, (groups + leaves).contains(where: { $0.model == nil }) else { return }
+        let gen = generation
+        titleTask = Task { [weak self] in
+            await self?.titleAll(generation: gen)
+            if let self, self.generation == gen { self.titleTask = nil }
+        }
+    }
+
+    private func titleAll(generation gen: Int) async {
+        let todo = groups.indices.filter { groups[$0].model == nil }.map { (true, $0) }
+            + leaves.indices.filter { leaves[$0].model == nil }.map { (false, $0) }
+        guard !todo.isEmpty else { return }
+        let total = groups.count + leaves.count, t0 = Date()
+        var by: [String: Int] = [:]
+        for (n, (top, i)) in todo.enumerated() {
+            guard gen == generation, !Task.isCancelled else { return }
+            titling = "titling \(n + 1) of \(todo.count)"
+            let g = top ? groups[i] : leaves[i]
+            // a leaf is told its region's title, so it says what sets it apart instead of repeating the region
+            let region = top ? nil : groups.first { $0.id == g.parent }.flatMap(\.title)
+            let siblings = top ? [] : leaves.filter { $0.parent == g.parent && $0.id != g.id }.compactMap(\.title)
+            let r = await ClusterTitler.title(keywords: g.keywords, examples: g.examples ?? [], within: region, avoiding: siblings + (region.map { [$0] } ?? []))
+            guard gen == generation, !Task.isCancelled else { return }
+            if !r.final {   // the model can't be asked now: the rest stay untitled and are tried on the next map open
+                titling = ""; save()
+                HubLog.shared.add(.error, "map groups: titling paused after \(n) of \(todo.count) — \(r.model.replacingOccurrences(of: "keywords · ", with: ""))")
+                return
+            }
+            if top { groups[i].title = r.title; groups[i].model = r.model } else { leaves[i].title = r.title; leaves[i].model = r.model }
+            by[r.model.hasPrefix("keywords") ? "keywords" : r.model, default: 0] += 1
+            if ClusterTitler.mostlyThai(g.keywords) {   // the model does not list Thai: each Thai group says what named it
+                HubLog.shared.add(.info, "map groups: Thai group “\(g.keywords.prefix(3).joined(separator: " "))” → “\(r.title ?? g.name)” by \(r.model)")
+            }
+            if (n + 1) % 12 == 0 { save() }
+        }
+        titling = ""; titled = Date()
+        save()
+        HubLog.shared.add(.info, String(format: "map groups: relabelled %d of %d in %.0f s — %@", todo.count, total, Date().timeIntervalSince(t0),
+                                        by.sorted { $0.key < $1.key }.map { "\($0.key) \($0.value)" }.joined(separator: " · ")))
+    }
+
+    /// Writes off the main actor, one save after another.
     private func save() {
         guard let built else { return }
-        let f = File(built: built, n: labels.count, labels: labels, groups: groups, version: Self.version), url = url
-        Task.detached(priority: .utility) {
+        let f = File(built: built, n: labels.count, labels: labels, groups: groups, version: Self.version,
+                     leafLabels: leafLabels, leaves: leaves, ids: ids, titled: titled)
+        let url = url, previous = saving
+        saving = Task.detached(priority: .utility) {
+            await previous?.value
             let e = JSONEncoder(); e.dateEncodingStrategy = .iso8601
             try? e.encode(f).write(to: url, options: .atomic)
         }
     }
 
+    // MARK: the grouping (pure, off the main actor)
+
+    struct Grouping: Sendable {
+        var k: Int; var labels: [Int]; var groups: [Group]; var leafLabels: [Int]; var leaves: [Group]
+        /// Where the time went: "elbow 0.4 s · regions 0.6 s · leaves 0.9 s · words 2.1 s"
+        var timing = ""
+    }
+
+    /// Regions at the elbow, each split into leaves (about n / 80 docs a leaf on a big memory; a region under 40 docs
+    /// stays one leaf), then keywords and the texts nearest each centre.
+    nonisolated static func group(_ X: [Float], n: Int, dim: Int, texts: [String], shown: [String]) -> Grouping {
+        var clock = Date(), timing: [String] = []
+        func lap(_ what: String) { timing.append(String(format: "%@ %.1f s", what, Date().timeIntervalSince(clock))); clock = Date() }
+        let k = elbow(X, n: n, dim: dim)
+        lap("elbow")
+        let (top, C) = sphericalKMeans(X, n: n, dim: dim, k: k)
+        lap("regions")
+        let target = Double(min(80, max(24, Int((Double(n) / 8).squareRoot()))))
+        var members = [[Int]](repeating: [], count: k)
+        for i in 0..<n { members[top[i]].append(i) }
+        var leaf = [Int](repeating: 0, count: n), parentOf: [Int] = [], LC: [Float] = []
+        for g in 0..<k where !members[g].isEmpty {
+            let m = members[g]
+            let kg = m.count < 40 ? 1 : max(2, min(12, Int((Double(m.count) * target / Double(n)).rounded())))
+            let sl: [Int], sc: [Float]
+            if kg == 1 { sl = [Int](repeating: 0, count: m.count); sc = Array(C[(g * dim)..<((g + 1) * dim)]) } else {
+                var sub = [Float](); sub.reserveCapacity(m.count * dim)
+                for i in m { sub.append(contentsOf: X[(i * dim)..<((i + 1) * dim)]) }
+                let (raw, c) = sphericalKMeans(sub, n: m.count, dim: dim, k: kg)
+                sl = mergeTiny(raw, sub, dim: dim, centroids: c, k: kg); sc = c
+            }
+            let base = parentOf.count
+            for (j, i) in m.enumerated() { leaf[i] = base + sl[j] }
+            parentOf += [Int](repeating: g, count: kg); LC += sc
+        }
+        let L = parentOf.count
+        lap("leaves")
+        // the words of every doc, in 8 slices at once, one tokenizer per slice
+        var words = [[String]](repeating: [], count: n)
+        let slices = 8, per = (n + slices - 1) / slices
+        words.withUnsafeMutableBufferPointer { out in
+            let base = out.baseAddress!
+            DispatchQueue.concurrentPerform(iterations: slices) { s in
+                let t = NLTokenizer(unit: .word)
+                for i in (s * per)..<min(n, (s + 1) * per) { base[i] = SearchCloud.words(texts[i], using: t) }
+            }
+        }
+        let topWords = keywords(labels: top, words: words, k: k), leafWords = keywords(labels: leaf, words: words, k: L)
+        let topEx = examples(X, dim: dim, labels: top, centroids: C, k: k, shown: shown)
+        let leafEx = examples(X, dim: dim, labels: leaf, centroids: LC, k: L, shown: shown)
+        var topCount = [Int](repeating: 0, count: k), leafCount = [Int](repeating: 0, count: L)
+        for i in 0..<n { topCount[top[i]] += 1; leafCount[leaf[i]] += 1 }
+        lap("words")
+        return Grouping(
+            k: k, labels: top,
+            groups: (0..<k).filter { topCount[$0] > 0 }.map { Group(id: $0, count: topCount[$0], keywords: topWords[$0], examples: topEx[$0]) },
+            leafLabels: leaf,
+            leaves: (0..<L).filter { leafCount[$0] > 0 }.map { Group(id: $0, count: leafCount[$0], keywords: leafWords[$0], parent: parentOf[$0], examples: leafEx[$0]) },
+            timing: timing.joined(separator: " · "))
+    }
+
+    /// A leaf of fewer than 5 docs (k-means seeds on outliers) is no group: its docs join the closest bigger leaf.
+    nonisolated static func mergeTiny(_ labels: [Int], _ X: [Float], dim: Int, centroids C: [Float], k: Int, least: Int = 5) -> [Int] {
+        var count = [Int](repeating: 0, count: k)
+        for l in labels { count[l] += 1 }
+        let big = (0..<k).filter { count[$0] >= least }
+        guard !big.isEmpty, big.count < k else { return labels }
+        var out = labels
+        X.withUnsafeBufferPointer { x in C.withUnsafeBufferPointer { c in
+            for i in labels.indices where count[labels[i]] < least {
+                var best = big[0], bs = -Float.infinity
+                for g in big { var s: Float = 0; vDSP_dotpr(x.baseAddress! + i * dim, 1, c.baseAddress! + g * dim, 1, &s, vDSP_Length(dim)); if s > bs { bs = s; best = g } }
+                out[i] = best
+            }
+        } }
+        return out
+    }
+
+    /// k for the regions: spherical k-means on a sample (≤ ~3,000 rows) for k = 8, 10, …, 16, the cohesion (mean
+    /// cosine to the own centre) of each, and the elbow — the k farthest above the straight line from the first
+    /// cohesion to the last (kneedle).
+    nonisolated static func elbow(_ X: [Float], n: Int, dim: Int, ks: [Int] = [8, 10, 12, 14, 16]) -> Int {
+        let step = max(1, n / 3_000)
+        let rows = Array(stride(from: 0, to: n, by: step))
+        guard rows.count >= ks.last! * 10 else { return ks[0] }
+        var S = [Float](); S.reserveCapacity(rows.count * dim)
+        for r in rows { S.append(contentsOf: X[(r * dim)..<((r + 1) * dim)]) }
+        let m = rows.count
+        let cohesion = ks.map { k -> Double in
+            let (lab, C) = sphericalKMeans(S, n: m, dim: dim, k: k)
+            var sum: Float = 0
+            S.withUnsafeBufferPointer { s in C.withUnsafeBufferPointer { c in
+                for i in 0..<m { var d: Float = 0; vDSP_dotpr(s.baseAddress! + i * dim, 1, c.baseAddress! + lab[i] * dim, 1, &d, vDSP_Length(dim)); sum += d }
+            } }
+            return Double(sum) / Double(m)
+        }
+        guard let lo = cohesion.first, let hi = cohesion.last, hi > lo else { return ks[ks.count / 2] }
+        var best = ks[0], bd = -Double.infinity
+        for (j, k) in ks.enumerated() {
+            let d = (cohesion[j] - lo) / (hi - lo) - Double(j) / Double(ks.count - 1)
+            if d > bd { bd = d; best = k }
+        }
+        return best
+    }
+
     /// Spherical k-means on unit vectors: assign by the largest dot product (one sgemm per pass), centroids =
-    /// normalised member means. Seeded farthest-first, so the same input gives the same groups.
-    nonisolated static func sphericalKMeans(_ X: [Float], n: Int, dim: Int, k: Int, iters: Int = 15) -> [Int] {
+    /// normalised member means. Seeded farthest-first, so the same input gives the same groups. Returns the label
+    /// per row and the k × dim centroids.
+    nonisolated static func sphericalKMeans(_ X: [Float], n: Int, dim: Int, k: Int, iters: Int = 15) -> (labels: [Int], centroids: [Float]) {
         var C = [Float](repeating: 0, count: k * dim)
         // farthest-first: start at row 0, then repeatedly the row least similar to every chosen centroid
         var best = [Float](repeating: -.infinity, count: n)
@@ -108,15 +348,86 @@ public final class MapClusters: ObservableObject {
             }
             C = [Float](repeating: 0, count: k * dim)
             for i in 0..<n { let c = labels[i]; for j in 0..<dim { C[c * dim + j] += X[i * dim + j] } }
-            for c in 0..<k {
-                var norm: Float = 0
-                C.withUnsafeBufferPointer { vDSP_svesq($0.baseAddress! + c * dim, 1, &norm, vDSP_Length(dim)) }
-                let r = norm > 0 ? 1 / norm.squareRoot() : 0
-                for j in 0..<dim { C[c * dim + j] *= r }
-            }
+            normaliseRows(&C, k: k, dim: dim)
             if changed == 0 { break }
         }
-        return labels
+        return (labels, C)
+    }
+
+    nonisolated static func normaliseRows(_ C: inout [Float], k: Int, dim: Int) {
+        for c in 0..<k {
+            var norm: Float = 0
+            C.withUnsafeBufferPointer { vDSP_svesq($0.baseAddress! + c * dim, 1, &norm, vDSP_Length(dim)) }
+            let r = norm > 0 ? 1 / norm.squareRoot() : 0
+            for j in 0..<dim { C[c * dim + j] *= r }
+        }
+    }
+
+    /// The k × dim centres of labelled vectors (rows without a vector are skipped).
+    nonisolated static func centres(_ vecs: [[Float]], labels: [Int], k: Int, dim: Int) -> [Float] {
+        var C = [Float](repeating: 0, count: k * dim)
+        for (i, g) in labels.enumerated() where i < vecs.count && vecs[i].count == dim && g >= 0 && g < k {
+            vecs[i].withUnsafeBufferPointer { v in for j in 0..<dim { C[g * dim + j] += v[j] } }
+        }
+        normaliseRows(&C, k: k, dim: dim)
+        return C
+    }
+
+    /// Of the candidate groups, the one whose centre is closest in cosine (the first candidate for an empty vector).
+    nonisolated static func nearest(_ v: [Float], in C: [Float], dim: Int, among candidates: [Int]) -> Int {
+        guard v.count == dim, var best = candidates.first else { return candidates.first ?? 0 }
+        var bs = -Float.infinity
+        for g in candidates where (g + 1) * dim <= C.count {
+            var s: Float = 0
+            C.withUnsafeBufferPointer { c in vDSP_dotpr(v, 1, c.baseAddress! + g * dim, 1, &s, vDSP_Length(dim)) }
+            if s > bs { bs = s; best = g }
+        }
+        return best
+    }
+
+    /// Per group, the 3 different texts nearest its centre, for the model to read.
+    nonisolated static func examples(_ X: [Float], dim: Int, labels: [Int], centroids C: [Float], k: Int, shown: [String], top: Int = 3) -> [[String]] {
+        var near = [[(Float, Int)]](repeating: [], count: k)
+        X.withUnsafeBufferPointer { x in C.withUnsafeBufferPointer { c in
+            for i in labels.indices where !shown[i].isEmpty {
+                var s: Float = 0
+                vDSP_dotpr(x.baseAddress! + i * dim, 1, c.baseAddress! + labels[i] * dim, 1, &s, vDSP_Length(dim))
+                near[labels[i]].append((s, i))
+            }
+        } }
+        return near.map { list in
+            var seen = Set<String>(), out: [String] = []
+            for (_, i) in list.sorted(by: { $0.0 > $1.0 }) {
+                let t = String(shown[i].split(whereSeparator: \.isNewline).joined(separator: " ").prefix(90))
+                if seen.insert(t).inserted { out.append(t) }
+                if out.count == top { break }
+            }
+            return out
+        }
+    }
+
+    /// Titles kept across a re-grouping: a new group takes the title of the old group it shares the most members with,
+    /// when the two share at least 80 % (Jaccard) and the old one had a model's title. Returns how many were kept.
+    nonisolated static func carry(into new: inout [Group], labels: [Int], ids: [String], from old: [Group], labels oldLabels: [Int], ids oldIds: [String]) -> Int {
+        guard !old.isEmpty, oldLabels.count == oldIds.count, labels.count == ids.count else { return 0 }
+        var oldOf: [String: Int] = [:], oldSize: [Int: Int] = [:]
+        oldOf.reserveCapacity(oldIds.count)
+        for (i, id) in oldIds.enumerated() { oldOf[id] = oldLabels[i]; oldSize[oldLabels[i], default: 0] += 1 }
+        var overlap: [Int: [Int: Int]] = [:], size: [Int: Int] = [:]
+        for (i, id) in ids.enumerated() {
+            size[labels[i], default: 0] += 1
+            if let o = oldOf[id] { overlap[labels[i], default: [:]][o, default: 0] += 1 }
+        }
+        let byId = Dictionary(old.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        var kept = 0, taken = Set<Int>()
+        for j in new.indices {
+            guard let best = overlap[new[j].id]?.max(by: { $0.value < $1.value || ($0.value == $1.value && $0.key > $1.key) }),
+                  let og = byId[best.key], og.title != nil, !taken.contains(best.key) else { continue }
+            let union = (size[new[j].id] ?? 0) + (oldSize[best.key] ?? 0) - best.value
+            guard union > 0, Double(best.value) / Double(union) >= 0.8 else { continue }
+            new[j].title = og.title; new[j].model = og.model; taken.insert(best.key); kept += 1
+        }
+        return kept
     }
 
     /// c-TF-IDF (BERTopic's class-based TF-IDF): tf of a word in the group × log(1 + mean words per group / its
@@ -129,7 +440,24 @@ public final class MapClusters: ObservableObject {
         "very", "much", "many", "only", "been", "being", "was", "were", "did", "does", "doing", "go", "going", "next", "first", "last",
         "way", "thing", "things", "something", "think", "know", "look", "try", "work", "working", "sure", "right", "well", "back",
         "keep", "check", "show", "tell", "said", "says", "say", "way", "time", "file", "files", "full", "start", "starting", "following",
-        "ทำ", "ให้", "แล้ว", "ครับ", "นะ", "ไม่", "ได้", "มี", "ที่", "จะ", "เป็น", "ก็", "ด้วย", "อยู่", "ว่า", "ไป", "มา", "ดู", "ลอง", "อัน", "เลย"]
+        // an assistant narrating its own steps ("I'm checking before I'll run…") names nothing either
+        "i'm", "i’m", "i'll", "i’ll", "i've", "i’ve", "i'd", "i’d", "let's", "let’s", "it's", "it’s", "that's", "that’s", "don't", "don’t",
+        "can't", "can’t", "won't", "won’t", "we're", "we’re", "you're", "you’re", "there's", "there’s", "here's", "here’s", "what's", "what’s",
+        "before", "after", "about", "again", "other", "checking", "looking", "now's", "got", "seems", "actually", "really", "already",
+        // the keys of messages and tool output pasted into a session
+        "root", "type", "sender", "true", "false", "null", "value", "name", "content", "text", "json", "string",
+        // and the words of any task ("both", "the same", "real", Nat's "shuld")
+        "both", "same", "real", "rather", "anything", "everything", "nothing", "three", "every", "each", "against", "without",
+        "another", "else", "shuld", "ต่อ",
+        "ทำ", "ให้", "แล้ว", "ครับ", "นะ", "ไม่", "ได้", "มี", "ที่", "จะ", "เป็น", "ก็", "ด้วย", "อยู่", "ว่า", "ไป", "มา", "ดู", "ลอง", "อัน", "เลย",
+        "จาก", "หน่อย", "มัน", "ผม", "ก่อน", "กัน", "คะ", "ค่ะ", "เดี๋ยว", "แบบ", "ตอน", "อีก", "ยัง", "เอา", "ช่วย", "ขอ", "คือ", "เขา", "นั้น",
+        "ไหน", "ทุก", "แต่", "หรือ", "เพราะ", "ถ้า", "ต้อง", "แค่", "กว่า", "ทั้ง", "ไว้", "ออก", "เข้า", "ตัว", "อย่าง", "เรื่อง", "แล้วก็", "นะครับ"]
+
+    /// A keyword: three letters or more — or two Thai ones (บท, ปก: Thai words are short in letters, not in meaning).
+    nonisolated static func keyword(_ w: String) -> Bool {
+        (w.count > 2 || (w.count == 2 && ClusterTitler.mostlyThai([w]))) && !w.allSatisfy(\.isNumber) && !filler.contains(w)
+            && !w.hasSuffix("'s") && !w.hasSuffix("’s")   // "oracle's": the word is there without its 's
+    }
 
     nonisolated static func keywords(labels: [Int], words: [[String]], k: Int, top: Int = 6) -> [[String]] {
         var tf = [[String: Int]](repeating: [:], count: k)
@@ -137,14 +465,16 @@ public final class MapClusters: ObservableObject {
         var size = [Int](repeating: 0, count: k)
         for (i, ws) in words.enumerated() {
             let g = labels[i]
-            for w in ws where w.count > 2 && !w.allSatisfy(\.isNumber) && !filler.contains(w) { tf[g][w, default: 0] += 1; total[w, default: 0] += 1; size[g] += 1 }
+            for w in ws where keyword(w) { tf[g][w, default: 0] += 1; total[w, default: 0] += 1; size[g] += 1 }
         }
         let mean = Double(size.reduce(0, +)) / Double(max(1, k))
-        return (0..<k).map { g in
-            tf[g].map { (w, c) -> (String, Double) in
+        return (0..<k).map { g -> [String] in
+            let scored: [(String, Double)] = tf[g].map { (w, c) -> (String, Double) in
                 (w, Double(c) / Double(max(1, size[g])) * log(1 + mean / Double(total[w] ?? 1)))
             }
-            .sorted { $0.1 > $1.1 }.prefix(top).map(\.0)
+            // ties broken by the word, so the same groups always get the same names
+            let ranked = scored.sorted { a, b in a.1 != b.1 ? a.1 > b.1 : a.0 < b.0 }
+            return ranked.prefix(top).map(\.0)
         }
     }
 }
