@@ -164,11 +164,86 @@
              text: caption.slice(0, 2000) + (author ? `\n\nby ${author} on Facebook` : '') };
   }
 
+  // ── the whole thread, as a human sees it ─────────────────────────────────────────────────────────────────────
+  // Every comment keeps its own link (comment_id from its timestamp) so a reply can find it again. The markdown goes to
+  // the bridge (a thread is too big for a URL); the draft in the app reads it from ~/.oracle-fb/threads/<id>.md.
+  const hash = (str) => { let h = 5381; for (const ch of str) h = ((h << 5) + h + ch.charCodeAt(0)) >>> 0; return h.toString(36).padStart(6, '0').slice(0, 8); };
+  const EXPAND = /^(view (all )?(\d+ )?(more |previous )?(repl|comment)|(view |see )?(more|previous) comments|ดูความคิดเห็น|ดู \d+ การตอบกลับ)/i;
+  async function expandThread(root) {
+    for (let round = 0; round < 8; round++) {
+      const more = [...root.querySelectorAll('[role="button"]')].filter(b => !b.hasAttribute('data-oracle-open') &&
+        (EXPAND.test(b.textContent.trim()) || (/^(see more|ดูเพิ่มเติม)$/i.test(b.textContent.trim()) && b.closest('[role="article"]'))));
+      if (!more.length) break;
+      more.forEach(b => { b.setAttribute('data-oracle-open', '1'); b.click(); });
+      await tick(1000);
+    }
+  }
+  const COMMENT_LABEL = /^(comment|reply) (by|to)\b|^(ความคิดเห็น|ตอบกลับ)/i;
+  async function collectThread(root, d) {
+    await expandThread(root);
+    const arts = [...root.querySelectorAll('[role="article"]')].filter(a => a !== root && COMMENT_LABEL.test(a.getAttribute('aria-label') || ''));
+    const comments = [];
+    for (const art of arts) {
+      const own = [...art.querySelectorAll('a[href]')].filter(a => a.closest('[role="article"]') === art);
+      await resolve(own);
+      const time = own.find(a => /comment_id=/.test(a.href) && /permalink|story_fbid|\/posts\/|fbid=|\/videos\/|\/reel\//.test(a.href));
+      const id = time ? (time.href.match(/reply_comment_id=(\d+)/) || time.href.match(/comment_id=(\d+)/) || [])[1] || '' : '';
+      const author = (own.find(a => a.innerText.trim())?.innerText || '').trim().split('\n')[0];
+      const text = captionIn(art, author);
+      const out = [...new Set(own.map(a => { try { const u = new URL(a.href); return u.hostname === 'l.facebook.com' ? u.searchParams.get('u') : null; } catch { return null; } }).filter(Boolean))];
+      comments.push({ key: `c${comments.length + 1}`, id, author, level: /^reply/i.test(art.getAttribute('aria-label') || '') ? 1 : 0,
+        link: time ? clean(time.href) : '', text, links: out });
+    }
+    const id = hash(d.url || location.href);
+    const md = [`# ${d.title}`, '', `Post: ${d.url}`, '', ...d.text.split('\n').map(l => `> ${l}`), '', `## Comments (${comments.length})`, '',
+      ...comments.map(c => `${c.level ? '    ' : ''}**${c.key}** ${c.author || '?'}${c.link ? ` — <${c.link}>` : ''}\n${c.level ? '    ' : ''}${c.text.split('\n').map(l => `> ${l}`).join(`\n${c.level ? '    ' : ''}`)}` +
+        c.links.map(h => `\n${c.level ? '    ' : ''}link: <${h}>`).join('') + '\n')].join('\n');
+    const res = await new Promise(r => chrome.runtime.sendMessage({ kind: 'thread', thread: { id, url: d.url, title: d.title, md,
+      comments: comments.map(({ key, id: cid, author, level, link }) => ({ key, id: cid, author, level, link })) } }, r));
+    return { ...(res || { ok: false, error: 'no answer from the extension' }), id, md, count: comments.length };
+  }
+
+  // ── bridge → page: type a reply into one comment's box, never submit ──────────────────────────────────────────
+  async function fillReply({ comment, text }) {
+    let art = null;
+    for (let i = 0; i < 30 && !art; i++) {
+      for (const a of document.querySelectorAll('[role="article"]')) {
+        const own = [...a.querySelectorAll('a[href]')].filter(x => x.closest('[role="article"]') === a);
+        await resolve(own);
+        if (own.some(x => x.href.includes(`comment_id=${comment}`))) { art = a; break; }
+      }
+      if (!art) await tick(500);
+    }
+    if (!art) return { ok: false, note: `comment ${comment} is not on this page (open the post, expand its replies)` };
+    art.scrollIntoView({ block: 'center' });
+    const btn = [...art.querySelectorAll('[role="button"]')].find(b => /^(reply|ตอบกลับ)$/i.test(b.textContent.trim()));
+    if (!btn) return { ok: false, note: 'no Reply button on that comment' };
+    btn.click();
+    let box = null;
+    for (let i = 0; i < 20 && !box; i++) {
+      await tick(250);
+      const y = art.getBoundingClientRect().bottom;
+      box = [...document.querySelectorAll('div[contenteditable="true"][role="textbox"]')]
+        .filter(b => /^(reply|ตอบกลับ)/i.test(b.getAttribute('aria-label') || b.getAttribute('aria-placeholder') || ''))
+        .sort((p, q) => Math.abs(p.getBoundingClientRect().top - y) - Math.abs(q.getBoundingClientRect().top - y))[0] || null;
+    }
+    if (!box) return { ok: false, note: 'the reply box did not open' };
+    box.focus();
+    const sel = getSelection(); sel.selectAllChildren(box); sel.collapseToEnd();   // after the @mention Facebook pre-fills
+    document.execCommand('insertText', false, text);
+    await tick(300);
+    const ok = box.innerText.includes(text.slice(0, 12));
+    return ok ? { ok: true, note: 'typed — press Enter in Chrome to post' } : { ok: false, note: 'Facebook did not accept the text' };
+  }
+  if (window.chrome?.runtime?.onMessage) chrome.runtime.onMessage.addListener((msg, _s, reply) => {
+    if (msg?.kind === 'fillReply') { fillReply(msg).then(reply, (e) => reply({ ok: false, note: String(e) })); return true; }
+  });
+
   // Click → a small box opens beside the button with the cursor already in it: type a note, Enter sends (⇧Enter =
   // new line, Esc closes). The note goes first in the issue body. (Nat: "when click it should input box popup and
   // active in the box, let me type and can enter using keyboard".) Facebook binds single-key shortcuts and traps
   // focus inside its dialogs, so the box lives INSIDE the nearest dialog and swallows its own key events.
-  function compose(anchor, getDetails) {
+  function compose(anchor, getDetails, getThread) {
     document.querySelectorAll('.oracle-compose').forEach(m => m.remove());
     const host = anchor.closest('[role="dialog"]') || document.body;
     const box = document.createElement('div');
@@ -194,20 +269,31 @@
     ta.placeholder = 'Add a note…  (Enter = send, ⇧Enter = new line, Esc = close)'; ta.rows = 3;
     Object.assign(ta.style, { width: '100%', boxSizing: 'border-box', resize: 'vertical', background: '#18191a', color: '#e4e6eb',
       border: '1px solid #3a3b3c', borderRadius: '8px', padding: '8px', font: '14px system-ui, sans-serif', outline: 'none' });
+    const incl = document.createElement('label');
+    Object.assign(incl.style, { display: getThread ? 'flex' : 'none', gap: '6px', alignItems: 'center', margin: '8px 0 0', cursor: 'pointer', fontSize: '13px' });
+    const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = true;
+    incl.append(cb, document.createTextNode('Include every comment (each with its own link)'));
     const foot = document.createElement('div');
     Object.assign(foot.style, { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' });
     const hint = document.createElement('span'); hint.style.opacity = '.55'; hint.style.fontSize = '12px'; hint.textContent = 'Enter to send';
     const go = document.createElement('span'); go.textContent = 'Send ↵';
     Object.assign(go.style, { padding: '6px 14px', borderRadius: '10px', background: '#ab47bc', color: '#fff', cursor: 'pointer', font: '600 13px system-ui, sans-serif' });
     foot.append(hint, go);
-    box.append(head, ta, foot);
+    box.append(head, ta, incl, foot);
     const close = () => { box.remove(); document.removeEventListener('mousedown', outside, true); };
     const outside = (e) => { if (!box.contains(e.target) && !anchor.contains(e.target)) close(); };
     const submit = async () => {
       go.textContent = 'Sending…'; go.style.opacity = '.6';
-      const d = await getDetails();
+      const base = await getDetails();   // the post as a human sees it — the note is NOT part of the thread file
+      let d = base;
       const note = ta.value.trim();
-      send(oracle, note ? { ...d, text: `${note}\n\n---\n${d.text}` } : d);
+      if (note) d = { ...d, text: `${note}\n\n---\n${d.text}` };
+      if (getThread && cb.checked) {
+        const t = await getThread(base);
+        if (t.ok) d = { ...d, thread: t.id };
+        else d = { ...d, text: `${d.text}\n\n(thread not forwarded: ${t.error || 'bridge down'} — start it: bun /opt/Code/github.com/Soul-Brews-Studio/oracle-app-kit/browser/bridge/server.ts)` };
+      }
+      send(oracle, d);
       close();
     };
     go.onclick = (e) => { e.stopPropagation(); submit(); };
@@ -233,7 +319,7 @@
   }
 
   // The 🔮 every action row gets: click → DEFAULT, ⇧-click → pick the oracle.
-  function barButton(getDetails) {
+  function barButton(getDetails, getThread) {
     const btn = document.createElement('div');
     btn.setAttribute('role', 'button'); btn.tabIndex = 0;
     btn.title = `New issue in ${DEFAULT} Oracle (⇧-click: another oracle)`;
@@ -245,7 +331,7 @@
     btn.onclick = async (e) => {
       e.stopPropagation(); e.preventDefault();
       if (e.shiftKey) return menu(btn, null, getDetails);
-      compose(btn, getDetails);
+      compose(btn, getDetails, getThread);
     };
     return btn;
   }
@@ -260,7 +346,7 @@
       headerChip(post, () => details(post));   // checked every pass: Facebook re-renders headers
       if (bar.hasAttribute(MARK)) continue;
       bar.setAttribute(MARK, '1');
-      bar.lastElementChild.after(barButton(() => details(post)));   // after Share, or after Comment when there is no Share
+      bar.lastElementChild.after(barButton(() => details(post), (d) => collectThread(post, d)));   // after Share, or after Comment when there is no Share
     }
     addHeaderChip();
     addCommentButtons();
@@ -287,7 +373,7 @@
   }
 
   // A small purple chip that sits inline in Facebook's own text rows (header line, next to Reply).
-  function chip(label, title, getDetails, attr) {
+  function chip(label, title, getDetails, attr, getThread) {
     const c = document.createElement('span');
     c.setAttribute('role', 'button'); c.tabIndex = 0; c.setAttribute(attr, '1'); c.textContent = label; c.title = title;
     // a big hand-cursor target (Nat: "make hand mouse click region larger"): generous padding, pulled back with
@@ -298,7 +384,7 @@
     c.onclick = async (e) => {
       e.stopPropagation(); e.preventDefault();
       if (e.shiftKey) return menu(c, null, getDetails);
-      compose(c, getDetails);
+      compose(c, getDetails, getThread);
     };
     return c;
   }
@@ -318,7 +404,7 @@
       line = globe; while (line && line !== root && !(line.tagName === 'DIV' && getComputedStyle(line).display === 'flex')) line = line.parentElement;
       if (!line || line === root) return;
     }
-    const c = chip(`🔮 ${DEFAULT}`, `New issue in ${DEFAULT} Oracle for this post (⇧-click: another oracle)`, getDetails, 'data-oracle-btn');
+    const c = chip(`🔮 ${DEFAULT}`, `New issue in ${DEFAULT} Oracle for this post (⇧-click: another oracle)`, getDetails, 'data-oracle-btn', (d) => collectThread(root, d));
     c.setAttribute('data-oracle-head', '1');
     line.append(c);
   }
@@ -352,7 +438,7 @@
     p.onclick = async (e) => {
       e.stopPropagation(); e.preventDefault();
       if (e.shiftKey) return menu(p, null, pageDetails);
-      compose(p, pageDetails);
+      compose(p, pageDetails, (d) => collectThread(sidePanel() || document.body, d));
     };
     document.body.append(p);
   }
