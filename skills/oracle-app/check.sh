@@ -32,7 +32,7 @@ SLUG=$(get repoSlug); HEX=$(get colorHex); SYM=$(get symbol); TAG=$(get tagline)
 LP=$(sed -n 's/.*OracleConfig.mac("\([^"]*\)").*/\1/p' $C | head -1)
 KEY=$(sed -n 's/^ *PRODUCT_BUNDLE_IDENTIFIER: co\.laris\.oracle\.\([a-z0-9-]*\)$/\1/p' $D/app.yml | head -1)
 PORT=$(sed -n 's/.*port: \([0-9][0-9]*\).*/\1/p' $D/${N}App.swift | head -1)
-RULE=${SLUG#*/}; RULE=${RULE%-[Oo]racle}; RULE=${${(L)RULE}//[_.]/-}   # = HubParse.appKey(forRepo:)
+RULE=${(L)${SLUG#*/}}; RULE=${RULE%-oracle}; RULE=${RULE//[_.]/-}   # = HubParse.appKey(forRepo:) (case-insensitive -oracle)
 REGEN="zsh $K/scripts/new-oracle-app.sh $N $SLUG '$LP' '$HEX' $SYM \"$TAG\" --update"
 
 # portal key — the hub matches an app to its oracle by this
@@ -78,7 +78,7 @@ if [[ -n $RUN ]] && (( ! OURS )); then
   st=$(ps -o lstart= -p ${RUN%% *} 2>/dev/null); [[ -n $st ]] && touch -t $(date -j -f "%a %b %d %T %Y" "$st" +%Y%m%d%H%M.%S 2>/dev/null) $MARK 2>/dev/null
 fi
 if [[ $RUN == *" /Applications/$N.app/"* ]]; then ok "running      ${RUN%% *} from /Applications"
-elif [[ -n $RUN ]]; then bad "running from elsewhere: ${RUN#* }" "osascript -e 'quit app \"$N\"'; open \"$A\""
+elif [[ -n $RUN ]]; then bad "running from elsewhere: ${RUN#* }" "pgrep -fl '$N.app/Contents/MacOS'   # whose copy? ask before quitting it, then: open \"$A\""
 else bad "not running" "open \"$A\"; tail -20 \"$LOG\""; fi
 CR=()
 for c in $HOME/Library/Logs/DiagnosticReports/{$N,${N}Widget,${N}Share}-*(N); do [[ $c -nt $MARK ]] && CR+=($c); done
@@ -90,7 +90,7 @@ if [[ $H == *'"status":"ok"'* && $H == *"\"name\":\"${(L)N}-memory\""* ]]; then 
 elif [[ -n $H ]]; then bad "MCP :$PORT answers as another server: ${H[1,120]}" "lsof -nP -iTCP:$PORT -sTCP:LISTEN"
 else bad "MCP :$PORT not answering" "lsof -nP -iTCP:$PORT -sTCP:LISTEN" "tail -20 \"$LOG\""; fi
 # MCP memory_search answers, and Trace records the query with its caller (<Name>-queries.jsonl)
-TQ="$HOME/Library/Logs/ARRA Oracles/$N-queries.jsonl"; q0=$(wc -l < "$TQ" 2>/dev/null || echo 0); MQ="check ${(L)N} $$"
+TQ="$HOME/Library/Logs/ARRA Oracles/$N-queries.jsonl"; q0=0; [ -f "$TQ" ] && q0=$(wc -l < "$TQ"); MQ="check ${(L)N} $$"
 MR=$(curl -s -m 30 -X POST 127.0.0.1:$PORT/mcp -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' \
   -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"memory_search\",\"arguments\":{\"query\":\"$MQ\"}}}")
 TR=$(tail -n +$((q0 + 1)) "$TQ" 2>/dev/null | rg -F "\"caller\"" | tail -1)
@@ -117,8 +117,9 @@ if (( DEEP )); then
   N0=0
   deep() {   # deep <section> <action> <done-regex> <timeout-s> [extra args…]   (sets N0: the log's length at launch)
     local sec=$1 act=$2 re=$3 limit=$4; shift 4
+    lock_held && { print -r -- "LOCKED"; return; }   # another agent began installing since the check started
     quit_app
-    local n0=$(wc -l < "$LOG" 2>/dev/null || echo 0); N0=$n0
+    local n0=0; [ -f "$LOG" ] && n0=$(wc -l < "$LOG"); N0=$n0
     launch -oracleSection $sec -memoryAction $act "$@" || { print -r -- ""; return; }
     local t=0 hit=""
     while (( t < limit )); do
@@ -131,13 +132,21 @@ if (( DEEP )); then
   if why=$(may_relaunch); then
     Q=${(L)N}
     deep memory batch '^[0-9:.]+ info   (memory batch done|up to date — nothing new in )' 600 -memoryQuery "$Q" > $MARK.out; B=$(<$MARK.out)
-    if [[ $B == *" error  "* ]]; then bad "Memory       ${B#* error  }" "open \"$A\" --args -oracleSection memory    # the engine card says what is missing"
+    if [[ $B == LOCKED ]]; then bad "Memory       not run: install in progress by $(cat $LOCK_DIR/who 2>/dev/null)" "zsh $0 $N --deep --relaunch"
+    elif [[ $B == *" error  "* ]]; then bad "Memory       ${B#* error  }" "open \"$A\" --args -oracleSection memory    # the engine card says what is missing"
     elif [[ -n $B ]]; then ok "Memory       ${B#* info   }"
     else bad "Memory       no batch result within 10 min" "tail -30 \"$LOG\""; fi
     S=""; for i in {1..6}; do S=$(tail -n +$((N0 + 1)) "$LOG" | rg "search [a-z]+ .*\"$Q\" · query embedded" | tail -1); [[ -n $S ]] && break; sleep 5; done
-    [[ -n $S ]] && ok "Memory query ${S#* search }" || bad "Memory query \"$Q\" not searched" "rg -n 'search' \"$LOG\" | tail -5"
+    hits=$(print -r -- "$S" | sed -n 's/.*ranked \([0-9,]*\) in.*/\1/p' | tr -d ,); best=$(print -r -- "$S" | sed -n 's/.*best \([0-9]*\)%.*/\1/p')
+    if [[ -n $S ]] && (( ${hits:-0} > 0 && ${best:-0} > 0 )); then ok "Memory query ${S#* search }"
+    elif [[ -n $S ]]; then bad "Memory query \"$Q\" found nothing (ranked ${hits:-0}, best ${best:-0}%)" "open \"$A\" --args -oracleSection memory   # is the index empty?"
+    else bad "Memory query \"$Q\" not searched" "rg -n 'search' \"$LOG\" | tail -5"; fi
     M=$(deep map layout 'map layout: [0-9]+ docs in|map: [0-9]+ points in' 300)
-    [[ -n $M ]] && ok "Map          ${M#* info   }" || bad "Map          no layout drawn within 5 min" "rg -n 'map' \"$LOG\" | tail -5"
+    mn=$(print -r -- "$M" | sed -En 's/.*map( layout)?: ([0-9]+) (docs|points).*/\2/p')   # -E: BSD sed has no \| in basic regex
+    if [[ $M == LOCKED ]]; then bad "Map          not run: install in progress by $(cat $LOCK_DIR/who 2>/dev/null)" "zsh $0 $N --deep --relaunch"
+    elif [[ -n $M ]] && (( ${mn:-0} > 0 )); then ok "Map          ${M#* info   }"
+    elif [[ -n $M ]]; then bad "Map          drew no points: ${M#* info   }" "open \"$A\" --args -oracleSection memory   # embed first (--deep runs the batch)"
+    else bad "Map          no layout drawn within 5 min" "rg -n 'map' \"$LOG\" | tail -5"; fi
   else bad "Memory / Map not run: $why" "zsh $0 $N --deep --relaunch"; fi
 fi
 
