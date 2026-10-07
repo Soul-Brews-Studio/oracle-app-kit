@@ -160,10 +160,14 @@ public enum SessionHistory {
         var decided = !fresh
         for raw in body.split(separator: 0x0A, omittingEmptySubsequences: true) {
             c.lines += 1
-            // a huge line that is only tool output: count it without parsing it (tool results reach megabytes)
-            if raw.count > 65_536, raw.range(of: Data(#""type":"text""#.utf8)) == nil,
-               raw.range(of: Data(#""tool_result""#.utf8)) != nil || raw.range(of: Data(#""function_call_output""#.utf8)) != nil {
-                if m.ours || !decided { c.toolResult += 1 }
+            // most lines are tool traffic, thinking or UI bookkeeping: count them from their bytes, parse only prose
+            if decided, let kind = quick(raw) {
+                switch kind {
+                case "tool_result": c.toolResult += 1
+                case "tool_use": c.toolUse += 1
+                case "thinking": c.thinking += 1
+                default: break
+                }
                 continue
             }
             guard let rec = (try? JSONSerialization.jsonObject(with: Data(raw))) as? [String: Any] else { c.bad += 1; continue }
@@ -198,6 +202,34 @@ public enum SessionHistory {
     }
 
     struct Line { var role = ""; var text = ""; var ts = ""; var cwd: String?; var host = false }
+
+    // Byte patterns of JSON STRUCTURE, as Claude Code and Codex write it (compact, no spaces). Text a person or a
+    // model wrote is a JSON string, where quotes are escaped (\"type\"), so it can never match one of these.
+    private static func bytes(_ s: String) -> Data { Data(s.utf8) }
+    private static let prose = [#""type":"text""#, #""role":"user","content":""#, #""type":"message""#, #""type":"agent_message""#,
+                                #""type":"session_meta""#, #""type":"turn_context""#, #""type":"ai-title""#, #""type":"summary""#].map(bytes)
+    private static let toolResultMarks = [#""type":"tool_result""#, #""type":"function_call_output""#, #""type":"custom_tool_call_output""#].map(bytes)
+    private static let toolUseMarks = [#""type":"tool_use""#, #""type":"function_call""#, #""type":"custom_tool_call""#].map(bytes)
+    private static let thinkingMarks = [#""type":"thinking""#, #""type":"redacted_thinking""#, #""type":"reasoning""#].map(bytes)
+    private static let userMark = bytes(#""type":"user""#), assistantMark = bytes(#""type":"assistant""#)
+
+    /// What a line is, from its bytes alone — nil when it may hold prose (a text block, a person's string prompt, a
+    /// Codex message, a title) and has to be parsed. Everything else is only counted: on Neo's history that is most
+    /// of 3.4 GB (162k tool lines, 54k thinking, and progress / snapshot / attachment bookkeeping).
+    static func quick(_ raw: Data) -> String? {
+        raw.withUnsafeBytes { (line: UnsafeRawBufferPointer) -> String? in
+            func has(_ p: Data) -> Bool {   // memmem over the line's own bytes: fast, and exact on a slice of a bigger Data
+                p.withUnsafeBytes { memmem(line.baseAddress, line.count, $0.baseAddress, $0.count) != nil }
+            }
+            if prose.contains(where: has) { return nil }
+            if toolResultMarks.contains(where: has) { return "tool_result" }
+            if toolUseMarks.contains(where: has) { return "tool_use" }
+            if thinkingMarks.contains(where: has) { return "thinking" }
+            // a user or assistant record of a shape not seen here (keys in another order): parse it rather than lose it
+            if has(userMark) || has(assistantMark) { return nil }
+            return "other"
+        }
+    }
 
     /// Shorter than this says little on its own ("ok", "continue", "jus add more") — relic's cut for its counts.
     static let minChars = 40
@@ -305,10 +337,12 @@ public enum SessionHistory {
     /// Everything new in this oracle's history since `ledger`, as index entries (no vector yet), the same text once.
     /// `known` are the hashes already in the index. Off the main actor; `progress(done, total)` per file.
     static func collect(repo: String, ledger: [String: Mark], known: Set<String>, stop: StopFlag = StopFlag(),
+                        verbose: (@Sendable (String) -> Void)? = nil,
                         progress: @escaping @Sendable (Int, Int) -> Void) -> (docs: [IndexDoc], counts: Counts, ledger: [String: Mark], sources: [Source]) {
         let sources = Self.sources()
         let files = candidates(repo: repo, in: sources)
         var ledger = ledger, counts = Counts(), seen = known, docs: [IndexDoc] = []
+        var skippedMs = 0, skippedFiles = 0
         var distinct = Set<String>()
         for (i, f) in files.enumerated() {
             if stop.isSet { break }
@@ -318,9 +352,19 @@ public enum SessionHistory {
                 if old.ours { counts.filesOurs += 1 }
                 counts.files += 1; continue
             }
+            let tf = Date()
             let r = read(f, repo: repo, mark: old)
             ledger[f.path] = r.mark
             counts.add(r.counts)
+            if let verbose {
+                let ms = Int(Date().timeIntervalSince(tf) * 1000)
+                if r.mark.ours {
+                    let c = r.counts
+                    verbose("\(f.source) · \((f.path as NSString).lastPathComponent.prefix(13))… · \(String(format: "%.1f", Double(c.bytes) / 1e6)) MB · " +
+                            "\(c.lines) lines · \(c.prose) prose · \(c.toolUse + c.toolResult) tools · \(c.thinking) thinking · \(ms) ms" +
+                            (r.mark.title.isEmpty ? "" : " · \(r.mark.title.prefix(48))"))
+                } else { skippedMs += ms; skippedFiles += 1 }
+            }
             let title = r.mark.title
             let resume = f.kind == "codex" ? "cd '\(r.mark.cwd)' && codex resume \(r.mark.session)"
                                            : "cd '\(r.mark.cwd)' && claude --resume \(r.mark.session)"
@@ -339,6 +383,7 @@ public enum SessionHistory {
             }
         }
         progress(files.count, files.count)
+        if let verbose, skippedFiles > 0 { verbose("\(skippedFiles) transcripts are other repos' — decided from their first 64 KB in \(skippedMs) ms") }
         counts.distinct = distinct.count
         counts.newChunks = docs.count
         return (docs, counts, ledger, sources)

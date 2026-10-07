@@ -489,22 +489,31 @@ public final class GHIndex: ObservableObject {
         // 1 · sessions
         progress = "scanning transcripts…"
         let t0 = Date()
-        let known = Set(docs.filter { $0.kind == "history" }.map(\.hash)), start = ledger
+        // a scan just before: start from where it stopped reading, so the batch reads only what changed since
+        let base = embed ? pendingScan : nil
+        let verbose = UserDefaults.standard.object(forKey: "hub.verboseLog") as? Bool ?? true   // the debug log's Verbose box
+        let known = Set(docs.filter { $0.kind == "history" }.map(\.hash)).union(base?.docs.map(\.hash) ?? []), start = base?.ledger ?? ledger
         stopFlag = StopFlag()
         let flag = stopFlag
+        var say: (@Sendable (String) -> Void)? = nil
+        if verbose { say = { line in GHIndex.logRead(line) } }
+        let sayLine = say
         let r = await Task.detached(priority: .userInitiated) {
-            SessionHistory.collect(repo: repo, ledger: start, known: known, stop: flag) { done, total in
+            SessionHistory.collect(repo: repo, ledger: start, known: known, stop: flag, verbose: sayLine) { done, total in
                 Task { @MainActor in self.repoDone = done; self.repoTotal = max(total, 1); self.progress = "scanning transcripts \(done)/\(total)" }
             }
         }.value
+        let newPieces = (base?.docs ?? []) + r.docs
+        if !embed { pendingScan = (r.docs, r.ledger) } else { pendingScan = nil }
         scanned = r.counts; scannedSources = r.sources
         let c = r.counts
         HubLog.shared.add(.read, String(format: "sessions: %@ transcripts read in %.1f s (%@ of them %@'s, %@ MB new) from %d sources: %@",
                                         grouped(c.files), Date().timeIntervalSince(t0), grouped(c.filesOurs), repo, grouped(c.bytes / 1_000_000),
                                         r.sources.count, r.sources.map(\.label).joined(separator: ", ")))
-        HubLog.shared.add(.read, "said: \(grouped(c.prose)) prose (user + assistant) · \(grouped(c.short)) too short · \(grouped(c.host)) host text · " +
-                          "tools \(grouped(c.toolUse + c.toolResult)) (later) · thinking \(grouped(c.thinking)) (never) · " +
-                          "\(grouped(c.distinct)) distinct pieces, \(grouped(r.docs.count)) new")
+        let before = base.map { " (+ \(grouped($0.docs.count)) from the scan before)" } ?? ""
+        let said = "said: \(grouped(c.prose)) prose (user + assistant) · \(grouped(c.short)) too short · \(grouped(c.host)) host text · "
+        let rest = "tools \(grouped(c.toolUse + c.toolResult)) (later) · thinking \(grouped(c.thinking)) (never) · \(grouped(c.distinct)) distinct pieces, \(grouped(r.docs.count)) new"
+        HubLog.shared.add(.read, said + rest + before)
         if stopRequested { progress = "stopped while scanning — the index is unchanged"; HubLog.shared.add(.info, progress); return }
         // 2 · its own ψ vault and its own issues and PRs: the current set replaces the old one; unchanged keeps its vector
         progress = "reading the ψ vault and GitHub…"
@@ -523,7 +532,7 @@ public final class GHIndex: ObservableObject {
         // pieces embedded in an older form (the session title inside every piece): the same pieces, embedded again
         let hist = docs.filter { $0.kind == "history" }
         let stale = hist.indices.filter { !(hist[$0].text ?? "").hasPrefix("title: none |") }
-        var fresh = hist + side + r.docs
+        var fresh = hist + side + newPieces
         let staleTexts = stale.map { fresh[$0].text }
         for i in stale {
             let body = (fresh[i].text ?? "").components(separatedBy: " | text: ").dropFirst().joined(separator: " | text: ")
@@ -539,7 +548,7 @@ public final class GHIndex: ObservableObject {
             pending = left; plan = (need.count, hits)
             let est = Double(left) / max(rateHistory.last ?? 0, lastRateEstimate)
             progress = need.isEmpty ? "scan: up to date — nothing new"
-                : "scan: \(grouped(need.count)) to place (\(grouped(r.docs.count)) session pieces, \(grouped(sideNew)) notes/issues/PRs\(stale.isEmpty ? "" : ", \(grouped(stale.count)) older pieces")) · \(grouped(hits)) from the vector cache · \(grouped(left)) to embed\(left > 0 ? ", ~\(Self.duration(est))" : "")"
+                : "scan: \(grouped(need.count)) to place (\(grouped(newPieces.count)) session pieces, \(grouped(sideNew)) notes/issues/PRs\(stale.isEmpty ? "" : ", \(grouped(stale.count)) older pieces")) · \(grouped(hits)) from the vector cache · \(grouped(left)) to embed\(left > 0 ? ", ~\(Self.duration(est))" : "")"
             HubLog.shared.add(.info, progress)
             return
         }
@@ -575,6 +584,9 @@ public final class GHIndex: ObservableObject {
     }
     /// The last scan's own notes, issues, PRs, and how many of them need embedding.
     @Published public private(set) var sideScan: (notes: Int, issues: Int, prs: Int, new: Int)?
+    /// What the last scan read and has not been embedded yet: its new pieces and how far it read — a batch right after
+    /// starts there instead of reading everything again.
+    private var pendingScan: (docs: [IndexDoc], ledger: [String: SessionHistory.Mark])?
     /// The last plan: pieces to place, and how many of them the vector cache already had.
     @Published public private(set) var plan: (need: Int, hits: Int)?
 
@@ -609,6 +621,10 @@ public final class GHIndex: ObservableObject {
         Task.detached(priority: .background) { VectorCache.shared.put(space, items); UserDefaults.standard.set(stamp, forKey: key) }
     }
 
+    /// A verbose scan's line, from the scan's own thread to the debug log.
+    nonisolated static func logRead(_ line: String) {
+        Task { @MainActor in HubLog.shared.add(.read, line) }
+    }
     /// texts/s to estimate a scan's embedding time before any run here (GPU x2 on issue text, measured 2026-10-07).
     private var lastRateEstimate = 100.0
     static func duration(_ s: Double) -> String { s < 90 ? "\(Int(s.rounded())) s" : s < 5400 ? "\(Int((s / 60).rounded())) min" : String(format: "%.1f h", s / 3600) }

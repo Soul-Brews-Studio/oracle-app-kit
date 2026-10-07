@@ -54,6 +54,48 @@ final class SessionHistoryTests: XCTestCase {
         XCTAssertEqual(SessionHistory.minChars, 40)
     }
 
+    /// Lines classified from their bytes: only possible prose is parsed; quoted text never matches a structure mark.
+    func testQuickClassifiesFromBytes() {
+        func q(_ s: String) -> String? { SessionHistory.quick(Data(s.utf8)) }
+        XCTAssertEqual(q(#"{"type":"user","message":{"role":"user","content":[{"tool_use_id":"x","type":"tool_result","content":"ok"}]}}"#), "tool_result")
+        XCTAssertEqual(q(#"{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Bash"}]}}"#), "tool_use")
+        XCTAssertEqual(q(#"{"type":"assistant","message":{"content":[{"type":"thinking","thinking":"hm"}]}}"#), "thinking")
+        XCTAssertEqual(q(#"{"type":"progress","data":{}}"#), "other")
+        XCTAssertNil(q(#"{"type":"assistant","message":{"content":[{"type":"text","text":"done"}]}}"#))
+        XCTAssertNil(q(#"{"type":"user","message":{"role":"user","content":"index it"}}"#))
+        // the person's words mention a tool result: escaped inside the JSON string, so it is still prose
+        XCTAssertNil(q(#"{"type":"user","message":{"role":"user","content":"why does "type":"tool_result" show?"}}"#))
+        // keys in another order: still parsed, never dropped
+        XCTAssertNil(q(#"{"message":{"content":"index it","role":"user"},"type":"user"}"#))
+        // Codex
+        XCTAssertNil(q(#"{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"hi"}]}}"#))
+        XCTAssertEqual(q(#"{"type":"response_item","payload":{"type":"function_call","name":"shell"}}"#), "tool_use")
+        XCTAssertEqual(q(#"{"type":"event_msg","payload":{"type":"token_count"}}"#), "other")
+    }
+
+    /// Differential, on real transcripts: every line the byte classifier skips must be one the full parser does not
+    /// call prose. `HISTORY_FILES="a.jsonl:b.jsonl" swift test --filter testQuickNeverDropsProse`
+    func testQuickNeverDropsProse() throws {
+        guard let list = ProcessInfo.processInfo.environment["HISTORY_FILES"] else { throw XCTSkip("set HISTORY_FILES") }
+        var lines = 0, skipped = 0, lost: [String] = []
+        for path in list.split(separator: ":").map(String.init) {
+            guard let data = FileManager.default.contents(atPath: path) else { continue }
+            for raw in data.split(separator: 0x0A, omittingEmptySubsequences: true) {
+                lines += 1
+                guard let kind = SessionHistory.quick(raw) else { continue }
+                skipped += 1
+                guard let rec = (try? JSONSerialization.jsonObject(with: Data(raw))) as? [String: Any] else { continue }
+                var m = SessionHistory.Mark(size: 0, mtime: 0, offset: 0, ours: false, session: "", cwd: "", title: "")
+                let l = path.contains("/.codex/") ? SessionHistory.codex(rec, &m) : SessionHistory.claude(rec, &m)
+                if (l.role == "user" || l.role == "assistant"), !l.host, l.text.count >= SessionHistory.minChars {
+                    lost.append("\(kind): \(l.text.prefix(80))")
+                }
+            }
+        }
+        print("quick: \(lines) lines, \(skipped) skipped unparsed, \(lost.count) prose lost")
+        XCTAssertTrue(lost.isEmpty, lost.prefix(5).joined(separator: "\n"))
+    }
+
     func testChunksKeepWordsWhole() {
         let text = String(repeating: "word ", count: 800)   // 4,000 chars
         let parts = SessionHistory.chunks(text, size: 1600)
