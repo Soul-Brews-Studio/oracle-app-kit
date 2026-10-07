@@ -18,6 +18,10 @@ targets:
             exit 1
           fi
           cd "$SRCROOT/ANEEmbed/tokenizer-ffi" && cargo build --release --locked
+    postBuildScripts:
+      - name: Stamp CalVer
+        basedOnDependencyAnalysis: false
+        script: sh "$SRCROOT/scripts/calver-stamp.sh"
     dependencies:
       - package: OracleKit
       - package: ANEEmbed           # the Memory page's in-process embedder (Mac only)

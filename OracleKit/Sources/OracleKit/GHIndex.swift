@@ -47,6 +47,8 @@ public final class ModelLoad: ObservableObject {
     @Published public private(set) var absent = false
     /// Loads the bundled model again (the app sets it); the Retry button after a failed load.
     public var retry: (() -> Void)?
+    /// Where the model was loaded from (the app sets it).
+    @Published public var root = ""
     /// Loads it again on other devices — "ane", "gpu" or "both" (the engine picker). The running engine keeps
     /// answering until the new one is ready.
     public var reload: ((String) -> Void)?
@@ -216,6 +218,10 @@ public final class GHIndex: ObservableObject {
     /// ~/Library/Application Support/ARRA Oracles/<name>.json — "gh-index" for the hub, "history/<org>__<repo>" for an
     /// oracle's own sessions, so the hub can later search every oracle's history too.
     private let path: URL
+    /// "gh-index", "history/laris-co__pulse" — what the trace and Settings call this index.
+    public let name: String
+    public var filePath: String { path.path }
+    public var vectorsFilePath: String { vectorsPath.path }
 
     /// One oracle's session history, one index per oracle and per app process.
     public static func history(_ repo: String) -> GHIndex {
@@ -237,6 +243,7 @@ public final class GHIndex: ObservableObject {
     public init(name: String = "gh-index") {
         let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("ARRA Oracles", isDirectory: true)
+        self.name = name
         path = dir.appendingPathComponent(name + ".json")
         try? FileManager.default.createDirectory(at: path.deletingLastPathComponent(), withIntermediateDirectories: true)
         load()
@@ -725,19 +732,36 @@ public final class GHIndex: ObservableObject {
         let q = q.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !q.isEmpty else { hits = []; return }
         searching = true; defer { searching = false }
+        guard let found = await query(q, kind: kind, kinds: kinds, state: state, openOnly: openOnly, limit: 25, source: "page") else { return }
+        hits = found
+        if !running { problem = nil }
+    }
+
+    /// Embeds `q` and ranks this index — for the page or for MCP. Every query is traced: the debug log, and
+    /// TraceLog (Settings → Trace, and <App>-queries.jsonl). An oracle app loads its model on first need.
+    public func query(_ q: String, kind: String? = nil, kinds: Set<String>? = nil, state: String? = nil, openOnly: Bool = false,
+                      limit: Int = 25, source: String = "page") async -> [IndexHit]? {
+        if bundled() == nil, !ModelLoad.shared.loading, ModelLoad.shared.failed == nil, !ModelLoad.shared.absent, let reload = ModelLoad.shared.reload {
+            reload(UserDefaults.standard.string(forKey: "hub.engineMode") ?? "gpu")
+        }
         let t0 = Date()
         guard let v = await embed([Self.queryText(q)], want: docs.isEmpty ? nil : space)?.first else {
-            problem = refusal ?? noEmbedderProblem(); return
+            problem = refusal ?? noEmbedderProblem(); return nil
         }
         let t1 = Date()
         let pool = docs.filter { (kind == nil || $0.kind == kind) && (kinds == nil || kinds!.contains($0.kind))
             && (!openOnly || $0.state == "OPEN") && (state == nil || $0.state == state) }
-        hits = pool.map { d in IndexHit(doc: d, score: d.vec.count == v.count ? vDSP.dot(d.vec, v) : -1) }   // unit vectors: dot = cosine
-            .sorted { $0.score > $1.score }.prefix(25).map { $0 }
-        if !running { problem = nil }
-        HubLog.shared.add(.search, String(format: "\"%@\" · query embedded in %.0f ms (%@) · ranked %@ in %.1f ms · best %.0f%%",
-                                          q, t1.timeIntervalSince(t0) * 1000, via, grouped(pool.count),
-                                          Date().timeIntervalSince(t1) * 1000, Double(hits.first?.score ?? 0) * 100))
+        let found = Array(pool.map { d in IndexHit(doc: d, score: d.vec.count == v.count ? vDSP.dot(d.vec, v) : -1) }   // unit vectors: dot = cosine
+            .sorted { $0.score > $1.score }.prefix(limit))
+        let embedMs = t1.timeIntervalSince(t0) * 1000, rankMs = Date().timeIntervalSince(t1) * 1000
+        let filter = [kind.map { "kind=\($0)" }, kinds.map { "kinds=\($0.sorted().joined(separator: ","))" }, state.map { "who=\($0)" },
+                      openOnly ? "open" : nil].compactMap { $0 }.joined(separator: " ")
+        HubLog.shared.add(.search, String(format: "%@ \"%@\" · query embedded in %.0f ms (%@) · ranked %@ in %.1f ms · best %.0f%%",
+                                          source, q, embedMs, via, grouped(pool.count), rankMs, Double(found.first?.score ?? 0) * 100))
+        TraceLog.shared.add(.init(at: Date(), source: source, index: name, query: q, filter: filter.isEmpty ? "all" : filter,
+                                  embedMs: embedMs, rankMs: rankMs, pool: pool.count, via: via,
+                                  top: found.prefix(5).map { .init(id: $0.doc.id, title: $0.doc.title, score: $0.score) }))
+        return found
     }
 
     // MARK: embedders

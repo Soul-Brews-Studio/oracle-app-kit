@@ -525,6 +525,7 @@
 				0A91573CCB3A7F4520702A90 /* Resources */,
 				9370EBE1B3AD068CFB2E98E0 /* Frameworks */,
 				81AA95EB6E06BB803C0045AA /* Bundle the ANE model */,
+				41A9AD718F4603DEE6D82949 /* Stamp CalVer */,
 			);
 			buildRules = (
 			);
@@ -567,6 +568,7 @@
 				49B200A1892D9E588DCE8DA8 /* Resources */,
 				76DDC45B0E5FB3543A5B1ABA /* Frameworks */,
 				22BC0855871B0BB4BDAEFC19 /* Embed Foundation Extensions */,
+				8BD445D50AD8C893B67928C2 /* Stamp CalVer */,
 			);
 			buildRules = (
 			);
@@ -631,6 +633,7 @@
 				733D3F43D088BC304A4E2534 /* Resources */,
 				2B07F1976DCD80EC3F78A307 /* Frameworks */,
 				5D7DEB7C7D9ACCE9D8711503 /* Embed Foundation Extensions */,
+				1983416334F26A798A2ED93F /* Stamp CalVer */,
 			);
 			buildRules = (
 			);
@@ -656,6 +659,7 @@
 				CA52D00317CC60335AE4136E /* Resources */,
 				DFCE1F7D865A8DEE74B406FB /* Frameworks */,
 				F541F9E4919C358A6F795CA4 /* Embed Foundation Extensions */,
+				0C2CA49383C809AE54CFEADD /* Stamp CalVer */,
 			);
 			buildRules = (
 			);
@@ -815,6 +819,25 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		0C2CA49383C809AE54CFEADD /* Stamp CalVer */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Stamp CalVer";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "sh \"$SRCROOT/scripts/calver-stamp.sh\"";
+		};
 		13A1B5C59AD33A216AEDD380 /* Build the tokenizer (Rust) */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -833,6 +856,44 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "export PATH=\"$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH\"\nif ! command -v cargo >/dev/null; then\n  echo \"error: cargo not found: the hub's in-process ANE embedder builds its tokenizer with Rust. Install it, then build again:\"\n  echo \"error:   brew install rustup && rustup-init -y && . ~/.cargo/env\"\n  exit 1\nfi\n# Every build: a no-op when current, and an edit to the Rust code is never skipped.\n# From the crate's folder, so .cargo/config.toml (MACOSX_DEPLOYMENT_TARGET = 14.0) applies.\ncd \"$SRCROOT/ANEEmbed/tokenizer-ffi\" && cargo build --release --locked\n";
+		};
+		1983416334F26A798A2ED93F /* Stamp CalVer */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Stamp CalVer";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "sh \"$SRCROOT/scripts/calver-stamp.sh\"";
+		};
+		41A9AD718F4603DEE6D82949 /* Stamp CalVer */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Stamp CalVer";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "sh \"$SRCROOT/scripts/calver-stamp.sh\"";
 		};
 		57B839A3031387EC14A87ED7 /* Build the tokenizer (Rust) */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -871,6 +932,25 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "# Only a complete export: what the app loads at run time (it never compiles inside its own bundle).\nSRC=\"$HOME/Library/Application Support/ANEEmbed/embeddinggemma2-w16\"\nDST=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/ANEModel/embeddinggemma2-w16\"\nmissing=\"\"\nfor f in manifest.json embed_scaled.f16 tokenizer; do [ -e \"$SRC/$f\" ] || missing=\"$missing $f\"; done\nif [ -f \"$SRC/manifest.json\" ]; then\n  for b in $(plutil -extract buckets json -o - \"$SRC/manifest.json\" | tr -d '[] ' | tr ',' ' '); do\n    [ -d \"$SRC/compiled/$b.mlmodelc\" ] || missing=\"$missing compiled/$b.mlmodelc\"\n  done\nfi\nif [ -z \"$missing\" ]; then\n  mkdir -p \"$DST\"\n  rsync -a --delete --exclude packages \"$SRC/\" \"$DST/\"\n  echo \"bundled the ANE model: $(plutil -extract vector_space_identity raw -o - \"$SRC/manifest.json\")\"\nelse\n  rm -rf \"$DST\"\n  echo \"warning: no complete ANE model in $SRC (missing:$missing): the hub runs without it and embeds through the HTTP service on 127.0.0.1:11435\"\nfi\n";
+		};
+		8BD445D50AD8C893B67928C2 /* Stamp CalVer */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Stamp CalVer";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "sh \"$SRCROOT/scripts/calver-stamp.sh\"";
 		};
 		9D05EE252D6D55BA5FD511A1 /* Build the tokenizer (Rust) */ = {
 			isa = PBXShellScriptBuildPhase;

@@ -5,7 +5,7 @@ import AppKit
 // MARK: - Oracles (the landing app) — sidebar: all herdr sessions · detail: every oracle as a card
 // Same look as the oracle apps: ARRA-style sidebar, cards like the Work view.
 
-enum HubPick: Hashable { case all, search, session(String) }
+enum HubPick: Hashable { case all, search, settings, session(String) }
 
 enum HubStyle {
     static let accent = Color(hex: "#9b8cff")
@@ -45,6 +45,7 @@ struct HubRootView: View {
             switch pick {
             case .all: OracleBoard(store: store)
             case .search: IndexSearchView(store: store, index: index, focusTick: focusTick)
+            case .settings: SettingsView(title: "ARRA Oracles", accent: HubStyle.accent, indexes: [index])
             case .session(let name): SessionSpaces(store: store, session: name)
             }
         }
@@ -85,6 +86,8 @@ struct HubSidebar: View {
             NavRow(symbol: "sparkle.magnifyingglass", title: "Search issues & PRs", badge: "⌘K",
                    on: pick == .search, accent: HubStyle.accent) { pick = .search }
                 .padding(.horizontal, 12)
+            NavRow(symbol: "gearshape", title: "Settings", badge: nil, on: pick == .settings, accent: HubStyle.accent) { pick = .settings }
+                .padding(.horizontal, 12)
             Text("Sessions").font(.custom("Avenir Next", size: 13).weight(.medium)).foregroundStyle(.secondary)
                 .padding(.horizontal, 26).padding(.top, 18).padding(.bottom, 4)
             ScrollView {
@@ -110,6 +113,8 @@ struct HubSidebar: View {
             if let t = store.lastRefresh {
                 Text("herdr · maw — updated \(t.formatted(date: .omitted, time: .shortened))").font(.system(size: 11)).foregroundStyle(.secondary)
             }
+            Text(AppVersion.calver).font(.system(size: 10, design: .monospaced)).foregroundStyle(.secondary).textSelection(.enabled)
+                .help("This build — CalVer, Bangkok time at build")
             ForEach(store.problems, id: \.self) { Text($0).font(.system(size: 11)).foregroundStyle(.orange).textSelection(.enabled) }
             Toggle("Show in menu bar", isOn: $menuBar).toggleStyle(.switch).controlSize(.mini).font(.system(size: 11))
         }

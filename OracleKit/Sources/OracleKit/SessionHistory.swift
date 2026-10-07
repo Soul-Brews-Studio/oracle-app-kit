@@ -263,7 +263,7 @@ public enum SessionHistory {
             l.text = clean(blocks.compactMap { $0["type"] as? String == "text" ? $0["text"] as? String : nil }.joined(separator: "\n"))
         }
         if l.role == "user", l.text.isEmpty { l.host = true }
-        if m.title.isEmpty, l.role == "user", !l.text.isEmpty { m.title = String(l.text.prefix(90)) }
+        if m.title.isEmpty, l.role == "user", let t = titleOf(l.text) { m.title = t }
         return l
     }
 
@@ -288,13 +288,21 @@ public enum SessionHistory {
             if role == "developer" { l.role = "user"; l.host = true; return l }   // AGENTS.md and the host's instructions
             l.text = clean(text)
             if role == "user", isHostPreamble(l.text) { l.host = true }
-            if m.title.isEmpty, role == "user", !l.host, !l.text.isEmpty { m.title = String(l.text.prefix(90)) }
+            if m.title.isEmpty, role == "user", !l.host, let t = titleOf(l.text) { m.title = t }
         case "reasoning": l.role = "reasoning"
         case "function_call", "custom_tool_call": l.role = "tool_use"
         case "function_call_output", "custom_tool_call_output": l.role = "tool_result"
         default: break
         }
         return l
+    }
+
+    /// A session's title from a prompt: its first line, not a slash command ("/clear", "/model sonnet") and not a
+    /// one-word reply — those name nothing.
+    static func titleOf(_ text: String) -> String? {
+        let line = text.split(separator: "\n").map { $0.trimmingCharacters(in: .whitespaces) }.first { !$0.isEmpty } ?? ""
+        guard !line.hasPrefix("/"), line.count >= 12 else { return nil }
+        return String(line.prefix(90))
     }
 
     static func isHostPreamble(_ t: String) -> Bool {

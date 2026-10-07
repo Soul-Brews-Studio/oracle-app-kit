@@ -45,6 +45,9 @@ targets:
             rm -rf "$DST"
             echo "warning: no complete ANE model in $SRC (missing:$missing): the hub runs without it and embeds through the HTTP service on 127.0.0.1:11435"
           fi
+      - name: Stamp CalVer
+        basedOnDependencyAnalysis: false
+        script: sh "$SRCROOT/scripts/calver-stamp.sh"
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: co.laris.oracle.hub
