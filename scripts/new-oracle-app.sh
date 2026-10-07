@@ -16,7 +16,7 @@
 # Refuses before writing anything.
 set -e
 die() { print -r -- "✗ $*"; exit 2; }
-pos=(); UPDATE=0; REGEN=1; KEY=""; PORT=""; TEAM=""
+ARGS=("$@"); pos=(); UPDATE=0; REGEN=1; KEY=""; PORT=""; TEAM=""
 while (( $# )); do
   case $1 in
     --update) UPDATE=1 ;;
@@ -34,6 +34,8 @@ R=${0:A:h}/..; R=${R:A}; D=$R/Apps/$N; low=${(L)N}
 [[ $N =~ '^[A-Z][A-Za-z0-9]*$' ]] || die "Name must be a Swift type name (Neo, DustBoyPhd), got '$N' — the hyphenated portal key goes in --key"
 [[ $SLUG == */* ]] || die "repo must be org/repo, got '$SLUG'"
 [[ $HEX =~ '^#[0-9a-fA-F]{6}$' ]] || die "colour must be #rrggbb, got '$HEX'"
+# these land inside Swift string literals and are read back by scripts/parity.sh — no '"' or '\'
+for v in "$SLUG" "$LP" "$TAG" "$SYM"; do [[ $v == *[\"\\]* ]] && die "no '\"' or '\\' in the identity (got: $v) — e.g.:  zsh $0 ${(@q)${(@)ARGS//[\"\\]/}}"; done
 [[ $LP == /* ]] || die "mac checkout path must be absolute, got '$LP' — the oracle's main checkout:  ghq list -p --exact $SLUG"
 [[ -n ${ORACLE_APP_SCRATCH:-} || -d $LP ]] || die "no checkout at $LP on this Mac — clone it:  ghq get -p $SLUG"
 [ -n "$SYM" ] || die "sf-symbol is empty — pass one, e.g. star.fill"
@@ -46,11 +48,17 @@ if (( UPDATE )); then
   [ -n "$TEAM" ] || TEAM=$(sed -n 's/.*<string>\([A-Z0-9]*\)\.co\.laris\.oracle\.[a-z0-9-]*<\/string>.*/\1/p' $D/${N}.entitlements 2>/dev/null | head -1)
 fi
 # the portal's rule (HubParse.appKey): repo minus "-oracle", lower-cased, "_" and "." → "-" (a bundle id has no "_")
-if [ -z "$KEY" ]; then KEY=${SLUG#*/}; KEY=${KEY%-[Oo]racle}; KEY=${${(L)KEY}//[_.]/-}; KEYSRC="the repo name $SLUG"; fi
-[[ $KEY =~ '^[a-z][a-z0-9-]*$' ]] || die "key '$KEY' (from $KEYSRC) must start with a lower-case letter and hold only a-z, 0-9, '-' — e.g.:  zsh $0 ${(q)pos[@]} --key=${${${(L)KEY}//[^a-z0-9-]/-}##[^a-z]#}"
+if [ -z "$KEY" ]; then KEY=${(L)${SLUG#*/}}; KEY=${KEY%-oracle}; KEY=${KEY//[_.]/-}; KEYSRC="the repo name $SLUG"; fi
+# the same command again, minus any --key — so a printed fix keeps --update / --port / --team / --no-regen
+again=(); skip=0; for a in "${ARGS[@]}"; do if (( skip )); then skip=0; elif [[ $a == --key ]]; then skip=1; elif [[ $a != --key=* ]]; then again+=("$a"); fi; done
+if [[ ! $KEY =~ '^[a-z0-9][a-z0-9-]*$' ]]; then   # a digit first is legal in a bundle id (3e-infra-oracle → 3e-infra)
+  fix=${${(L)KEY}//[^a-z0-9-]/-}; fix=${fix#${fix%%[a-z0-9]*}}; [ -n "$fix" ] || fix=$low
+  die "key '$KEY' (from $KEYSRC) may hold only a-z, 0-9 and '-', not first — e.g.:  zsh $0 ${(q)again[@]} --key=$fix"
+fi
 [ -n "$TEAM" ] || TEAM=${ORACLE_APP_TEAM:-}
 [ -n "$TEAM" ] || TEAM=$(sed -n 's/^ *DEVELOPMENT_TEAM: *//p' $R/project.yml | head -1)
-[[ $TEAM =~ '^[A-Z0-9]{10}$' ]] || die "no usable signing team ('$TEAM'): export ORACLE_APP_TEAM=<10-character Team ID> — Xcode → Settings → Accounts shows it"
+[[ $TEAM =~ '^[A-Z0-9]{10}$' ]] || die "no usable signing team ('$TEAM') — your certificate's Team ID (OU):
+    export ORACLE_APP_TEAM=\$(security find-certificate -c 'Apple Development' -p | openssl x509 -noout -subject | sed -n 's/.*OU *= *\([A-Z0-9]*\).*/\1/p')"
 # what every OTHER app already holds: bundle keys, MCP ports, colours
 others=(); for a in $R/Apps/*/app.yml(N); do [[ ${a:h:t} == $N ]] || others+=(${a:h:t}); done
 okeys=" "; oports=" "; ohex=" "
@@ -59,7 +67,10 @@ for o in $others; do
   for f in $R/Apps/$o/*App.swift(N); do oports+="$(sed -n 's/.*port: \([0-9][0-9]*\).*/\1/p' $f | head -1) "; done
   for f in $R/Apps/$o/*Config.swift(N); do ohex+="$(sed -n 's/.*colorHex: "\(#[0-9a-fA-F]*\)".*/\1/p' $f | head -1) "; done
 done
-[[ $okeys == *" $KEY "* ]] && die "key '$KEY' is already another app's (co.laris.oracle.$KEY) — give --key=<another>"
+if [[ $okeys == *" $KEY "* ]]; then
+  free=$KEY-2; i=2; while [[ $okeys == *" $free "* ]]; do i=$((i + 1)); free=$KEY-$i; done
+  die "key '$KEY' (from $KEYSRC) is already another app's (co.laris.oracle.$KEY) — a free one:  zsh $0 ${(q)again[@]} --key=$free"
+fi
 [[ ${(L)ohex} == *" ${(L)HEX} "* ]] && die "colour $HEX is already another app's — pick another"
 # a live listener check; scripts/parity.sh generates into a scratch copy and sets ORACLE_APP_SCRATCH=1 to skip it
 listening() {
@@ -336,4 +347,5 @@ final class ShareViewController: OracleShareViewController {
 }
 SWIFT
 (( REGEN )) && zsh $R/scripts/regen.sh
-echo "ready Apps/$N (+ ${N}Widget, ${N}Share) · key $KEY · co.laris.oracle.$KEY · MCP :$PORT · team $TEAM"
+TEAMSRC=${team_opt:+--team}; [ -n "$TEAMSRC" ] || { [[ $TEAM == ${ORACLE_APP_TEAM:-} ]] && TEAMSRC=ORACLE_APP_TEAM; }; [ -n "$TEAMSRC" ] || TEAMSRC="project.yml — set ORACLE_APP_TEAM if your certificate's OU differs"
+echo "ready Apps/$N (+ ${N}Widget, ${N}Share) · key $KEY · co.laris.oracle.$KEY · MCP :$PORT · team $TEAM ($TEAMSRC)"

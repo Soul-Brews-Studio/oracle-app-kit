@@ -34,7 +34,10 @@ for s in $built; do
     print -r -- "✗ $app: copying into /Applications failed — nothing relaunched:  ls -ld '/Applications/$app.app'"; rc=1; continue
   fi
   v=$(/usr/libexec/PlistBuddy -c "Print :ARRACalVer" "/Applications/$app.app/Contents/Info.plist" 2>/dev/null)
-  if (( was )); then for i in 1 2 3; do open "/Applications/$app.app" 2>/dev/null && break; sleep 2; done; fi   # -600 while the old copy quits
+  if (( was )); then   # -600 while the old copy is still quitting: retry
+    up=0; for i in 1 2 3; do open "/Applications/$app.app" 2>/dev/null && { up=1; break; }; sleep 2; done
+    (( up )) || { print -r -- "✗ $app $v: installed, but it did not start (open failed 3 times):  open '/Applications/$app.app'"; rc=1; continue; }
+  fi
   echo "$app $v $( (( was )) && echo relaunched || echo installed)"
 done
 exit $rc

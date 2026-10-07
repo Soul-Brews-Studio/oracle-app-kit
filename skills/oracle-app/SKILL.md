@@ -81,10 +81,12 @@ asking once which one — `export ORACLE_APP_TEAM=<TEAMID>`: the generator write
    (no herdr: run `zsh $K/scripts/build.sh <Name> --install` in a second terminal.)
    rc 75 = another agent holds the install lock: it prints who and a wait command that ends when that agent's process
    ends. Never delete the lock by hand; a dead holder's lock is taken over automatically.
-5. **Check** (§3). Every row ✓, or fix and re-run — each ✗ prints its own fix.
+5. **Check** (§3): `check.sh <Name> --deep --shots --relaunch` — the new app is yours to relaunch. Every row ✓, or
+   fix and re-run; each ✗ prints its own fix.
 6. **PR.** Commit `Apps/<Name>/**`, `apps.yml`, `OracleApps.xcodeproj/project.pbxproj`, `design/icons/<Name>.png`, and
-   screenshots under `docs/screenshots/<Name>/` — **not** under `Apps/<Name>/`, which is the app's source folder and
-   would be bundled into the app. Scrub first (§5). Push, open a PR with the "Built by" block (`/herdr-pr`; fallback:
+   the screenshots `--shots` wrote to `build/shots/` (gitignored), copied under `docs/screenshots/<Name>/` — **not**
+   under `Apps/<Name>/`, which is the app's source folder and would be bundled into the app:
+   `mkdir -p $K/docs/screenshots/<Name> && cp $K/build/shots/<Name>-*.png $K/docs/screenshots/<Name>/` Scrub first (§5). Push, open a PR with the "Built by" block (`/herdr-pr`; fallback:
    oracle, model, worktree, branch, session id, herdr pane in the PR body). **Never merge it.**
 
 ## 3. `check <Name>` — what "built" means
@@ -94,8 +96,10 @@ zsh $K/skills/oracle-app/check.sh <Name>                 # read-mostly: launches
 zsh $K/skills/oracle-app/check.sh <Name> --deep --shots --relaunch   # + Memory, Map, screenshots: QUITS and relaunches it
 ```
 
-By default nothing is quit: a running copy is checked as it is (a human may be using it). `--deep` / `--shots` drive
-pages by launch argument, so they need `--relaunch` when the app runs, and they skip while another agent installs.
+By default nothing is quit: a running copy is checked as it is (a human may be using it), a stopped one is launched.
+`--deep` / `--shots` drive pages by launch argument, so they need `--relaunch` when the app was already running, and
+they skip while another agent installs. `--no-launch` never launches or quits anything. A plain run covers the rows
+down to parity; Memory, Map, screenshots and iOS need `--deep`, `--shots`, `--ios`.
 
 | row | how | pass |
 |---|---|---|
@@ -138,7 +142,7 @@ window a human is using.
   for a in /Applications/*.app; do id=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$a/Contents/Info.plist" 2>/dev/null)
     [[ $id == co.laris.oracle.* && $id != *.hub ]] && echo "${id#co.laris.oracle.}"; done      # the APPS cards
   curl -s 127.0.0.1:4790/health                                                                 # the hub's MCP
-  zsh $K/scripts/shot.sh "ARRA Oracles" hub.png --as-is                                          # its window, as it is
+  zsh $K/scripts/shot.sh "ARRA Oracles" $K/build/shots/hub.png --as-is                         # its window, as it is
   ```
 
 ## 5. Rules
@@ -148,6 +152,7 @@ window a human is using.
   `OracleConfig.mac("…")` line (the oracle's own checkout):
   `rg -n -i '\btoken\b\s*[:=]|secret|api[_-]?key|bearer\s|ghp_|\bsk-[a-z0-9]|/Users/|/home/|/opt/Code' <new files> | rg -v 'OracleConfig\.mac\('`
   must print nothing. Also: no other people's names, chats or data in screenshots.
-- Two agents: the install lock serialises `/Applications`; `check.sh` and `shot.sh` will not relaunch during another
-  agent's install. Still tell the other agent (`herdr agent prompt`) before a long install.
+- Two agents: the install lock (`$TMPDIR/oracle-app-install.lock`, or `$ORACLE_APP_LOCK`; one per macOS user) serialises
+  `/Applications`; `check.sh` and `shot.sh` will not relaunch during another agent's install. Still tell the other
+  agent (`herdr agent prompt`) before a long install.
 - Mac only. No App Store / TestFlight here.
