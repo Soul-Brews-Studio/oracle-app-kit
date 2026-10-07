@@ -1153,6 +1153,7 @@ struct TerminalColumn: View {
     @State private var read: Date?
     @State private var failed = false
     @State private var escMonitor: Any?
+    @AppStorage("oracle.drawerFit") private var fit = true   // ☑ fit the drawer · ☐ bigger font, scroll (Nat's choice)
     var body: some View {
         let act = store.activity.first { $0.place == place }
         let home = WorkFormat.homeSession(store.activity)
@@ -1171,27 +1172,44 @@ struct TerminalColumn: View {
             }
             .padding(.horizontal, 14).padding(.vertical, 11)
             Divider()
+            let shown = failed && text.isEmpty ? "can't read \(place) — is herdr running?\n  herdr pane list" : text
+            Group { if fit {
             GeometryReader { geo in
                 // a terminal screen, not a scroll view (Nat: "make the right fit, no scroll"): the font shrinks until the
                 // widest row fits the drawer (a monospaced cell is ~0.6 of the font size), and only the newest rows that
                 // fit the height are shown — widen or heighten the drawer to see more
-                let all = (failed && text.isEmpty ? "can't read \(place) — is herdr running?\n  herdr pane list" : text)
-                    .split(separator: "\n", omittingEmptySubsequences: false)
+                let all = shown.split(separator: "\n", omittingEmptySubsequences: false)
                 let recent = all.suffix(160).joined(separator: "\n")
-                let fit = min(13, max(7, (geo.size.width - 26) / (CGFloat(max(TerminalColumn.columns(recent), 40)) * 0.602)))
-                let rows = max(4, Int((geo.size.height - 24) / (fit * 1.22)))
+                let size = min(13, max(7, (geo.size.width - 26) / (CGFloat(max(TerminalColumn.columns(recent), 40)) * 0.602)))
+                let rows = max(4, Int((geo.size.height - 24) / (size * 1.22)))
                 Text(all.suffix(rows).joined(separator: "\n"))
-                    .font(.system(size: fit, design: .monospaced)).foregroundStyle(Color(white: 0.86))
+                    .font(.system(size: size, design: .monospaced)).foregroundStyle(Color(white: 0.86))
                     .fixedSize(horizontal: true, vertical: false)   // never re-wrap: tables and boxes keep their shape
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading).padding(12)
                     .clipped()
             }
+            } else {
+                // bigger font, scroll both ways; opens at the newest row and the leftmost column
+                ScrollViewReader { proxy in
+                    ScrollView([.vertical, .horizontal]) {
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text(shown).font(.system(size: 13, design: .monospaced)).foregroundStyle(Color(white: 0.86))
+                                .fixedSize(horizontal: true, vertical: false).textSelection(.enabled).padding(12)
+                            Color.clear.frame(width: 1, height: 1).id("end")
+                        }
+                    }
+                    .onChange(of: text) { proxy.scrollTo("end", anchor: .bottomLeading) }
+                    .onAppear { proxy.scrollTo("end", anchor: .bottomLeading) }
+                }
+            } }
             .background(Color(red: 0.04, green: 0.04, blue: 0.06))
             HStack {
                 Text(read.map { "live · every 1 s · read \($0.formatted(date: .omitted, time: .standard))" } ?? "reading…")
                     .font(.caption).foregroundStyle(.tertiary)
                 Spacer()
+                Toggle("Fit", isOn: $fit).toggleStyle(.checkbox).font(.caption).handCursor()
+                    .help("Ticked: shrink the text to fit the drawer, no scrolling. Unticked: bigger font, scroll.")
             }
             .padding(.horizontal, 14).padding(.vertical, 7)
         }
