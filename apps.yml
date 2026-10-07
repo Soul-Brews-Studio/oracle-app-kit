@@ -1,4 +1,6 @@
 include:
+  - path: Apps/Athena/app.yml
+    relativePaths: false
   - path: Apps/Hub/app.yml
     relativePaths: false
   - path: Apps/MapSpike/app.yml
