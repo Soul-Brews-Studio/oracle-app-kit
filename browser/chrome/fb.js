@@ -203,8 +203,11 @@
   function chip(label, title, getDetails, attr) {
     const c = document.createElement('span');
     c.setAttribute('role', 'button'); c.tabIndex = 0; c.setAttribute(attr, '1'); c.textContent = label; c.title = title;
-    Object.assign(c.style, { marginLeft: '6px', padding: '1px 8px', borderRadius: '10px', background: 'rgba(171,71,188,.18)',
-      color: '#e1bee7', font: '600 12px system-ui, sans-serif', cursor: 'pointer', whiteSpace: 'nowrap', alignSelf: 'center' });
+    // a big hand-cursor target (Nat: "make hand mouse click region larger"): generous padding, pulled back with
+    // negative margins so the header line keeps its height
+    Object.assign(c.style, { margin: '-8px -4px -8px 4px', padding: '9px 14px', borderRadius: '14px', background: 'rgba(171,71,188,.18)',
+      color: '#e1bee7', font: '600 13px system-ui, sans-serif', cursor: 'pointer', whiteSpace: 'nowrap', alignSelf: 'center', userSelect: 'none' });
+    c.onmouseenter = () => (c.style.background = 'rgba(171,71,188,.38)'); c.onmouseleave = () => (c.style.background = 'rgba(171,71,188,.18)');
     c.onclick = async (e) => {
       e.stopPropagation(); e.preventDefault();
       if (e.shiftKey) return menu(c, null, getDetails);
