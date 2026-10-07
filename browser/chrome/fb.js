@@ -133,7 +133,7 @@
       .map(l => /^Comment on (.+?)['’]s (post|photo|video|reel)/i.exec(l) || /^React with Like to (.+)$/i.exec(l)).find(Boolean);
     const authorEl = side && [...side.querySelectorAll('h2 a, h3 a, strong a, span > a[role="link"]')]
       .find(a => a.innerText.trim() && !/online status|^active$/i.test(a.innerText.trim()) && !a.closest('[role="banner"], [role="navigation"]'));
-    const author = (named?.[1] || authorEl?.innerText || '').trim().split('\n')[0];
+    const author = (named?.[1] || authorEl?.innerText || '').replace(/['’]s (post|photo|video|reel)$/i, '').trim().split('\n')[0];
     const caption = ((side?.querySelector('[data-ad-rendering-role="story_message"]')?.innerText) ||
       captionIn(side, author) || (document.querySelector('[data-ad-rendering-role="story_message"]')?.innerText) ||
       String(getSelection() || '')).trim().replace(SEE, '');
