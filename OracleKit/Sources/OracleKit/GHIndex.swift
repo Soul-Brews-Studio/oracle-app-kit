@@ -44,6 +44,9 @@ public final class ModelLoad: ObservableObject {
     @Published public private(set) var absent = false
     /// Loads the bundled model again (the app sets it); the Retry button after a failed load.
     public var retry: (() -> Void)?
+    /// Loads it again on other devices — "ane", "gpu" or "both" (the engine picker). The running engine keeps
+    /// answering until the new one is ready.
+    public var reload: ((String) -> Void)?
     public private(set) var buckets: [Int] = []
     public private(set) var workers = 0
     public private(set) var lastStepAt: Date?
@@ -409,7 +412,7 @@ public final class GHIndex: ObservableObject {
             done += chunk.count
             let rate = Double(done) / max(0.001, Date().timeIntervalSince(t0))
             textDone = done; rateHistory.append(rate); if rateHistory.count > 60 { rateHistory.removeFirst() }
-            progress = "embedding \(via == "in-process ANE" ? "in-process on the ANE" : "via 127.0.0.1:11435") \(done)/\(todo.count) · \(Int(rate)) texts/s"
+            progress = "embedding \(via.hasPrefix("in-process") ? via : "via 127.0.0.1:11435") \(done)/\(todo.count) · \(Int(rate)) texts/s"
         }
         return done
     }
@@ -420,9 +423,25 @@ public final class GHIndex: ObservableObject {
         guard let before, let after = bundled()?.activity(), after.calls > before.calls else { return }
         let predict = after.predictSeconds - before.predictSeconds, stage = after.stageSeconds - before.stageSeconds
         let pool = after.poolSeconds - before.poolSeconds, total = max(predict + stage + pool, 0.001)
-        HubLog.shared.add(.info, String(format: "time split over %d calls: ANE predict %.1f s (%.0f%%) · CPU staging %.1f s (%.0f%%) · pooling %.1f s (%.0f%%) · %.0f ms predict per call",
+        HubLog.shared.add(.info, String(format: "time split over %d calls: predict %.1f s (%.0f%%) · CPU staging %.1f s (%.0f%%) · pooling %.1f s (%.0f%%) · %.0f ms predict per call",
                                         after.calls - before.calls, predict, predict / total * 100, stage, stage / total * 100,
                                         pool, pool / total * 100, predict / Double(after.calls - before.calls) * 1000))
+    }
+
+    /// Do the bundled engine's vectors still match the index? Embeds 32 stored items again and compares them with
+    /// their stored vectors (cosine). ANE and GPU round fp16 differently, so a switch of device must stay ~1.0.
+    public func checkParity() async {
+        guard let l = bundled() else { return }
+        let sample = docs.filter { $0.text != nil && !$0.vec.isEmpty }.shuffled().prefix(32)
+        guard !sample.isEmpty, let r = try? await l.embed(sample.map { $0.text ?? "" }), r.vectors.count == sample.count else { return }
+        let cos = zip(sample, r.vectors).map { d, f -> Float in
+            let n = sqrt(f.reduce(0) { $0 + $1 * $1 })
+            return d.vec.count == f.count && n > 0 ? vDSP.dot(d.vec, f) / n : 0
+        }.sorted()
+        let median = cos[cos.count / 2], low = cos.first ?? 0
+        HubLog.shared.add(median >= 0.995 && low >= 0.98 ? .info : .error,
+                          String(format: "parity with the index (%d items, %@): median cosine %.5f, lowest %.5f%@", cos.count, l.label, median, low,
+                                 median >= 0.995 && low >= 0.98 ? "" : " — these vectors differ from the index: press Re-embed all"))
     }
 
     // MARK: search
@@ -489,10 +508,12 @@ public final class GHIndex: ObservableObject {
                 HubLog.shared.add(.error, "bundled model returned \(rows.count) vectors for \(texts.count) texts — trying 127.0.0.1:11435"); return nil
             }
             let ms = Date().timeIntervalSince(t0) * 1000
-            via = "in-process ANE"; lastCall = (texts.count, tokens, ms)
+            let devs = l.activity().devices
+            via = "in-process " + (devs.isEmpty ? "ANE" : Array(NSOrderedSet(array: devs)).compactMap { $0 as? String }.joined(separator: "+"))
+            lastCall = (texts.count, tokens, ms)
             if let what {
                 HubLog.shared.add(.embed, "\(what): \(texts.count) texts · \(grouped(tokens)) tok · \(Int(ms)) ms · " +
-                                  "\(short(Double(texts.count) * 1000 / max(ms, 1))) texts/s · \(short(Double(tokens) * 1000 / max(ms, 1))) tok/s · in-process ANE")
+                                  "\(short(Double(texts.count) * 1000 / max(ms, 1))) texts/s · \(short(Double(tokens) * 1000 / max(ms, 1))) tok/s · \(via)")
             }
             return rows.map { f in let n = sqrt(f.reduce(0) { $0 + $1 * $1 }); return n > 0 ? f.map { $0 / n } : f }
         } catch {

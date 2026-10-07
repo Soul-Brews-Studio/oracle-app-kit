@@ -8,8 +8,10 @@ struct HubApp: App {
     @StateObject private var store = HubStore()
     @AppStorage("hub.menuBar") private var menuBar = true
     init() {
-        Task { await BundledANE.load() }   // the bundled ANE model loads in the background and installs itself
-        ModelLoad.shared.retry = { Task { await BundledANE.load() } }
+        let mode = UserDefaults.standard.string(forKey: "hub.engineMode") ?? "ane"   // ANE / GPU / Both, the engine card's picker
+        Task { await BundledANE.load(mode: mode) }   // the bundled model loads in the background and installs itself
+        ModelLoad.shared.reload = { mode in Task { await BundledANE.load(mode: mode) } }
+        ModelLoad.shared.retry = { Task { await BundledANE.load(mode: UserDefaults.standard.string(forKey: "hub.engineMode") ?? "ane") } }
         if let ane = ANEMonitor() { ANEMeter.shared.reader = { ane.read().map { ($0.utilizationPercent, $0.bandwidthGBs) } } }
     }
     var body: some Scene { HubScene(store: store, menuBar: $menuBar) }

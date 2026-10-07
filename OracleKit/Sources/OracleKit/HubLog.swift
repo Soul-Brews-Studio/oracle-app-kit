@@ -77,6 +77,7 @@ public struct EmbedActivity: Sendable {
     public var texts = 0, tokens = 0, requests = 0, calls = 0
     public var textsPerSecond = 0.0, tokensPerSecond = 0.0
     public var busy: [Bool] = []
+    public var devices: [String] = []        // "ANE" / "GPU", one per worker
     public var stageSeconds = 0.0, predictSeconds = 0.0, poolSeconds = 0.0
     public var last: [Call] = []            // newest first
     public init() {}

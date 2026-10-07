@@ -4,8 +4,15 @@ import Foundation
 /// One worker: its own MLModel per bucket, run on its own serial queue. Several workers
 /// keep the ANE fed while another worker stages inputs or pools outputs on the CPU —
 /// the same reason the Python service runs two worker processes.
+/// Where a worker runs its model: the Neural Engine or the GPU (the CPU-only buckets stay on the CPU either way).
+public enum Device: String, Sendable, CaseIterable {
+    case ane = "ANE", gpu = "GPU"
+    var units: MLComputeUnits { self == .ane ? .cpuAndNeuralEngine : .cpuAndGPU }
+}
+
 final class Worker {
     let models: [Int: MLModel]
+    let device: Device
     let queue: DispatchQueue
     let index: Int
     let count: Int
@@ -13,19 +20,20 @@ final class Worker {
     /// Loads every bucket, small first (the first answers come soonest), with the async Core ML API so a first-launch
     /// compile — the Neural Engine compiles each bucket once per app, ~30 s each — never blocks a thread.
     /// `loaded(bucket, device, seconds)` after each one, awaited, so a caller sees them in order.
-    init(index: Int, of count: Int, compiled: [Int: URL], cpuBuckets: Set<Int> = [],
+    init(index: Int, of count: Int, device: Device = .ane, compiled: [Int: URL], cpuBuckets: Set<Int> = [],
          loaded: ((Int, String, Double) async -> Void)? = nil) async throws {
+        self.device = device
         self.index = index
         self.count = count
         var models: [Int: MLModel] = [:]
         for (bucket, url) in compiled.sorted(by: { $0.key < $1.key }) {
             let config = MLModelConfiguration()
             let cpu = cpuBuckets.contains(bucket)
-            config.computeUnits = cpu ? .cpuOnly : .cpuAndNeuralEngine
+            config.computeUnits = cpu ? .cpuOnly : device.units
             if #available(macOS 14.4, *) { config.modelDisplayName = "embed-\(bucket)-w\(index + 1)" }   // names the load in Instruments and os_log
             let t0 = DispatchTime.now().uptimeNanoseconds
             models[bucket] = try await MLModel.load(contentsOf: url, configuration: config)
-            await loaded?(bucket, cpu ? "CPU" : "ANE", Double(DispatchTime.now().uptimeNanoseconds - t0) / 1e9)
+            await loaded?(bucket, cpu ? "CPU" : device.rawValue, Double(DispatchTime.now().uptimeNanoseconds - t0) / 1e9)
         }
         self.models = models
         queue = DispatchQueue(label: "ane-embed.worker.\(index)", qos: .userInitiated)
@@ -64,7 +72,7 @@ final class Worker {
 public struct LoadStep: Sendable {
     public let done: Int, total: Int
     public let worker: Int, bucket: Int
-    public let device: String          // "ANE" or "CPU"
+    public let device: String          // "ANE", "GPU" or "CPU"
     public let seconds: Double
 }
 
@@ -74,14 +82,18 @@ public final class Engine {
     /// HF tokenizers (Rust): encodes a whole batch in parallel internally.
     let tokenizer: TextTokenizer
     let workers: [Worker]
-    var next = 0
     public var tokenizeSeconds = 0.0
     let lock = NSLock()
 
     /// Compiles each bucket's mlpackage once into <assets>/compiled, then loads `workers` copies of every bucket on
     /// CPU + Neural Engine. `progress` after each model part (buckets × workers), so a caller can show the first
     /// launch's compile — minutes in all — and see the later, cached launches take seconds.
-    public init(assets: Assets, workers count: Int = 2, progress: ((LoadStep) async -> Void)? = nil) async throws {
+    public convenience init(assets: Assets, workers count: Int = 2, progress: ((LoadStep) async -> Void)? = nil) async throws {
+        try await self.init(assets: assets, devices: Array(repeating: .ane, count: max(1, count)), progress: progress)
+    }
+
+    /// One worker per entry of `devices` — [.ane, .ane], [.gpu, .gpu], or [.ane, .gpu] to run on both at once.
+    public init(assets: Assets, devices: [Device], progress: ((LoadStep) async -> Void)? = nil) async throws {
         self.assets = assets
         tokenizer = try TextTokenizer(folder: assets.tokenizerFolder, maxTokens: assets.manifest.max_tokens)
         var compiled: [Int: URL] = [:]
@@ -100,12 +112,13 @@ public final class Engine {
             compiled[bucket] = target
         }
         let cpu = Set(assets.manifest.cpu_buckets ?? [])
-        let n = max(1, count)
+        let devices = devices.isEmpty ? [Device.ane] : devices
+        let n = devices.count
         let total = compiled.count * n
         var done = 0
         var loaded: [Worker] = []
         for w in 0..<n {
-            loaded.append(try await Worker(index: w, of: n, compiled: compiled, cpuBuckets: cpu) { bucket, device, seconds in
+            loaded.append(try await Worker(index: w, of: n, device: devices[w], compiled: compiled, cpuBuckets: cpu) { bucket, device, seconds in
                 done += 1
                 await progress?(LoadStep(done: done, total: total, worker: w, bucket: bucket, device: device, seconds: seconds))
             })
@@ -121,10 +134,13 @@ public final class Engine {
     public private(set) var warmupSeconds = 0.0
 
     public var workerCount: Int { workers.count }
+    /// Where each worker runs, in worker order.
+    public var devices: [Device] { workers.map(\.device) }
 
     func encode(_ texts: [String]) throws -> [[Int]] { try tokenizer.encode(texts) }
 
-    /// Ordered unit vectors for `texts`. Jobs go round-robin across workers.
+    /// Ordered unit vectors for `texts`. Each worker takes the next job as soon as it is free, so a faster device
+    /// (the GPU next to the ANE) simply does more of them.
     public func embed(_ texts: [String]) async throws -> [[Float]] { try await embedCounting(texts).vectors }
 
     /// `embed`, plus how many tokens the texts came to — for a caller's speed log.
@@ -137,17 +153,20 @@ public final class Engine {
         lock.withLock { tokenizeSeconds += Date().timeIntervalSince(started) }
         let jobs = try assignJobs(lengths: tokenIds.map(\.count), buckets: assets.manifest.buckets,
                                   slots: assets.manifest.slots_per_call)
-        let picked: [Worker] = lock.withLock {
-            defer { next += jobs.count }
-            return jobs.indices.map { workers[(next + $0) % workers.count] }
-        }
+        let queue = JobQueue(count: jobs.count)
         var out = [[Float]](repeating: [], count: texts.count)
-        try await withThrowingTaskGroup(of: (Job, [[Float]]).self) { group in
-            for (job, worker) in zip(jobs, picked) {
-                group.addTask { (job, try await worker.run(job, tokenIds: tokenIds, assets: self.assets, stats: self.stats)) }
+        try await withThrowingTaskGroup(of: [(Job, [[Float]])].self) { group in
+            for worker in workers {
+                group.addTask {
+                    var done: [(Job, [[Float]])] = []
+                    while let i = queue.take() {
+                        done.append((jobs[i], try await worker.run(jobs[i], tokenIds: tokenIds, assets: self.assets, stats: self.stats)))
+                    }
+                    return done
+                }
             }
-            for try await (job, vectors) in group {
-                for (row, vector) in zip(job.rows, vectors) { out[row] = vector }
+            for try await batch in group {
+                for (job, vectors) in batch { for (row, vector) in zip(job.rows, vectors) { out[row] = vector } }
             }
         }
         let tokens = tokenIds.reduce(0) { $0 + $1.count }
@@ -156,4 +175,13 @@ public final class Engine {
                      seconds: Date().timeIntervalSince(started))
         return (out, tokens)
     }
+}
+
+/// The jobs of one embed call, handed out one at a time to whichever worker asks first.
+final class JobQueue: @unchecked Sendable {
+    private let lock = NSLock()
+    private var next = 0
+    private let count: Int
+    init(count: Int) { self.count = count }
+    func take() -> Int? { lock.withLock { guard next < count else { return nil }; defer { next += 1 }; return next } }
 }
