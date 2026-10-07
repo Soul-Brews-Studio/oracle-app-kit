@@ -436,6 +436,8 @@ struct SessionSpaces: View {
         if let m = esc { NSEvent.removeMonitor(m); esc = nil }
     }
 
+    @State private var clientWindow: WezTerm.ClientWindow?
+
     @ViewBuilder private var list: some View {
         let s = store.sessions.first { $0.name == session }
         let byNumber = store.spaces.filter { $0.session == session }.sorted { store.listNumber($0) < store.listNumber($1) }
@@ -445,6 +447,14 @@ struct SessionSpaces: View {
                 HStack(alignment: .firstTextBaseline, spacing: 10) {
                     Text(session).font(.system(size: 30, weight: .bold, design: .rounded))
                     Text(s?.running == true ? "running · \(spaces.count) spaces" : "stopped").font(.callout).foregroundStyle(.secondary)
+                    if s?.running == true, let w = clientWindow {
+                        // where its WezTerm window is: Show in herdr switches in place when front, raises it when behind
+                        Text(w.label).font(.caption.weight(.semibold))
+                            .padding(.horizontal, 8).padding(.vertical, 3)
+                            .background(Capsule().fill({ if case .front = w { return Color.green.opacity(0.18) }; return Color.secondary.opacity(0.15) }()))
+                            .foregroundStyle({ if case .front = w { return Color.green }; return Color.secondary }())
+                            .help("The WezTerm window with this session's herdr client. Front: Show in herdr switches inside it. Behind: it rises on its own screen. No window: one opens on the main screen.")
+                    }
                     Spacer()
                     if s?.running == true {
                         Button(stopping ? "Stopping…" : "Stop session", role: .destructive) {
@@ -497,6 +507,12 @@ struct SessionSpaces: View {
         }
         .navigationTitle(session)
         .onChange(of: session) { _, _ in closeDrawer() }
+        .task(id: session) {
+            while !Task.isCancelled {
+                clientWindow = await WezTerm.clientWindow(session: session)
+                try? await Task.sleep(for: .seconds(2))
+            }
+        }
         .confirmationDialog("Stop \(session)?", isPresented: $confirmStop, titleVisibility: .visible) {
             Button("Stop \(session)", role: .destructive) {
                 stopping = true; stopError = nil
@@ -615,6 +631,8 @@ struct SpaceLine: View {
                 Button("Open app") { store.openApp(HubParse.appKey(forRepo: r)) }.controlSize(.small).handCursor()
             }
             Button("Show in herdr") { store.showInHerdr(space) }.controlSize(.small).tint(.secondary).handCursor()
+                .help("Switches herdr to this space: in place when its WezTerm window is in front, raising it on its own screen when behind")
+                .contextMenu { Button("Bring here — move its WezTerm window to the main screen") { store.bringHere(space) } }
             Button("Close") {
                 agents = nil; closeError = nil; confirmClose = true
                 Task {
