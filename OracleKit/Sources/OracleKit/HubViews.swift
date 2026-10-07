@@ -376,6 +376,8 @@ struct SessionSpaces: View {
     @State private var stopping = false
     @State private var stopError: String?
     @State private var resume: (resumes: [String: Int], lost: [String])?
+    @State private var closed: [ClosedSpace] = []
+    @State private var reopenError: String?
     var body: some View {
         let s = store.sessions.first { $0.name == session }
         let spaces = store.spaces.filter { $0.session == session }.sorted { $0.number < $1.number }
@@ -413,6 +415,7 @@ struct SessionSpaces: View {
                         SpaceLine(space: sp, app: sp.repo.map { store.apps[HubParse.displayName($0).lowercased()] } ?? nil, store: store)
                     }
                 }
+                if !closed.isEmpty { recentlyClosed(running: s?.running == true) }
             }
             .padding(28)
             .frame(maxWidth: 900, alignment: .leading)
@@ -428,7 +431,36 @@ struct SessionSpaces: View {
         } message: {
             Text(stopWarning)
         }
-        .onChange(of: session) { _, _ in stopError = nil }
+        .onChange(of: session) { _, _ in stopError = nil; reopenError = nil; loadClosed() }
+        .onChange(of: store.lastRefresh) { _, _ in loadClosed() }
+        .onAppear { loadClosed() }
+    }
+
+    private func loadClosed() { closed = ClosedSpaces.load().filter { $0.session == session } }
+
+    /// Spaces closed from this page: what they held, and Reopen (same cwd, each agent resumed).
+    private func recentlyClosed(running: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            WorkFormat.header("RECENTLY CLOSED", closed.count, note: running ? "reopen brings each agent back resumed" : "start the session to reopen")
+            ForEach(closed) { c in
+                HStack(spacing: 10) {
+                    Image(systemName: "arrow.uturn.backward").font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(c.label).font(.custom("Avenir Next", size: 14).weight(.medium)).lineLimit(1).truncationMode(.middle)
+                        Text(c.agents.isEmpty ? "no agents" : c.agents.map { "\($0.kind)\($0.sessionId == nil ? " (no session)" : "")" }.joined(separator: " · "))
+                            .font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(1)
+                    }
+                    Spacer(minLength: 8)
+                    Text(c.closedAt.formatted(date: .omitted, time: .shortened)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                    Button("Reopen") { reopenError = nil; Task { reopenError = await store.reopen(c); loadClosed() } }
+                        .controlSize(.small).disabled(!running).handCursor()
+                    Button("Forget") { store.forget(c); loadClosed() }.controlSize(.small).handCursor()
+                }
+                .padding(.vertical, 5).padding(.horizontal, 10)
+            }
+            if let e = reopenError { Text(e).font(.callout).foregroundStyle(.orange).textSelection(.enabled) }
+        }
+        .padding(.top, 10)
     }
 
     /// What stopping ends, counted from the live spaces — busy agents named first.
@@ -452,6 +484,9 @@ struct SpaceLine: View {
     let app: URL?
     let store: HubStore
     @State private var hover = false
+    @State private var confirmClose = false
+    @State private var agents: [ClosedAgent]?
+    @State private var closeError: String?
     var body: some View {
         HStack(spacing: 10) {
             if space.linked { Text("└").font(.callout.monospaced()).foregroundStyle(.tertiary) }
@@ -469,11 +504,30 @@ struct SpaceLine: View {
                 Button("Open app") { store.openApp(HubParse.displayName(r).lowercased()) }.controlSize(.small).handCursor()
             }
             Button("Show in herdr") { store.showInHerdr(space) }.controlSize(.small).handCursor()
+            Button("Close") { agents = nil; closeError = nil; confirmClose = true; Task { agents = await store.agents(in: space) } }
+                .controlSize(.small).handCursor().help("Close this space only; the rest of \(space.session) keeps running")
         }
+        .overlay(alignment: .bottomLeading) {
+            if let e = closeError { Text(e).font(.caption).foregroundStyle(.orange).textSelection(.enabled).offset(y: 14) }
+        }
+        .confirmationDialog("Close \(space.label)?", isPresented: $confirmClose, titleVisibility: .visible) {
+            Button("Close space", role: .destructive) {
+                let list = agents ?? []
+                Task { closeError = await store.closeSpace(space, agents: list) }
+            }.disabled(agents == nil)
+            Button("Cancel", role: .cancel) {}
+        } message: { Text(closeMessage) }
         .padding(.vertical, 7).padding(.horizontal, 10)
         .padding(.leading, space.linked ? 14 : 0)
         .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(hover ? Color.primary.opacity(0.05) : Color.clear))
         .onHover { hover = $0 }
+    }
+
+    private var closeMessage: String {
+        guard let a = agents else { return "Reading the agents in this space…" }
+        if a.isEmpty { return "No agents here. The space closes; nothing to resume." }
+        let lines = a.map { "\($0.name) (\($0.kind))" + ($0.sessionId == nil ? " — no saved session, cannot resume" : "") }
+        return "Ends: " + lines.joined(separator: ", ") + ".\nSaved first, so Reopen under \"Recently closed\" brings them back resumed."
     }
 }
 
