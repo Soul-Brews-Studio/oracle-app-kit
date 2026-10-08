@@ -908,12 +908,11 @@ final class MapScene: ObservableObject {
         HubLog.shared.add(.info, "map: open \(doc.kind) \(doc.title.prefix(60))")
     }
 }
-#endif
-
 
 /// A map point: a 20-triangle icosahedron (60 indices). A RealityKit sphere is about 3,000 indices, so a chunk of 4,096
 /// of them passed MeshInstancesComponent's 10,000,000-index limit and the fleet map drew nothing ("attempted to render
-/// beyond the per component vertex/index limit"); the phone draws its map the same way. Cached per radius.
+/// beyond the per component vertex/index limit"). Cached per radius. Mac only, inside this file's `#if os(macOS)`:
+/// outside it the iOS apps had no RealityKit import and did not build.
 @MainActor
 enum MapDot {
     private static var made: [Float: MeshResource] = [:]
@@ -933,3 +932,4 @@ enum MapDot {
         return m
     }
 }
+#endif
