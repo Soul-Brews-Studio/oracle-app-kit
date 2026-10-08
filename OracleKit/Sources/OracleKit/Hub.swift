@@ -11,6 +11,10 @@ public struct HubSession: Identifiable, Hashable, Sendable {
     public var id: String { name }
     public let name: String
     public let running: Bool
+    /// herdr's default session: its folder is herdr's own config folder (~/.config/herdr), never deleted here
+    public var isDefault = false
+    /// the session's folder (`session_dir`): session.json (its saved spaces), logs, config
+    public var dir: String?
 }
 
 public struct HubSpace: Identifiable, Hashable, Sendable {
@@ -72,7 +76,8 @@ public enum HubParse {
     public static func sessions(_ data: Data) -> [HubSession] {
         guard let d = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return [] }
         return (d["sessions"] as? [[String: Any]] ?? []).compactMap { s in
-            (s["name"] as? String).map { HubSession(name: $0, running: s["running"] as? Bool ?? false) }
+            (s["name"] as? String).map { HubSession(name: $0, running: s["running"] as? Bool ?? false,
+                                                    isDefault: s["default"] as? Bool ?? false, dir: s["session_dir"] as? String) }
         }
     }
 
@@ -204,9 +209,24 @@ public final class HubStore: ObservableObject {
     }
 
     #if os(macOS)
+    /// A click on an app card brings the app to the main display (Nat, 2026-10-08): it is sent
+    /// `oracle-<name>://front?display=<main display>` and moves its own window there, so no Accessibility or yabai.
+    /// The app is named by its bundle, so a dev build that registered the same scheme never gets the link.
     public func openApp(_ key: String) {
         guard let url = apps[key] else { return }
-        NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration())
+        if let link = Self.frontLink(app: url, display: CGMainDisplayID()) {
+            NSWorkspace.shared.open([link], withApplicationAt: url, configuration: NSWorkspace.OpenConfiguration())
+        } else {
+            NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration())
+        }
+    }
+
+    /// `oracle-<name>://front?display=<id>` from the app's own URL scheme (its Info.plist); nil for an app without one.
+    nonisolated public static func frontLink(app: URL, display: CGDirectDisplayID) -> URL? {
+        guard let types = Bundle(url: app)?.infoDictionary?["CFBundleURLTypes"] as? [[String: Any]],
+              let scheme = types.flatMap({ $0["CFBundleURLSchemes"] as? [String] ?? [] }).first(where: { $0.hasPrefix("oracle-") })
+        else { return nil }
+        return URL(string: "\(scheme)://front?display=\(display)")
     }
 
     /// Focus the space in herdr, by the state of the session's WezTerm window:
@@ -286,6 +306,89 @@ public final class HubStore: ObservableObject {
 
     /// Stop a whole session: its server and every pane in it end. herdr resumes each recorded agent on reopen
     /// (see `resumeCheck`). nil when it stopped; otherwise the error with the command to run.
+    /// What a stopped session holds, for the confirmation: the spaces session.json saved, and its files.
+    public struct SessionContents: Sendable, Equatable {
+        public let spaces: [String]
+        public let files: Int
+        public let bytes: Int64
+    }
+
+    nonisolated public static func contents(of s: HubSession) -> SessionContents {
+        guard let dir = s.dir else { return SessionContents(spaces: [], files: 0, bytes: 0) }
+        var spaces: [String] = []
+        if let d = FileManager.default.contents(atPath: dir + "/session.json"),
+           let o = try? JSONSerialization.jsonObject(with: d) as? [String: Any], let ws = o["workspaces"] as? [[String: Any]] {
+            // a space is named by herdr's custom name, else its folder (identity_cwd), else its id
+            spaces = ws.map { w in (w["custom_name"] as? String) ?? (w["identity_cwd"] as? String).map { ($0 as NSString).lastPathComponent }
+                                   ?? (w["id"] as? String) ?? "space" }
+        }
+        let files = keepable(in: URL(fileURLWithPath: dir))
+        return SessionContents(spaces: spaces, files: files.count, bytes: files.reduce(0) { $0 + $1.size })
+    }
+
+    /// The regular files under a session's folder: sockets and other specials are skipped (a stopped session keeps
+    /// stale `herdr.sock` files, and a socket cannot be copied).
+    nonisolated static func keepable(in dir: URL) -> [(url: URL, size: Int64)] {
+        let keys: [URLResourceKey] = [.isRegularFileKey, .fileSizeKey]
+        guard let e = FileManager.default.enumerator(at: dir, includingPropertiesForKeys: keys) else { return [] }
+        return e.compactMap { item -> (URL, Int64)? in
+            guard let u = item as? URL, let v = try? u.resourceValues(forKeys: Set(keys)), v.isRegularFile == true else { return nil }
+            return (u, Int64(v.fileSize ?? 0))
+        }
+    }
+
+    /// Where a deleted session's files are kept: ~/Library/Application Support/ARRA Oracles/deleted-sessions.
+    nonisolated public static var deletedSessions: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("ARRA Oracles/deleted-sessions", isDirectory: true)
+    }
+
+    /// Copy a session's regular files to `deleted-sessions/<name>-<yyyyMMdd-HHmmss>` (Nothing is Deleted): the copy,
+    /// or why it failed.
+    enum Kept: Equatable { case copy(URL), failed(String) }
+
+    nonisolated static func keepCopy(of s: HubSession, at now: Date = Date(), into root: URL = deletedSessions) -> Kept {
+        guard let dir = s.dir else { return .failed("herdr did not say where \(s.name) keeps its files") }
+        let f = DateFormatter(); f.dateFormat = "yyyyMMdd-HHmmss"; f.locale = Locale(identifier: "en_US_POSIX")
+        let to = root.appendingPathComponent("\(s.name)-\(f.string(from: now))", isDirectory: true)
+        let from = URL(fileURLWithPath: dir).standardizedFileURL
+        do {
+            for (u, _) in keepable(in: from) {
+                let rel = String(u.standardizedFileURL.path.dropFirst(from.path.count)).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+                let dest = to.appendingPathComponent(rel)
+                try FileManager.default.createDirectory(at: dest.deletingLastPathComponent(), withIntermediateDirectories: true)
+                try FileManager.default.copyItem(at: u, to: dest)
+            }
+            try FileManager.default.createDirectory(at: to, withIntermediateDirectories: true)   // an empty session still leaves its mark
+            return .copy(to)
+        } catch {
+            let ns = error as NSError
+            return .failed("could not keep a copy of \(s.name) in \(to.path) (\(ns.domain) \(ns.code)); nothing was deleted")
+        }
+    }
+
+    /// Why a session is not deleted from here: the default one is herdr's own config folder; a running one is stopped first.
+    nonisolated static func refusal(_ s: HubSession) -> String? {
+        if s.isDefault { return "the default session is herdr's own config folder (~/.config/herdr); it is not deleted from here" }
+        if s.running { return "\(s.name) is running: stop it first, then delete it\n  herdr session stop \(s.name)" }
+        return nil
+    }
+
+    /// Delete a stopped session with `herdr session delete`, after keeping a copy of its files. nil when it is gone;
+    /// otherwise what went wrong, with the command to run.
+    public func deleteSession(_ s: HubSession) async -> String? {
+        if let no = Self.refusal(s) { return no }
+        switch Self.keepCopy(of: s) {
+        case .failed(let why): return why
+        case .copy(let kept): HubLog.shared.add(.info, "session \(s.name): a copy of its files is in \(kept.path)")
+        }
+        let out = await Shell.run("herdr", ["session", "delete", s.name], timeout: 20)
+        await refresh()
+        if out == nil { return "herdr could not delete \(s.name) — run it in a terminal to see why:\n  herdr session delete \(s.name)" }
+        HubLog.shared.add(.info, "session \(s.name) deleted (herdr session delete)")
+        return nil
+    }
+
     public func stopSession(_ name: String) async -> String? {
         let out = await Shell.run("herdr", ["session", "stop", name], timeout: 20)
         await refresh()

@@ -117,6 +117,9 @@ struct HubSidebar: View {
     @ObservedObject var store: HubStore
     @Binding var pick: HubPick
     @Binding var menuBar: Bool
+    @State private var deleting: HubSession?              // right-click → Delete session…, waiting for the answer
+    @State private var deletingHolds: HubStore.SessionContents?
+    @State private var deleteError: String?
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 11) {
@@ -152,14 +155,40 @@ struct HubSidebar: View {
                 VStack(spacing: 2) {
                     ForEach(store.sessions.sorted { ($0.running ? 0 : 1, $0.name) < ($1.running ? 0 : 1, $1.name) }) { s in
                         SessionRow(session: s, spaces: store.spaces.filter { $0.session == s.name },
-                                   on: pick == .session(s.name)) { pick = .session(s.name) }
+                                   on: pick == .session(s.name), store: store,
+                                   onDelete: { deleteError = nil; deletingHolds = HubStore.contents(of: s); deleting = s }) { pick = .session(s.name) }
                     }
                 }
                 .padding(.horizontal, 12)
             }
+            if let e = deleteError {
+                Text(e).font(.system(size: 11)).foregroundStyle(.orange).textSelection(.enabled)
+                    .padding(.horizontal, 20).padding(.vertical, 6)
+            }
             footer
         }
         .frame(maxHeight: .infinity, alignment: .top)
+        .confirmationDialog("Delete the herdr session \(deleting?.name ?? "")?",
+                            isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }), titleVisibility: .visible) {
+            Button("Delete \(deleting?.name ?? "")", role: .destructive) {
+                guard let s = deleting else { return }
+                Task {
+                    deleteError = await store.deleteSession(s)
+                    if deleteError == nil, pick == .session(s.name) { pick = .all }
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(Self.deleteMessage(deletingHolds))
+        }
+    }
+
+    /// What the confirmation says the session holds, and where its copy goes.
+    static func deleteMessage(_ c: HubStore.SessionContents?) -> String {
+        guard let c else { return "" }
+        let spaces = c.spaces.isEmpty ? "No saved spaces" : "\(c.spaces.count) saved space\(c.spaces.count == 1 ? "" : "s"): " + c.spaces.prefix(6).joined(separator: ", ") + (c.spaces.count > 6 ? "…" : "")
+        let size = ByteCountFormatter.string(fromByteCount: c.bytes, countStyle: .file)
+        return "\(spaces). \(c.files) file\(c.files == 1 ? "" : "s"), \(size). herdr session delete removes its folder; a copy is kept first in ~/Library/Application Support/ARRA Oracles/deleted-sessions."
     }
 
     private var footer: some View {
@@ -186,6 +215,8 @@ struct SessionRow: View {
     let session: HubSession
     let spaces: [HubSpace]
     let on: Bool
+    var store: HubStore? = nil
+    var onDelete: (() -> Void)? = nil
     let action: () -> Void
     @State private var hover = false
     var body: some View {
@@ -206,6 +237,16 @@ struct SessionRow: View {
         }
         .buttonStyle(.plain).handCursor()
         .onHover { hover = $0 }
+        .contextMenu {
+            if let store { Button("Open in WezTerm") { store.openSession(session.name) } }
+            if session.isDefault {
+                Button("The default session cannot be deleted here") {}.disabled(true)
+            } else if session.running {
+                Button("Delete session… (stop it first)") {}.disabled(true)
+            } else if let onDelete {
+                Button("Delete session…", role: .destructive, action: onDelete)
+            }
+        }
     }
 }
 
@@ -495,6 +536,7 @@ struct SessionSpaces: View {
     @State private var keys: Any?   // the page's key monitor: Gmail's keys — / or ⌘F filter, j/k move, o open, s show, x pick, esc clears
     @State private var cursor: String?          // the row j/k is on
     @State private var marks: Set<String> = []  // rows picked with x
+    @State private var anchor: String?          // where a shift-click range starts: the last row picked or clicked
     @State private var confirmBatch = false
     @State private var batchAgents: [String: [ClosedAgent]]?
 
@@ -510,6 +552,22 @@ struct SessionSpaces: View {
         let rows = visibleRows(); guard !rows.isEmpty else { return }
         let i = rows.firstIndex { $0.id == cursor }.map { min(max($0 + step, 0), rows.count - 1) } ?? (step > 0 ? 0 : rows.count - 1)
         cursor = rows[i].id
+    }
+
+    /// Shift+j / Shift+k (or ⇧↓ / ⇧↑): move and pick as you go, up or down, like a shift-click range.
+    private func extend(_ step: Int) {
+        if let c = cursor { marks.insert(c) }
+        move(step)
+        if let c = cursor { marks.insert(c); anchor = c }
+    }
+
+    /// Gmail's shift-click: every row from the last one picked (or the cursor) to this one, up or down, is picked.
+    private func pickRange(to id: String) {
+        let rows = visibleRows().map(\.id)
+        guard let to = rows.firstIndex(of: id) else { return }
+        let from = (anchor ?? cursor).flatMap { rows.firstIndex(of: $0) } ?? to
+        marks.formUnion(rows[min(from, to)...max(from, to)])
+        cursor = id; anchor = id
     }
 
     /// A space shows when the filter is empty, it matches (label, branch, repo), or one of its worktrees matches.
@@ -535,27 +593,29 @@ struct SessionSpaces: View {
             }
             if e.keyCode == 53 {   // esc: the drawer first (its own monitor), then the picks, the filter, the cursor
                 if open != nil { return e }
-                if !marks.isEmpty { marks = []; return nil }
+                if !marks.isEmpty { marks = []; anchor = nil; return nil }
                 if !filter.isEmpty { filter = ""; return nil }
                 if cursor != nil { cursor = nil; return nil }
                 return e
             }
             let row = { visibleRows().first { $0.id == cursor } }
-            if e.keyCode == 125 { move(1); return nil }                    // ↓
-            if e.keyCode == 126 { move(-1); return nil }                   // ↑
+            if e.keyCode == 125 { if mods.contains(.shift) { extend(1) } else { move(1) }; return nil }    // ↓ (⇧: pick down)
+            if e.keyCode == 126 { if mods.contains(.shift) { extend(-1) } else { move(-1) }; return nil }  // ↑ (⇧: pick up)
             if e.keyCode == 36, mods.isEmpty { if let r = row() { openDrawer(r) }; return nil }   // ⏎
             guard mods.subtracting([.shift, .capsLock]).isEmpty, let c = e.charactersIgnoringModifiers else { return e }
             switch c {
             case "/": filterFocused = true
             case "j": move(1)
             case "k": move(-1)
+            case "J": extend(1)    // shift+j: pick down
+            case "K": extend(-1)   // shift+k: pick up
             case "o": if let r = row() { openDrawer(r) }
             case "s": if let r = row() { store.showInHerdr(r) }
             case "f": if open != nil { withAnimation(.easeOut(duration: 0.15)) { full.toggle() } }
             case "i": if open != nil {   // type into the pane: full screen first, so the pane is sized to the page
                           if !full { withAnimation(.easeOut(duration: 0.15)) { full = true } }
                           NotificationCenter.default.post(name: LiveTerminal.focusNotification, object: nil) }
-            case "x": if let id = cursor { if marks.contains(id) { marks.remove(id) } else { marks.insert(id) } }
+            case "x": if let id = cursor { if marks.contains(id) { marks.remove(id) } else { marks.insert(id) }; anchor = id }
             case "#": if !marks.isEmpty { batchAgents = nil; confirmBatch = true
                           Task { var a: [String: [ClosedAgent]] = [:]
                                  for sp in visibleRows() where marks.contains(sp.id) { a[sp.id] = await store.agents(in: sp) ?? [] }
@@ -643,7 +703,7 @@ struct SessionSpaces: View {
                         Button("Clear (esc)") { marks = [] }.controlSize(.small)
                     }
                 } else if s?.running == true, !all.isEmpty {
-                    Text("j k move · o open · s show in herdr · x pick · # close picked · / filter · esc clear")
+                    Text("j k move · o open · s show in herdr · x pick · ⇧J ⇧K or ⇧click pick up/down · # close picked · / filter · esc clear")
                         .font(.caption).foregroundStyle(.tertiary)
                 }
                 VStack(spacing: 2) {
@@ -659,7 +719,9 @@ struct SessionSpaces: View {
                                       fold: kids.isEmpty ? nil : Binding(get: { folded.contains(key) },
                                                                           set: { if $0 { folded.insert(key) } else { folded.remove(key) } }),
                                       selected: open?.id == sp.id, cursor: cursor == sp.id, marked: marks.contains(sp.id),
-                                      onOpen: { cursor = sp.id; openDrawer(sp) })
+                                      onOpen: {   // ⇧-click picks the range from the last pick to here; a plain click opens it
+                                          if NSEvent.modifierFlags.contains(.shift) { pickRange(to: sp.id) } else { cursor = sp.id; openDrawer(sp) }
+                                      })
                                 .id(sp.id)
                         }
                     }
