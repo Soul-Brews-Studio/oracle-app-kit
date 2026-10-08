@@ -12,8 +12,6 @@ struct NetworkPage: View {
     @State private var target = ""
     @State private var session = ""
     @State private var addError: String?
-    /// top-aligned: a machine with more sessions is a taller card, and the others start level with it (Nat: "we should top")
-    private let grid = [GridItem(.adaptive(minimum: 330), spacing: 14, alignment: .top)]
 
     var body: some View {
         let groups = RemoteParse.groups(store.remotes, running: { store.remoteState[$0.id]?.running == true })
@@ -37,7 +35,7 @@ struct NetworkPage: View {
                 }
                 VStack(alignment: .leading, spacing: 10) {
                     WorkFormat.header("MACHINES", groups.count + 1, note: "click a session to open it")
-                    LazyVGrid(columns: grid, alignment: .leading, spacing: 14) {
+                    MachineGrid(minWidth: 330, spacing: 14) {
                         LocalMachineCard(store: store, pick: $pick)
                         ForEach(groups, id: \.host) { g in MachineCard(store: store, host: g.host, sessions: g.sessions) }
                     }
@@ -93,6 +91,49 @@ struct NetworkPage: View {
     }
 }
 
+/// The machine cards in columns at least `minWidth` wide, wrapping like the adaptive grid it replaces, with every card
+/// in a row as tall as the row's tallest. Cards start level (Nat: "we should top") and now end level too (#93, Nat:
+/// "what if one column same height?"); a card fills the height it is offered and keeps its sessions at the top.
+struct MachineGrid: Layout {
+    var minWidth: CGFloat = 330
+    var spacing: CGFloat = 14
+
+    /// How many columns at least `minWidth` wide fit `width`; one when none does.
+    static func columns(_ width: CGFloat, minWidth: CGFloat, spacing: CGFloat) -> Int {
+        max(1, Int((width + spacing) / (minWidth + spacing)))
+    }
+    /// Each row's height: the tallest of its cards.
+    static func rows(_ heights: [CGFloat], columns: Int) -> [CGFloat] {
+        stride(from: 0, to: heights.count, by: columns).map { heights[$0..<min($0 + columns, heights.count)].max() ?? 0 }
+    }
+
+    /// Columns that fit `width`, each column's width, and each row's height at that width.
+    private func shape(_ subviews: Subviews, width: CGFloat) -> (columns: Int, column: CGFloat, rows: [CGFloat]) {
+        let columns = Self.columns(width, minWidth: minWidth, spacing: spacing)
+        let column = (width - spacing * CGFloat(columns - 1)) / CGFloat(columns)
+        let heights = subviews.map { $0.sizeThatFits(ProposedViewSize(width: column, height: nil)).height }
+        return (columns, column, Self.rows(heights, columns: columns))
+    }
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        // no finite width offered (an ideal-size pass): every card side by side at its narrowest
+        let width = proposal.width.flatMap { $0.isFinite ? $0 : nil }
+            ?? max(0, (minWidth + spacing) * CGFloat(subviews.count) - spacing)
+        let rows = shape(subviews, width: width).rows
+        return CGSize(width: width, height: rows.reduce(0, +) + spacing * CGFloat(max(0, rows.count - 1)))
+    }
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let s = shape(subviews, width: bounds.width)
+        var y = bounds.minY
+        for (r, height) in s.rows.enumerated() {
+            for c in 0..<s.columns where r * s.columns + c < subviews.count {
+                subviews[r * s.columns + c].place(at: CGPoint(x: bounds.minX + CGFloat(c) * (s.column + spacing), y: y),
+                                                  proposal: ProposedViewSize(width: s.column, height: height))
+            }
+            y += height + spacing
+        }
+    }
+}
+
 /// One card per machine: its name, who logs in, its herdr, and a row per session.
 private struct MachineShell<Rows: View>: View {
     let icon: String
@@ -121,7 +162,7 @@ private struct MachineShell<Rows: View>: View {
             VStack(alignment: .leading, spacing: 2) { rows() }
         }
         .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)   // as tall as MachineGrid's row
         .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.primary.opacity(0.045)))
         .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.primary.opacity(0.08)))
     }
