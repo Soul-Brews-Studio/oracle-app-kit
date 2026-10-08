@@ -23,8 +23,9 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		005680E97630FA53D636B870 /* MaeonWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = C72AAC7252E69FA1E9768382 /* MaeonWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		024D75BDE17B9DC54ACB3340 /* ANEEmbedCore in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = 57446418B6171CBD1DB652B2 /* ANEEmbedCore */; };
 		025889D96BA689F33FB964F7 /* OracleTerminal in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = 4407B8E41239A984FDFAFE71 /* OracleTerminal */; };
-		03128D20616EAF13F22BCA8D /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D886FFA13B5C28908F463CE /* ShareViewController.swift */; };
 		05DAAADEDF82BFF4F279342B /* MapLayoutEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 976327A7B1A9B72817DDDF05 /* MapLayoutEngine.swift */; };
 		0B250C1843C4CAF984D3C87F /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = BF28BFF93E30F2016054C7FC /* OracleKit */; };
 		0CE7AD6783E511A241CCE8B9 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9747F85F8B3132BD641525AE /* Assets.xcassets */; };
@@ -32,6 +33,7 @@
 		0E2BA2D4130B1BF12FFE5AAA /* NexusShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 35FAA94347FA173BC06C86F8 /* NexusShare.appex */; platformFilters = (macos, ); settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		1219A0F40327E57A5C962C60 /* NexusConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = E596680FCB92D58641782D23 /* NexusConfig.swift */; };
 		135BC6904B6A6EF518DD7C74 /* NeoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA7B638D3B556C915C153B1E /* NeoApp.swift */; };
+		14121225B4A0A4700D2B624A /* MaeonApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD9F8A6B8EE09EC9A7C4D28B /* MaeonApp.swift */; };
 		172E589132DADC7B3DD19523 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB009D7260C21CFEE11FBF5D /* ShareViewController.swift */; };
 		183930EB9CC6C46A392574DD /* NeoShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 47078A7D50C0767AD1B9544E /* NeoShare.appex */; platformFilters = (macos, ); settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		22E9384588A9A57AB8C2E107 /* AthenaConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C34FED5257B206064C6E7E7 /* AthenaConfig.swift */; };
@@ -40,10 +42,13 @@
 		2668904C7E52D602BD0C6ABF /* NexusConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = E596680FCB92D58641782D23 /* NexusConfig.swift */; };
 		2B9BC0A1DF0BE48BE8AFCF81 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97CF4DEE1C0D84FB0133816A /* Assets.xcassets */; };
 		306ABC4093492BD88187F36E /* spike-neo-48950.png in Resources */ = {isa = PBXBuildFile; fileRef = D88FC1580C3824256A7117F8 /* spike-neo-48950.png */; };
+		31D75B942510C4C57DD17DD1 /* MaeonShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 995C2678DB4A126191A4CEF9 /* MaeonShare.appex */; platformFilters = (macos, ); settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		3B644CA804D8F0783F6696AA /* PulseConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = B137A3369CF3DC8269C32453 /* PulseConfig.swift */; };
 		3B76FA783180274DC3FF3684 /* PulseWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = BE742AC8F1D736B0152CD64B /* PulseWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		3EAC39F660472701B2B3CAAC /* HubApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FC24FF95F7988B14813C430 /* HubApp.swift */; };
+		3EFB8AEDDAED1A932569D114 /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = 23ABEEFE4BA02B813A7CA3F1 /* OracleKit */; };
 		42B51E73231E485B620DEC4A /* ANEEmbedCore in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = EBAFD44694925F4775C0B472 /* ANEEmbedCore */; };
+		4387BBE40422DB71ED417AD6 /* OracleTerminal in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = AC85A8D0AA1BC9FC240E5E03 /* OracleTerminal */; };
 		44941594C719B322FEC6A5EF /* MapLayoutUMAP in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = EE05C73489675AE8A0BFB668 /* MapLayoutUMAP */; };
 		4771993584B814FF8A661A42 /* NexusApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C7F01FD47329725FDFEFBF7 /* NexusApp.swift */; };
 		483A0F32E5BDEF7F5C4ADEE9 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E220E57022CA2B7EB0FD203 /* WidgetKit.framework */; };
@@ -56,6 +61,7 @@
 		5933050FCD2F5F059D3C4263 /* BundledANE.swift in Sources */ = {isa = PBXBuildFile; fileRef = 334B42F2652061E9832A4410 /* BundledANE.swift */; };
 		59B26BEE9BCEFC70F0E9AEAB /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = B0F5F3BACE628CD6D829BFDE /* OracleKit */; };
 		5BB05E053370D69F3D537F60 /* MapSpikeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F81A043C03E0EBA50048E1B1 /* MapSpikeApp.swift */; };
+		5E54C0E19BDB1A0B83C0D6AD /* BundledANE.swift in Sources */ = {isa = PBXBuildFile; fileRef = 334B42F2652061E9832A4410 /* BundledANE.swift */; };
 		5F73AFB86D0CF89FD12B49E0 /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = 9EB334B6C1B129FB8DF7D118 /* OracleKit */; };
 		612E3254682DE613B7315041 /* MapSpikeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5211C7221AC8D5AC6F908583 /* MapSpikeView.swift */; };
 		6216DDE618254E1911648B59 /* OracleTerminal in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = AF0B7F4EDBBF9441135C9C7F /* OracleTerminal */; };
@@ -64,21 +70,28 @@
 		6E1E55DE03EE6C092E7ED1E6 /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = 4B4657CD7678E1CEC26E7C94 /* OracleKit */; };
 		6F8DA303E4A8482015835CB7 /* NexusWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = B55D288BD45D60C57EC1FD16 /* NexusWidget.swift */; };
 		72386EC7DD3161606709A77E /* MapLayoutEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 976327A7B1A9B72817DDDF05 /* MapLayoutEngine.swift */; };
+		7391585B9AFA310F221169CD /* MaeonConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13D18AF5648F5F829736B758 /* MaeonConfig.swift */; };
 		73E22A1958C820F3D01B8701 /* AthenaApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5272A6BAC2792D93DFD2BDF8 /* AthenaApp.swift */; };
+		774010703A7D32F8774770EC /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = DF2EE418027BEF38CB54B90C /* OracleKit */; };
 		78946F22CF1780C0946CF7AF /* AthenaConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C34FED5257B206064C6E7E7 /* AthenaConfig.swift */; };
-		7A47C1D6238CEDB7A77EB335 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE26685A1F4C957C3B6A7C53 /* ShareViewController.swift */; };
+		7A04E56E49B8F712203B424D /* MaeonConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13D18AF5648F5F829736B758 /* MaeonConfig.swift */; };
 		7C447707E6EFA415C2620730 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 90BF0F508DBC77E53A7F9A0F /* Assets.xcassets */; };
+		7CACEE54F8C86285C3DEDDB0 /* MaeonConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13D18AF5648F5F829736B758 /* MaeonConfig.swift */; };
 		7E7FEEA734353F7C28425E05 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 464E48710AE91C739C8B1105 /* Assets.xcassets */; };
 		81B740EF69BBBEAB1B99740D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FE480FFFEE4B266EB37C8F5F /* Assets.xcassets */; };
 		8499F93EF566A879CF5EBA84 /* BundledANE.swift in Sources */ = {isa = PBXBuildFile; fileRef = 334B42F2652061E9832A4410 /* BundledANE.swift */; };
 		8505E97A8977FEE81E2CB5D9 /* NeoExtras.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85CC7A862B4A57539A3EC547 /* NeoExtras.swift */; };
+		855583E89CD91369626669E4 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F762055589FA7E2843A61347 /* Assets.xcassets */; };
 		85A9367B8DDB37C40B9472FA /* NexusConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = E596680FCB92D58641782D23 /* NexusConfig.swift */; };
+		866B5780A2E1EAC48D011FC3 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE26685A1F4C957C3B6A7C53 /* ShareViewController.swift */; };
 		88789D16B8DBC2A2204E7C9E /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 9C0A19BBEABB401B04EC5439 /* README.md */; };
 		889D357860F7B861A5D88B93 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 468221B2146BCBCC791C3B0B /* SwiftUI.framework */; };
 		89201715E26C3A13D0949318 /* PulseApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9231C651A42F8ED3C6DF7549 /* PulseApp.swift */; };
-		8ADFC6A2ABC378C6EA26BB5E /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D02737C18CEE930435DDAD1 /* ShareViewController.swift */; };
 		92A18715358F7ABD3A3B9256 /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = 4BC6B464CFBBEF1106689585 /* OracleKit */; };
+		94379F8245F27F389E4C1EE8 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E220E57022CA2B7EB0FD203 /* WidgetKit.framework */; };
+		95165150D181180CD481139E /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D02737C18CEE930435DDAD1 /* ShareViewController.swift */; };
 		9646DF37B3C4B4EFCB823A62 /* AthenaWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = BA2FD26FF1ECFF685AC4AC64 /* AthenaWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		9679FD1CCD67111BE2A34351 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 468221B2146BCBCC791C3B0B /* SwiftUI.framework */; };
 		97098FAE2CDF70880DBCAAB7 /* NexusWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 83F5B866C705325F7C2918CF /* NexusWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		971E729911F9BD737E91F026 /* NeoConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C722827C1DFF0CDB6F2F247 /* NeoConfig.swift */; };
 		98449831B194C1305DBEB46E /* PulseShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B7C941E4DEF8A26B4C94E87F /* PulseShare.appex */; platformFilters = (macos, ); settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -88,17 +101,23 @@
 		9CEBE978812ECEDA4FD56FF1 /* MapLayoutEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 976327A7B1A9B72817DDDF05 /* MapLayoutEngine.swift */; };
 		9D882FA86DFB4F8F73ED7CB6 /* PulseExtras.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F13410DB812353A44FCE45E /* PulseExtras.swift */; };
 		A008A67DBBD278DCF0CBD7BC /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E220E57022CA2B7EB0FD203 /* WidgetKit.framework */; };
+		A122FE619CE3CE35F809A85A /* MapLayoutUMAP in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = 3856DB665D8A69136AFBC985 /* MapLayoutUMAP */; };
+		A7A0C7E2DFF900EDA2A416F7 /* MaeonExtras.swift in Sources */ = {isa = PBXBuildFile; fileRef = D50650618F48B7DD78BB3C0D /* MaeonExtras.swift */; };
 		A92220ACB1EEA09648D09C9F /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = D8034BE3BE3303D05E137A02 /* OracleKit */; };
 		AA2DD123CEF605C9E6C787A3 /* NeoWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 5EDFE877D27D8F8E8ECC5030 /* NeoWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		AA516104F3FF540DCB538557 /* ANEEmbedCore in Frameworks */ = {isa = PBXBuildFile; productRef = E21624C123AE7BFF0CA6252F /* ANEEmbedCore */; };
 		B0233F4583F0D53D569DE5DF /* OracleTerminal in Frameworks */ = {isa = PBXBuildFile; productRef = C2E19590487A24ABC285AFA0 /* OracleTerminal */; };
 		B06309C44C8E11A1C90E9075 /* AthenaConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C34FED5257B206064C6E7E7 /* AthenaConfig.swift */; };
+		BAE759336198B049B1ECA39A /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D886FFA13B5C28908F463CE /* ShareViewController.swift */; };
 		BD95A60EDF666B29F5538E29 /* ANEEmbedCore in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = BEE0829B4ADE75163F6AD679 /* ANEEmbedCore */; };
 		BFBDC167CC330C830EDC0901 /* AthenaWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EDEF2C3DE3B2B9562C67750 /* AthenaWidget.swift */; };
 		C4E0BD8D0B45870B893A2D5D /* NeoConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C722827C1DFF0CDB6F2F247 /* NeoConfig.swift */; };
+		CB52FD3207090899D335932E /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = 8DEDED171F7646D90602ED90 /* OracleKit */; };
 		CE7A1EFEBD116C874ED5A2C3 /* OracleTerminal in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = F93981FB156A1CEE6CEAF432 /* OracleTerminal */; };
 		CF034138F765942980273B77 /* MapLayoutUMAP in Frameworks */ = {isa = PBXBuildFile; productRef = F02E3571191A5EED9D261FEC /* MapLayoutUMAP */; };
 		CF7B1BE232CD2BB414E927AF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 907F6BD4CB49E2095191A779 /* Assets.xcassets */; };
+		D20923F2F64BFC4625E6430F /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B808BF656870F447CB17688 /* ShareViewController.swift */; };
+		D27DFE321EA7FB51C6576379 /* MapLayoutEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 976327A7B1A9B72817DDDF05 /* MapLayoutEngine.swift */; };
 		D60C5A99551B4457FF12EE32 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 468221B2146BCBCC791C3B0B /* SwiftUI.framework */; };
 		D663B860B510852E1D758CEA /* MapLayoutUMAP in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = 5323E2879BF88EFEE7550670 /* MapLayoutUMAP */; };
 		D768A2765421CF790B524344 /* AthenaShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = FE8FD0D33704B406B0097DE9 /* AthenaShare.appex */; platformFilters = (macos, ); settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -116,6 +135,7 @@
 		EDC954BB53A1938A2913FFC4 /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = 84774326CBC858F01F5A8C1F /* OracleKit */; };
 		F8228D81F465A09EA1BA458B /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = 77D9A445400656D39EA0578E /* OracleKit */; };
 		FB7E1F6409E13460011CD592 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EE06677EE264FE2ED681B102 /* Assets.xcassets */; };
+		FCFE5F0CAD1AC3A8FF57074C /* MaeonWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE215F3804E5F6BF4721FAAB /* MaeonWidget.swift */; };
 		FD7A77DBE3B1668A604D354B /* PulseConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = B137A3369CF3DC8269C32453 /* PulseConfig.swift */; };
 		FDFDE290E1111B61F5A1D013 /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = D228F516928AAEE2C39582C7 /* OracleKit */; };
 /* End PBXBuildFile section */
@@ -184,6 +204,13 @@
 			remoteGlobalIDString = 66AE9A2BF807D63B4AF62FDE;
 			remoteInfo = CalVer;
 		};
+		5F367532AA8C943EF1612067 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 430DB4AF39A44099EA106CF8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 66AE9A2BF807D63B4AF62FDE;
+			remoteInfo = CalVer;
+		};
 		781B0C313D195006735E1DFE /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 430DB4AF39A44099EA106CF8 /* Project object */;
@@ -212,12 +239,26 @@
 			remoteGlobalIDString = DBA79B4153688EFC969DDF98;
 			remoteInfo = NexusWidget;
 		};
+		974CC8EFC25EBDFD35F8E46F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 430DB4AF39A44099EA106CF8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 9870F2797CB9A0EB16358814;
+			remoteInfo = MaeonShare;
+		};
 		9BC6479CE848CFC6FC810E5C /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 430DB4AF39A44099EA106CF8 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 19EE540E3E022009C36A99F1;
 			remoteInfo = PulseWidget;
+		};
+		9E6CEF088BF477EFBAA3432E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 430DB4AF39A44099EA106CF8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 66AE9A2BF807D63B4AF62FDE;
+			remoteInfo = CalVer;
 		};
 		B0B27E3F1DA82C2E399B4336 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -253,6 +294,20 @@
 			proxyType = 1;
 			remoteGlobalIDString = 66AE9A2BF807D63B4AF62FDE;
 			remoteInfo = CalVer;
+		};
+		E5856E917F08802B543CC398 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 430DB4AF39A44099EA106CF8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 66AE9A2BF807D63B4AF62FDE;
+			remoteInfo = CalVer;
+		};
+		EC1848FAF92712B324429DA8 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 430DB4AF39A44099EA106CF8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A5DAA07FABDB0F524D08AAFC;
+			remoteInfo = MaeonWidget;
 		};
 		FBD2DFC9BE6FD4347200FB61 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -307,6 +362,18 @@
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		EC6A6C8CD5C1AB2578CEB968 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				005680E97630FA53D636B870 /* MaeonWidget.appex in Embed Foundation Extensions */,
+				31D75B942510C4C57DD17DD1 /* MaeonShare.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		F541F9E4919C358A6F795CA4 /* Embed Foundation Extensions */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -324,6 +391,7 @@
 /* Begin PBXFileReference section */
 		03555D2BE97613AFC8E9C4D2 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		0D02737C18CEE930435DDAD1 /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
+		13D18AF5648F5F829736B758 /* MaeonConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MaeonConfig.swift; sourceTree = "<group>"; };
 		1D886FFA13B5C28908F463CE /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		1F13410DB812353A44FCE45E /* PulseExtras.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PulseExtras.swift; sourceTree = "<group>"; };
 		1FC24FF95F7988B14813C430 /* HubApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HubApp.swift; sourceTree = "<group>"; };
@@ -338,6 +406,7 @@
 		464E48710AE91C739C8B1105 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		468221B2146BCBCC791C3B0B /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		47078A7D50C0767AD1B9544E /* NeoShare.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = NeoShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		47B42332B0DAAFA803D2CCBF /* Maeon.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Maeon.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		48E214A497E9D1CA5974B0D8 /* MapSpike.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MapSpike.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		4C722827C1DFF0CDB6F2F247 /* NeoConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NeoConfig.swift; sourceTree = "<group>"; };
 		5211C7221AC8D5AC6F908583 /* MapSpikeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapSpikeView.swift; sourceTree = "<group>"; };
@@ -349,6 +418,7 @@
 		81315A196BFF69192EF075E3 /* OracleTerminal */ = {isa = PBXFileReference; lastKnownFileType = folder; name = OracleTerminal; path = OracleTerminal; sourceTree = SOURCE_ROOT; };
 		83F5B866C705325F7C2918CF /* NexusWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = NexusWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		85CC7A862B4A57539A3EC547 /* NeoExtras.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NeoExtras.swift; sourceTree = "<group>"; };
+		8B808BF656870F447CB17688 /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		907F6BD4CB49E2095191A779 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		90BF0F508DBC77E53A7F9A0F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		9231C651A42F8ED3C6DF7549 /* PulseApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PulseApp.swift; sourceTree = "<group>"; };
@@ -356,6 +426,7 @@
 		9747F85F8B3132BD641525AE /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		976327A7B1A9B72817DDDF05 /* MapLayoutEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapLayoutEngine.swift; sourceTree = "<group>"; };
 		97CF4DEE1C0D84FB0133816A /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		995C2678DB4A126191A4CEF9 /* MaeonShare.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = MaeonShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		9C0A19BBEABB401B04EC5439 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		AB9292953362D8EFB6FE8DE2 /* ANEEmbed */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ANEEmbed; path = ANEEmbed; sourceTree = SOURCE_ROOT; };
 		B137A3369CF3DC8269C32453 /* PulseConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PulseConfig.swift; sourceTree = "<group>"; };
@@ -364,14 +435,19 @@
 		B7C941E4DEF8A26B4C94E87F /* PulseShare.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = PulseShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		BA2FD26FF1ECFF685AC4AC64 /* AthenaWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = AthenaWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		BD99D3EB0C88FD1452416FB0 /* NeoWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NeoWidget.swift; sourceTree = "<group>"; };
+		BD9F8A6B8EE09EC9A7C4D28B /* MaeonApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MaeonApp.swift; sourceTree = "<group>"; };
+		BE215F3804E5F6BF4721FAAB /* MaeonWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MaeonWidget.swift; sourceTree = "<group>"; };
 		BE742AC8F1D736B0152CD64B /* PulseWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = PulseWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		C72AAC7252E69FA1E9768382 /* MaeonWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = MaeonWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		D4532687283B94E464FAF092 /* Nexus.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Nexus.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D50650618F48B7DD78BB3C0D /* MaeonExtras.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MaeonExtras.swift; sourceTree = "<group>"; };
 		D88FC1580C3824256A7117F8 /* spike-neo-48950.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "spike-neo-48950.png"; sourceTree = "<group>"; };
 		DB009D7260C21CFEE11FBF5D /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		E596680FCB92D58641782D23 /* NexusConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusConfig.swift; sourceTree = "<group>"; };
 		E6B04B136F929B594FC6EF73 /* OracleKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = OracleKit; path = OracleKit; sourceTree = SOURCE_ROOT; };
 		EE06677EE264FE2ED681B102 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		F0619A4B3810A5891443A746 /* Athena.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Athena.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F762055589FA7E2843A61347 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		F81A043C03E0EBA50048E1B1 /* MapSpikeApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapSpikeApp.swift; sourceTree = "<group>"; };
 		FA7B638D3B556C915C153B1E /* NeoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NeoApp.swift; sourceTree = "<group>"; };
 		FE26685A1F4C957C3B6A7C53 /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
@@ -380,6 +456,35 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		1B5E5F47C33E7057F8AAFA6C /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3EFB8AEDDAED1A932569D114 /* OracleKit in Frameworks */,
+				024D75BDE17B9DC54ACB3340 /* ANEEmbedCore in Frameworks */,
+				A122FE619CE3CE35F809A85A /* MapLayoutUMAP in Frameworks */,
+				4387BBE40422DB71ED417AD6 /* OracleTerminal in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1F9D229716FDF3141EE5DF5A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				774010703A7D32F8774770EC /* OracleKit in Frameworks */,
+				94379F8245F27F389E4C1EE8 /* WidgetKit.framework in Frameworks */,
+				9679FD1CCD67111BE2A34351 /* SwiftUI.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		24CD68FA751284C99FE948A2 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CB52FD3207090899D335932E /* OracleKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		2B07F1976DCD80EC3F78A307 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -513,11 +618,11 @@
 		01EF82A534256DBDA533DB95 /* Widget */ = {
 			isa = PBXGroup;
 			children = (
-				03555D2BE97613AFC8E9C4D2 /* Assets.xcassets */,
-				B55D288BD45D60C57EC1FD16 /* NexusWidget.swift */,
+				90BF0F508DBC77E53A7F9A0F /* Assets.xcassets */,
+				BD99D3EB0C88FD1452416FB0 /* NeoWidget.swift */,
 			);
 			name = Widget;
-			path = Apps/Nexus/Widget;
+			path = Apps/Neo/Widget;
 			sourceTree = "<group>";
 		};
 		0384E88409B511A572982525 /* Share */ = {
@@ -526,7 +631,7 @@
 				0D02737C18CEE930435DDAD1 /* ShareViewController.swift */,
 			);
 			name = Share;
-			path = Apps/Nexus/Share;
+			path = Apps/Neo/Share;
 			sourceTree = "<group>";
 		};
 		072B09D458817296196F9E72 /* Frameworks */ = {
@@ -588,6 +693,7 @@
 			children = (
 				B7F4468C0358B14E2E025CC4 /* Athena */,
 				A918F7E796C546502FC59506 /* Hub */,
+				D256F4A12E1319C895AD7DDC /* Maeon */,
 				35EDBF87D2CB78FF0CFF58BA /* MapSpike */,
 				79EA5A1B63E63D54532633FF /* Neo */,
 				47651820CEB16DF156C79410 /* Nexus */,
@@ -597,11 +703,13 @@
 				B328325CAB29F20534286946 /* Share */,
 				0384E88409B511A572982525 /* Share */,
 				421FFC4696589BF6E57ED056 /* Share */,
+				B7FDE188B3D70C12B2C9C7C7 /* Share */,
 				2F52D47C54D9F3881D771C25 /* Shared */,
 				F838466B268DCCACEA2010A0 /* Widget */,
 				FFE632A0E473818E54EAD582 /* Widget */,
 				01EF82A534256DBDA533DB95 /* Widget */,
 				952511CBCE103687209081B9 /* Widget */,
+				5BEC7930B6CACEF7F96D9FAB /* Widget */,
 				072B09D458817296196F9E72 /* Frameworks */,
 				4B3911DA704ADFCF590622F2 /* Products */,
 			);
@@ -613,7 +721,7 @@
 				1D886FFA13B5C28908F463CE /* ShareViewController.swift */,
 			);
 			name = Share;
-			path = Apps/Pulse/Share;
+			path = Apps/Nexus/Share;
 			sourceTree = "<group>";
 		};
 		47651820CEB16DF156C79410 /* Nexus */ = {
@@ -634,6 +742,9 @@
 				F0619A4B3810A5891443A746 /* Athena.app */,
 				FE8FD0D33704B406B0097DE9 /* AthenaShare.appex */,
 				BA2FD26FF1ECFF685AC4AC64 /* AthenaWidget.appex */,
+				47B42332B0DAAFA803D2CCBF /* Maeon.app */,
+				995C2678DB4A126191A4CEF9 /* MaeonShare.appex */,
+				C72AAC7252E69FA1E9768382 /* MaeonWidget.appex */,
 				48E214A497E9D1CA5974B0D8 /* MapSpike.app */,
 				33D307D5CF34490C5E34FD95 /* Neo.app */,
 				47078A7D50C0767AD1B9544E /* NeoShare.appex */,
@@ -647,6 +758,16 @@
 				BE742AC8F1D736B0152CD64B /* PulseWidget.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		5BEC7930B6CACEF7F96D9FAB /* Widget */ = {
+			isa = PBXGroup;
+			children = (
+				907F6BD4CB49E2095191A779 /* Assets.xcassets */,
+				935A69762DBD19A005AFE22F /* PulseWidget.swift */,
+			);
+			name = Widget;
+			path = Apps/Pulse/Widget;
 			sourceTree = "<group>";
 		};
 		79EA5A1B63E63D54532633FF /* Neo */ = {
@@ -673,11 +794,11 @@
 		952511CBCE103687209081B9 /* Widget */ = {
 			isa = PBXGroup;
 			children = (
-				907F6BD4CB49E2095191A779 /* Assets.xcassets */,
-				935A69762DBD19A005AFE22F /* PulseWidget.swift */,
+				03555D2BE97613AFC8E9C4D2 /* Assets.xcassets */,
+				B55D288BD45D60C57EC1FD16 /* NexusWidget.swift */,
 			);
 			name = Widget;
-			path = Apps/Pulse/Widget;
+			path = Apps/Nexus/Widget;
 			sourceTree = "<group>";
 		};
 		A918F7E796C546502FC59506 /* Hub */ = {
@@ -696,7 +817,7 @@
 				FE26685A1F4C957C3B6A7C53 /* ShareViewController.swift */,
 			);
 			name = Share;
-			path = Apps/Neo/Share;
+			path = Apps/Maeon/Share;
 			sourceTree = "<group>";
 		};
 		B7F4468C0358B14E2E025CC4 /* Athena */ = {
@@ -711,6 +832,27 @@
 			path = Apps/Athena;
 			sourceTree = "<group>";
 		};
+		B7FDE188B3D70C12B2C9C7C7 /* Share */ = {
+			isa = PBXGroup;
+			children = (
+				8B808BF656870F447CB17688 /* ShareViewController.swift */,
+			);
+			name = Share;
+			path = Apps/Pulse/Share;
+			sourceTree = "<group>";
+		};
+		D256F4A12E1319C895AD7DDC /* Maeon */ = {
+			isa = PBXGroup;
+			children = (
+				F762055589FA7E2843A61347 /* Assets.xcassets */,
+				BD9F8A6B8EE09EC9A7C4D28B /* MaeonApp.swift */,
+				13D18AF5648F5F829736B758 /* MaeonConfig.swift */,
+				D50650618F48B7DD78BB3C0D /* MaeonExtras.swift */,
+			);
+			name = Maeon;
+			path = Apps/Maeon;
+			sourceTree = "<group>";
+		};
 		F838466B268DCCACEA2010A0 /* Widget */ = {
 			isa = PBXGroup;
 			children = (
@@ -723,11 +865,10 @@
 		FFE632A0E473818E54EAD582 /* Widget */ = {
 			isa = PBXGroup;
 			children = (
-				90BF0F508DBC77E53A7F9A0F /* Assets.xcassets */,
-				BD99D3EB0C88FD1452416FB0 /* NeoWidget.swift */,
+				BE215F3804E5F6BF4721FAAB /* MaeonWidget.swift */,
 			);
 			name = Widget;
-			path = Apps/Neo/Widget;
+			path = Apps/Maeon/Widget;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -827,6 +968,35 @@
 			productReference = BE742AC8F1D736B0152CD64B /* PulseWidget.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		2E9E50B40E8382C347F4D750 /* Maeon */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AA7974D150DEE9E00D3F819C /* Build configuration list for PBXNativeTarget "Maeon" */;
+			buildPhases = (
+				B912C45E0D20D21C486B982D /* Build the tokenizer + UMAP (Rust) */,
+				39916DA5BE0E31DF2C698699 /* Sources */,
+				5FBEB77FA4C33F2F4612F9EF /* Resources */,
+				1B5E5F47C33E7057F8AAFA6C /* Frameworks */,
+				EC6A6C8CD5C1AB2578CEB968 /* Embed Foundation Extensions */,
+				87E20467CC1D259E4F6BEDCE /* Stamp CalVer */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				F3C6DC3D6000C37E8A55B85D /* PBXTargetDependency */,
+				730D382AF9C78D2AD91A2D0E /* PBXTargetDependency */,
+				2D35C1594FE52997FAB6882B /* PBXTargetDependency */,
+			);
+			name = Maeon;
+			packageProductDependencies = (
+				23ABEEFE4BA02B813A7CA3F1 /* OracleKit */,
+				57446418B6171CBD1DB652B2 /* ANEEmbedCore */,
+				3856DB665D8A69136AFBC985 /* MapLayoutUMAP */,
+				AC85A8D0AA1BC9FC240E5E03 /* OracleTerminal */,
+			);
+			productName = Maeon;
+			productReference = 47B42332B0DAAFA803D2CCBF /* Maeon.app */;
+			productType = "com.apple.product-type.application";
+		};
 		3AAAA6C923E3C0CA18F05066 /* AthenaWidget */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 6439DA86A7E8A1A41321BB9B /* Build configuration list for PBXNativeTarget "AthenaWidget" */;
@@ -896,6 +1066,27 @@
 			productReference = 3D0E66039AC6C174A076DB9F /* Oracles.app */;
 			productType = "com.apple.product-type.application";
 		};
+		9870F2797CB9A0EB16358814 /* MaeonShare */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1D5C20B4F62886A3D1941FDE /* Build configuration list for PBXNativeTarget "MaeonShare" */;
+			buildPhases = (
+				1BFF9C7652D7F75A5961F280 /* Sources */,
+				24CD68FA751284C99FE948A2 /* Frameworks */,
+				6D729AC6E4C14E5438A64CA3 /* Stamp CalVer */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				73A15D40779C4C53F70128D7 /* PBXTargetDependency */,
+			);
+			name = MaeonShare;
+			packageProductDependencies = (
+				8DEDED171F7646D90602ED90 /* OracleKit */,
+			);
+			productName = MaeonShare;
+			productReference = 995C2678DB4A126191A4CEF9 /* MaeonShare.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		9CBD3CAC09ABBCB109575F65 /* MapSpike */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = E902C288322FA74802D07325 /* Build configuration list for PBXNativeTarget "MapSpike" */;
@@ -933,6 +1124,27 @@
 			);
 			productName = NeoShare;
 			productReference = 47078A7D50C0767AD1B9544E /* NeoShare.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		A5DAA07FABDB0F524D08AAFC /* MaeonWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 72A847A8D870C1AEDABECD4A /* Build configuration list for PBXNativeTarget "MaeonWidget" */;
+			buildPhases = (
+				1E5A5C9019FF9FF59AF96675 /* Sources */,
+				1F9D229716FDF3141EE5DF5A /* Frameworks */,
+				A397409FE7B4EDC27B711B06 /* Stamp CalVer */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				2B9BA4F43793B821F7EC7165 /* PBXTargetDependency */,
+			);
+			name = MaeonWidget;
+			packageProductDependencies = (
+				DF2EE418027BEF38CB54B90C /* OracleKit */,
+			);
+			productName = MaeonWidget;
+			productReference = C72AAC7252E69FA1E9768382 /* MaeonWidget.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
 		C99D203A30114884D4BB548A /* Nexus */ = {
@@ -1090,6 +1302,10 @@
 						DevelopmentTeam = 6K28WEXX78;
 						ProvisioningStyle = Automatic;
 					};
+					2E9E50B40E8382C347F4D750 = {
+						DevelopmentTeam = 6K28WEXX78;
+						ProvisioningStyle = Automatic;
+					};
 					3AAAA6C923E3C0CA18F05066 = {
 						DevelopmentTeam = 6K28WEXX78;
 						ProvisioningStyle = Automatic;
@@ -1106,11 +1322,19 @@
 						DevelopmentTeam = 6K28WEXX78;
 						ProvisioningStyle = Automatic;
 					};
+					9870F2797CB9A0EB16358814 = {
+						DevelopmentTeam = 6K28WEXX78;
+						ProvisioningStyle = Automatic;
+					};
 					9CBD3CAC09ABBCB109575F65 = {
 						DevelopmentTeam = 6K28WEXX78;
 						ProvisioningStyle = Automatic;
 					};
 					9EC664F778F344E25A6035DF = {
+						DevelopmentTeam = 6K28WEXX78;
+						ProvisioningStyle = Automatic;
+					};
+					A5DAA07FABDB0F524D08AAFC = {
 						DevelopmentTeam = 6K28WEXX78;
 						ProvisioningStyle = Automatic;
 					};
@@ -1159,6 +1383,9 @@
 				41C38EED842B68CD72BCC006 /* AthenaShare */,
 				3AAAA6C923E3C0CA18F05066 /* AthenaWidget */,
 				66AE9A2BF807D63B4AF62FDE /* CalVer */,
+				2E9E50B40E8382C347F4D750 /* Maeon */,
+				9870F2797CB9A0EB16358814 /* MaeonShare */,
+				A5DAA07FABDB0F524D08AAFC /* MaeonWidget */,
 				9CBD3CAC09ABBCB109575F65 /* MapSpike */,
 				F4C43E59E3D089F341776040 /* Neo */,
 				9EC664F778F344E25A6035DF /* NeoShare */,
@@ -1213,6 +1440,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				7C447707E6EFA415C2620730 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5FBEB77FA4C33F2F4612F9EF /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				855583E89CD91369626669E4 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1487,6 +1722,26 @@
 			shellPath = /bin/sh;
 			shellScript = "sh \"$SRCROOT/scripts/calver-stamp.sh\"";
 		};
+		6D729AC6E4C14E5438A64CA3 /* Stamp CalVer */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)",
+			);
+			name = "Stamp CalVer";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "sh \"$SRCROOT/scripts/calver-stamp.sh\"";
+		};
 		81AA95EB6E06BB803C0045AA /* Bundle the ANE model */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -1505,6 +1760,26 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "# Only a complete export: what the app loads at run time (it never compiles inside its own bundle).\nSRC=\"$HOME/Library/Application Support/ANEEmbed/embeddinggemma2-w16\"\nDST=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/ANEModel/embeddinggemma2-w16\"\nmissing=\"\"\nfor f in manifest.json embed_scaled.f16 tokenizer; do [ -e \"$SRC/$f\" ] || missing=\"$missing $f\"; done\nif [ -f \"$SRC/manifest.json\" ]; then\n  for b in $(plutil -extract buckets json -o - \"$SRC/manifest.json\" | tr -d '[] ' | tr ',' ' '); do\n    [ -d \"$SRC/compiled/$b.mlmodelc\" ] || missing=\"$missing compiled/$b.mlmodelc\"\n  done\nfi\nif [ -z \"$missing\" ]; then\n  mkdir -p \"$DST\"\n  rsync -a --delete --exclude packages \"$SRC/\" \"$DST/\"\n  echo \"bundled the ANE model: $(plutil -extract vector_space_identity raw -o - \"$SRC/manifest.json\")\"\nelse\n  rm -rf \"$DST\"\n  echo \"warning: no complete ANE model in $SRC (missing:$missing): the hub runs without it and embeds through the HTTP service on 127.0.0.1:11435\"\nfi\n";
+		};
+		87E20467CC1D259E4F6BEDCE /* Stamp CalVer */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)",
+			);
+			name = "Stamp CalVer";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "sh \"$SRCROOT/scripts/calver-stamp.sh\"";
 		};
 		8BD445D50AD8C893B67928C2 /* Stamp CalVer */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -1545,6 +1820,26 @@
 			shellPath = /bin/sh;
 			shellScript = "[ \"$PLATFORM_NAME\" = macosx ] || exit 0\nexport PATH=\"/opt/homebrew/opt/rustup/bin:$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH\"\nif ! command -v cargo >/dev/null; then\n  echo \"error: cargo not found: the Memory page's embedder builds its tokenizer with Rust. Install it, then build again:\"\n  echo \"error:   brew install rustup && /opt/homebrew/opt/rustup/bin/rustup default stable\"\n  exit 1\nfi\ncd \"$SRCROOT/ANEEmbed/tokenizer-ffi\" && cargo build --release --locked\n";
 		};
+		A397409FE7B4EDC27B711B06 /* Stamp CalVer */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)",
+			);
+			name = "Stamp CalVer";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "sh \"$SRCROOT/scripts/calver-stamp.sh\"";
+		};
 		A531914287F3562728CC056C /* Fix this build's CalVer */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -1563,6 +1858,25 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "sh \"$SRCROOT/scripts/calver-stamp.sh\" begin";
+		};
+		B912C45E0D20D21C486B982D /* Build the tokenizer + UMAP (Rust) */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Build the tokenizer + UMAP (Rust)";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "[ \"$PLATFORM_NAME\" = macosx ] || exit 0\nexport PATH=\"/opt/homebrew/opt/rustup/bin:$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH\"\nif ! command -v cargo >/dev/null; then\n  echo \"error: cargo not found: the Memory page's embedder builds its tokenizer with Rust. Install it, then build again:\"\n  echo \"error:   brew install rustup && /opt/homebrew/opt/rustup/bin/rustup default stable\"\n  exit 1\nfi\ncd \"$SRCROOT/ANEEmbed/tokenizer-ffi\" && cargo build --release --locked\n";
 		};
 		BAA93AA4F0DFA68FB62FD35F /* Stamp CalVer */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -1668,12 +1982,42 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		1BFF9C7652D7F75A5961F280 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7CACEE54F8C86285C3DEDDB0 /* MaeonConfig.swift in Sources */,
+				866B5780A2E1EAC48D011FC3 /* ShareViewController.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1E5A5C9019FF9FF59AF96675 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7391585B9AFA310F221169CD /* MaeonConfig.swift in Sources */,
+				FCFE5F0CAD1AC3A8FF57074C /* MaeonWidget.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		2C41809D19F74310392F3049 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				C4E0BD8D0B45870B893A2D5D /* NeoConfig.swift in Sources */,
-				7A47C1D6238CEDB7A77EB335 /* ShareViewController.swift in Sources */,
+				95165150D181180CD481139E /* ShareViewController.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		39916DA5BE0E31DF2C698699 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5E54C0E19BDB1A0B83C0D6AD /* BundledANE.swift in Sources */,
+				14121225B4A0A4700D2B624A /* MaeonApp.swift in Sources */,
+				7A04E56E49B8F712203B424D /* MaeonConfig.swift in Sources */,
+				A7A0C7E2DFF900EDA2A416F7 /* MaeonExtras.swift in Sources */,
+				D27DFE321EA7FB51C6576379 /* MapLayoutEngine.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1691,7 +2035,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				2668904C7E52D602BD0C6ABF /* NexusConfig.swift in Sources */,
-				8ADFC6A2ABC378C6EA26BB5E /* ShareViewController.swift in Sources */,
+				BAE759336198B049B1ECA39A /* ShareViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1742,7 +2086,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				3B644CA804D8F0783F6696AA /* PulseConfig.swift in Sources */,
-				03128D20616EAF13F22BCA8D /* ShareViewController.swift in Sources */,
+				D20923F2F64BFC4625E6430F /* ShareViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1817,6 +2161,19 @@
 			target = DBA79B4153688EFC969DDF98 /* NexusWidget */;
 			targetProxy = 94212C719841CD3C4694701C /* PBXContainerItemProxy */;
 		};
+		2B9BA4F43793B821F7EC7165 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 66AE9A2BF807D63B4AF62FDE /* CalVer */;
+			targetProxy = 9E6CEF088BF477EFBAA3432E /* PBXContainerItemProxy */;
+		};
+		2D35C1594FE52997FAB6882B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			platformFilters = (
+				macos,
+			);
+			target = 9870F2797CB9A0EB16358814 /* MaeonShare */;
+			targetProxy = 974CC8EFC25EBDFD35F8E46F /* PBXContainerItemProxy */;
+		};
 		44F34CBB47421F978E675D25 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			platformFilters = (
@@ -1844,6 +2201,16 @@
 			isa = PBXTargetDependency;
 			target = 66AE9A2BF807D63B4AF62FDE /* CalVer */;
 			targetProxy = DA8026F5E2C060F4465CFA81 /* PBXContainerItemProxy */;
+		};
+		730D382AF9C78D2AD91A2D0E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A5DAA07FABDB0F524D08AAFC /* MaeonWidget */;
+			targetProxy = EC1848FAF92712B324429DA8 /* PBXContainerItemProxy */;
+		};
+		73A15D40779C4C53F70128D7 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 66AE9A2BF807D63B4AF62FDE /* CalVer */;
+			targetProxy = E5856E917F08802B543CC398 /* PBXContainerItemProxy */;
 		};
 		80A5FDB5B667808DA2659745 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -1892,6 +2259,11 @@
 			isa = PBXTargetDependency;
 			target = 66AE9A2BF807D63B4AF62FDE /* CalVer */;
 			targetProxy = B0B27E3F1DA82C2E399B4336 /* PBXContainerItemProxy */;
+		};
+		F3C6DC3D6000C37E8A55B85D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 66AE9A2BF807D63B4AF62FDE /* CalVer */;
+			targetProxy = 5F367532AA8C943EF1612067 /* PBXContainerItemProxy */;
 		};
 		F4AD72B2B5A0089245802712 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -1954,6 +2326,29 @@
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		180119904F20F85C908FDB80 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Apps/Maeon/Share/MaeonShare.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_APP_SANDBOX = YES;
+				INFOPLIST_FILE = Apps/Maeon/Share/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "co.laris.oracle.maeon-craft.share";
+				PRODUCT_NAME = MaeonShare;
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = macosx;
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				TARGETED_DEVICE_FAMILY = "";
 			};
 			name = Release;
 		};
@@ -2288,6 +2683,35 @@
 			};
 			name = Release;
 		};
+		604BC0F10AB1639EB036918E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				"ARCHS[sdk=macosx*]" = arm64;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Apps/Maeon/Maeon.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphone*]" = "Apps/Maeon/Maeon-iOS.entitlements";
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				INFOPLIST_FILE = Apps/Maeon/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Maeon Oracle";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "co.laris.oracle.maeon-craft";
+				PRODUCT_NAME = Maeon;
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		64E9A3775FF3C14C3E791A50 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -2568,6 +2992,30 @@
 			};
 			name = Release;
 		};
+		AA0A2DFDB22D452913981A58 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Apps/Maeon/Widget/MaeonWidget.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphone*]" = "Apps/Maeon/Widget/MaeonWidget-iOS.entitlements";
+				ENABLE_APP_SANDBOX = YES;
+				INFOPLIST_FILE = Apps/Maeon/Widget/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "co.laris.oracle.maeon-craft.widget";
+				PRODUCT_NAME = MaeonWidget;
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		B0B11DBACFB893E589CEFA06 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -2692,6 +3140,58 @@
 			};
 			name = Debug;
 		};
+		D4D96DC8EFAC255D178FBA68 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				"ARCHS[sdk=macosx*]" = arm64;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Apps/Maeon/Maeon.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphone*]" = "Apps/Maeon/Maeon-iOS.entitlements";
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				INFOPLIST_FILE = Apps/Maeon/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Maeon Oracle";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "co.laris.oracle.maeon-craft";
+				PRODUCT_NAME = Maeon;
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		D4E1C45D5E1D0BBA2991CD6D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Apps/Maeon/Share/MaeonShare.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_APP_SANDBOX = YES;
+				INFOPLIST_FILE = Apps/Maeon/Share/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "co.laris.oracle.maeon-craft.share";
+				PRODUCT_NAME = MaeonShare;
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = macosx;
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				TARGETED_DEVICE_FAMILY = "";
+			};
+			name = Debug;
+		};
 		E770C1C760D25402C5DA983F /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -2740,6 +3240,30 @@
 			};
 			name = Debug;
 		};
+		EB89D6372CE365610D118BEF /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Apps/Maeon/Widget/MaeonWidget.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphone*]" = "Apps/Maeon/Widget/MaeonWidget-iOS.entitlements";
+				ENABLE_APP_SANDBOX = YES;
+				INFOPLIST_FILE = Apps/Maeon/Widget/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "co.laris.oracle.maeon-craft.widget";
+				PRODUCT_NAME = MaeonWidget;
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
 		EF979F02E187E47C52A04FDB /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -2749,6 +3273,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		1D5C20B4F62886A3D1941FDE /* Build configuration list for PBXNativeTarget "MaeonShare" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D4E1C45D5E1D0BBA2991CD6D /* Debug */,
+				180119904F20F85C908FDB80 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		1E38A697F8EF24E15AC5AAE1 /* Build configuration list for PBXNativeTarget "NexusShare" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -2839,6 +3372,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
+		72A847A8D870C1AEDABECD4A /* Build configuration list for PBXNativeTarget "MaeonWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EB89D6372CE365610D118BEF /* Debug */,
+				AA0A2DFDB22D452913981A58 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		74122D6D08CE988E50D6054B /* Build configuration list for PBXNativeTarget "Pulse" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -2853,6 +3395,15 @@
 			buildConfigurations = (
 				4B0529496B0DA6C277C926E2 /* Debug */,
 				59637AB946C70994A0156273 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		AA7974D150DEE9E00D3F819C /* Build configuration list for PBXNativeTarget "Maeon" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D4D96DC8EFAC255D178FBA68 /* Debug */,
+				604BC0F10AB1639EB036918E /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
@@ -2923,6 +3474,14 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = ANEEmbedCore;
 		};
+		23ABEEFE4BA02B813A7CA3F1 /* OracleKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = OracleKit;
+		};
+		3856DB665D8A69136AFBC985 /* MapLayoutUMAP */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = MapLayoutUMAP;
+		};
 		4407B8E41239A984FDFAFE71 /* OracleTerminal */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = OracleTerminal;
@@ -2943,6 +3502,10 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = MapLayoutUMAP;
 		};
+		57446418B6171CBD1DB652B2 /* ANEEmbedCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ANEEmbedCore;
+		};
 		77079D500348CB3CDEBE6BE6 /* MapLayoutUMAP */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = MapLayoutUMAP;
@@ -2955,6 +3518,10 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = OracleKit;
 		};
+		8DEDED171F7646D90602ED90 /* OracleKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = OracleKit;
+		};
 		9EB334B6C1B129FB8DF7D118 /* OracleKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = OracleKit;
@@ -2962,6 +3529,10 @@
 		AA25C26D192E25E4550F953D /* OracleKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = OracleKit;
+		};
+		AC85A8D0AA1BC9FC240E5E03 /* OracleTerminal */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = OracleTerminal;
 		};
 		AEBF2F4341D4B8211B87EB8D /* OracleKit */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -2996,6 +3567,10 @@
 			productName = MapLayoutUMAP;
 		};
 		D8034BE3BE3303D05E137A02 /* OracleKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = OracleKit;
+		};
+		DF2EE418027BEF38CB54B90C /* OracleKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = OracleKit;
 		};
