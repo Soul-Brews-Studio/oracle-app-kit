@@ -32,8 +32,8 @@ public final class TraceLog: ObservableObject {
         let dir = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("Logs/ARRA Oracles", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        let app = Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String ?? "app"
-        return dir.appendingPathComponent("\(app)-queries.jsonl")
+        let app = HubLog.logStem(Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String ?? "app")
+        return dir.appendingPathComponent("\(app)-queries.jsonl")   // Pulse-queries.jsonl: what the hub map reads
     }()
     private lazy var handle: FileHandle? = {
         if !FileManager.default.fileExists(atPath: Self.file.path) { FileManager.default.createFile(atPath: Self.file.path, contents: nil) }

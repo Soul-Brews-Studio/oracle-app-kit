@@ -68,7 +68,7 @@ else
 fi
 
 running() { pgrep -fl "$AN\.app/Contents/MacOS/$AN( |\$)" | head -1 }   # launch arguments may follow the binary
-quit_app() { pkill -x "$N"; for i in {1..50}; do pgrep -x "$N" >/dev/null || return 0; sleep 0.2; done }
+quit_app() { pkill -x "$AN"; for i in {1..50}; do pgrep -x "$AN" >/dev/null || return 0; sleep 0.2; done }   # the executable is "<Name> Oracle" (#90)
 launch() { for i in 1 2 3; do open "$A" --args "$@" 2>/dev/null && return 0; sleep 2; done; return 1 }   # -600 while quitting
 # may this run relaunch the app? (it is ours to quit only with --relaunch, and never during another agent's install)
 may_relaunch() {
