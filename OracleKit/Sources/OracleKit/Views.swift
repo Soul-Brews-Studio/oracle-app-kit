@@ -1059,7 +1059,7 @@ struct GHCard: View {
     /// One-shot actions (PickUp): all of them in the context menu, the first as a pill while the pointer is over the card.
     var picks: [Pick] = []
     struct Pick { let label: String; let command: String; let run: () -> Void }
-    @State private var hover = false
+    @State var hover = false   // not private: GHCardRenderTests draws the hover pill
     var body: some View {
         Button { if let u = item.url { WorkFormat.open(u) } } label: {
             HStack(spacing: 12) {

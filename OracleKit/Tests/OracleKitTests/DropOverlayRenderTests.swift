@@ -51,4 +51,29 @@ final class GHCardRenderTests: XCTestCase {
               let png = rep.representation(using: .png, properties: [:]) else { return XCTFail("render") }
         try png.write(to: URL(fileURLWithPath: "\(dir)/cards.png"))
     }
+
+    /// The one-shot pill under the pointer: Pick up on an issue no worktree names, Continue once one does.
+    @MainActor func testRenderPickUpPills() throws {
+        guard let dir = ProcessInfo.processInfo.environment["RENDER_CARDS"] else { throw XCTSkip("set RENDER_CARDS=<dir>") }
+        try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+        let ago = Date().addingTimeInterval(-3600 * 24 * 14)
+        let open = GHItem(number: 4, title: "[Parity] Recipes: full editor, actions, and calculation accuracy", author: "nazt",
+                          updatedAt: ago, url: nil, isDraft: false)
+        let taken = GHItem(number: 7, title: "[Parity] Audit all pages and navigation", author: "nazt", updatedAt: ago, url: nil, isDraft: false)
+        let accent = Color(hex: "#f5b041")
+        func picks(_ n: Int, _ inWorktree: Bool) -> [GHCard.Pick] {
+            PickUp.commands(issue: n, inWorktree: inWorktree).map { GHCard.Pick(label: $0.label, command: $0.text) {} }
+        }
+        let v = VStack(alignment: .leading, spacing: 18) {
+            Text("Pick up an issue.").font(.custom("Avenir Next", size: 30).weight(.bold)).tracking(-0.5)
+            VStack(spacing: 8) {
+                GHCard(item: open, status: ("no worktree yet", accent), detail: "nazt · 2 weeks ago", picks: picks(4, false), hover: true)
+                GHCard(item: taken, status: ("in a worktree", .green), detail: "nazt · 2 weeks ago · worktree audit-pages",
+                       picks: picks(7, true), hover: true)
+                GHCard(item: open, status: ("no worktree yet", accent), detail: "nazt · 2 weeks ago · pointer elsewhere", picks: picks(4, false))
+            }
+        }
+        .padding(28).frame(width: 900).background(Color(red: 0.11, green: 0.11, blue: 0.12)).environment(\.colorScheme, .dark)
+        try write(v, to: "\(dir)/pickup-pills.png")
+    }
 }
