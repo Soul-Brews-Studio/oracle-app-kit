@@ -1,4 +1,5 @@
 import SwiftUI
+import os
 #if os(macOS)
 import AppKit
 #else
@@ -23,6 +24,7 @@ public struct OracleRootView: View {
     @State private var openPane: String?      // the ACTIVE pane in the drawer (message box + esc go to it)
     @State private var openPanes: [String] = []   // every pane in the drawer, stacked, at most 3 (Nat: "open 2nd and 3rd pane")
     @State private var escMonitor: Any?
+    @State private var fitMonitor: Any?   // double-click the title bar, or the empty space beside the page: fit ↔ back
     @AppStorage("oracle.drawerWidth") private var drawerWidth: Double = 560   // what opening the drawer adds to the window, when the screen has room
     /// Work's width while the drawer is open: the drawer takes the rest (Nat, 2026-10-08: "when expand … the middle
     /// can narrow"). Dragging the drawer's edge moves it; remembered.
@@ -47,6 +49,37 @@ public struct OracleRootView: View {
         max(360, total - CGFloat(max(420, work)) - 7)
     }
 
+    #if os(macOS)
+    /// The page's column width, for fitting the window to it (Work 760, the GitHub lists 900); nil for the others.
+    private var fitPage: CGFloat? {
+        switch section ?? .status {
+        case .status: return 760
+        case .prs, .issues: return 900
+        default: return nil
+        }
+    }
+
+    /// Double-clicks, read as AppKit events: on the title bar (instead of macOS's zoom, which went wide again) or on
+    /// the empty space right of the page's column, above the message box. Only while no drawer is open beside the page.
+    /// A SwiftUI gesture on the page's background never saw these clicks (measured: no log line for any of them).
+    private func installFitMonitor() {
+        guard fitMonitor == nil else { return }
+        fitMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { e in
+            guard e.clickCount == 2, let w = e.window, w.canBecomeMain, openPanes.isEmpty, let page = fitPage else { return e }
+            let p = e.locationInWindow
+            if p.y >= w.contentLayoutRect.maxY {   // the title bar and toolbar
+                fitLog.notice("double-click on the title bar")
+                Drawer.toggleFit(page: page, window: w)
+                return nil                          // not also macOS's zoom
+            }
+            guard p.x > Drawer.sidebarWidth(in: w) + page + 4, p.y > 96 else { return e }
+            fitLog.notice("double-click beside the page")
+            Drawer.toggleFit(page: page, window: w)
+            return e
+        }
+    }
+    #endif
+
     private func closePane(_ place: String) {
         if place == openPane { openPane = nil } else { openPanes.removeAll { $0 == place } }
     }
@@ -62,7 +95,6 @@ public struct OracleRootView: View {
             GeometryReader { geo in
             HStack(spacing: 0) {
                 detail
-                    .environment(\.drawerOpen, !openPanes.isEmpty && section == .status)
                     .frame(minWidth: 420, maxWidth: .infinity, maxHeight: .infinity)   // Work always fills its column
                     #if os(macOS)
                     .safeAreaInset(edge: .bottom) { HeyComposer(store: store, text: $heyText, focus: openPane) }
@@ -115,6 +147,7 @@ public struct OracleRootView: View {
                 }
             }
             .onChange(of: section) { _, s in if s != .status { openPanes = []; openPane = nil } }
+            .onAppear { installFitMonitor() }
             .onAppear {   // quit with the drawer open: the saved frame still holds the drawer's width — take it back
                 guard drawerGrown > 0 else { return }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { Drawer.grow(by: -drawerGrown, animate: false); drawerGrown = 0 }
@@ -465,9 +498,6 @@ struct WorkView: View {
             .padding(28)
             .frame(maxWidth: 760, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .leading)
-            #if os(macOS)
-            .background(FitOnDoubleClick(page: 760))
-            #endif
         }
         .overlay { if work.isEmpty { emptyNote } }
         .navigationTitle("Work")
@@ -943,9 +973,6 @@ struct GHList: View {
             .padding(28)
             .frame(maxWidth: 900, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .leading)
-            #if os(macOS)
-            .background(FitOnDoubleClick(page: 900))
-            #endif
         }
         .overlay {
             if rows.isEmpty {
@@ -1042,6 +1069,8 @@ public final class OracleAppDelegate: NSObject, NSApplicationDelegate {
             // oracle-<name>://issue|inbox|message?url=&title=&text= — the Chrome "Send to oracle" menu (browser/chrome)
             switch u.host {
             case "issue", "inbox", "message": deliverLink(u)
+            case "fit":     // the double-click, by link (checks): oracle-<name>://fit — fit, and again: back
+                if let w = NSApp.windows.first(where: { $0.isVisible && $0.canBecomeMain }) { Drawer.toggleFit(page: 760, window: w) }
             case "front":   // the hub's app card: this window on that display (oracle-<name>://front?display=<id>)
                 let id = URLComponents(url: u, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "display" }?.value.flatMap(UInt32.init)
                 Self.bringFront(display: id)
@@ -1450,40 +1479,52 @@ struct PaneScreen: View {
 #endif
 
 #if os(macOS)
-/// Whether a pane's drawer is open beside the page (the page then has no room to give back).
-private struct DrawerOpenKey: EnvironmentKey { static let defaultValue = false }
-extension EnvironmentValues {
-    var drawerOpen: Bool {
-        get { self[DrawerOpenKey.self] }
-        set { self[DrawerOpenKey.self] = newValue }
-    }
-}
-
-/// Double-click a page's empty space: the window narrows to the sidebar and the page's column (Nat: "too wide?
-/// double click to fit?"). Only ever narrows, and not while a drawer is open beside the page.
-struct FitOnDoubleClick: View {
-    let page: CGFloat
-    @Environment(\.drawerOpen) private var drawerOpen
-    var body: some View {
-        Color.clear.contentShape(Rectangle())
-            .onTapGesture(count: 2) { if !drawerOpen { Drawer.fit(page: page) } }
-            .help(drawerOpen ? "" : "Double-click empty space to fit the window to this page")
-    }
-}
+let fitLog = Logger(subsystem: "co.laris.oracle.kit", category: "fit")
 
 /// Grows or shrinks the app window to the right (or left, at the screen edge) so a drawer adds room instead of
 /// taking it from the Work column.
 @MainActor enum Drawer {
-    /// The window as wide as its sidebar and a page of `page` points, plus the scroll bar; its left edge stays.
+    /// Each window's frame before a fit: the next double-click goes back to it.
+    private static var beforeFit: [Int: NSRect] = [:]
+
+    /// The sidebar's width, measured from the window's split view (272 when there is none).
+    static func sidebarWidth(in w: NSWindow) -> CGFloat {
+        guard let content = w.contentView, let s = splitView(in: content), let first = s.arrangedSubviews.first else { return 272 }
+        return s.isSubviewCollapsed(first) ? 0 : first.frame.width
+    }
+
+    /// The window width that holds the sidebar and a page of `page` points, plus the scroll bar.
+    static func fitWidth(page: CGFloat, window w: NSWindow) -> CGFloat {
+        let content = (sidebarWidth(in: w) + page + 16).rounded()
+        return w.frameRect(forContentRect: NSRect(x: 0, y: 0, width: content, height: 100)).width
+    }
+
+    /// The window as wide as its sidebar and a page of `page` points (oracle-<name>://fit); its left edge stays.
     static func fit(page: CGFloat) {
-        guard let w = NSApp.keyWindow ?? NSApp.windows.first(where: { $0.isVisible && $0.canBecomeMain }),
-              let content = w.contentView else { return }
-        let sidebar = splitView(in: content).flatMap { s in s.arrangedSubviews.first.map { s.isSubviewCollapsed($0) ? 0 : $0.frame.width } } ?? 272
-        let width = (sidebar + page + 16).rounded()
-        guard w.frame.width > width + 1 else { return }   // only ever narrows
-        var f = w.frame
-        f.size.width = w.frameRect(forContentRect: NSRect(x: 0, y: 0, width: width, height: content.frame.height)).width
+        guard let w = NSApp.keyWindow ?? NSApp.windows.first(where: { $0.isVisible && $0.canBecomeMain }) else { return }
+        let width = fitWidth(page: page, window: w)
+        guard w.frame.width > width + 1 else { return }
+        beforeFit[w.windowNumber] = w.frame
+        var f = w.frame; f.size.width = width
         w.setFrame(f, display: true, animate: true)
+        fitLog.notice("fit \(Int(page), privacy: .public): \(Int(beforeFit[w.windowNumber]?.width ?? 0), privacy: .public) → \(Int(w.frame.width), privacy: .public)")
+    }
+
+    /// Double-click to fit, and again to go back (Nat: "too wide? double click to fit?", "when double click back"):
+    /// wider than the page → fit, keeping the frame it had; fitted → that frame again (or the screen's width).
+    static func toggleFit(page: CGFloat, window w: NSWindow) {
+        let width = fitWidth(page: page, window: w)
+        if abs(w.frame.width - width) <= 2 {
+            let back = beforeFit.removeValue(forKey: w.windowNumber) ?? w.screen?.visibleFrame ?? w.frame
+            w.setFrame(back, display: true, animate: true)
+            fitLog.notice("back \(Int(page), privacy: .public): \(Int(width), privacy: .public) → \(Int(back.width), privacy: .public)")
+        } else if w.frame.width > width + 1 {
+            fit(page: page)
+        } else if let v = w.screen?.visibleFrame {   // narrower than the page: as wide as the screen, as macOS's zoom would
+            beforeFit[w.windowNumber] = w.frame
+            var f = w.frame; f.origin.x = v.minX; f.size.width = v.width
+            w.setFrame(f, display: true, animate: true)
+        }
     }
 
     private static func splitView(in v: NSView) -> NSSplitView? {
