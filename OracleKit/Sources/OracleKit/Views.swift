@@ -62,6 +62,7 @@ public struct OracleRootView: View {
             GeometryReader { geo in
             HStack(spacing: 0) {
                 detail
+                    .environment(\.drawerOpen, !openPanes.isEmpty && section == .status)
                     .frame(minWidth: 420, maxWidth: .infinity, maxHeight: .infinity)   // Work always fills its column
                     #if os(macOS)
                     .safeAreaInset(edge: .bottom) { HeyComposer(store: store, text: $heyText, focus: openPane) }
@@ -464,6 +465,9 @@ struct WorkView: View {
             .padding(28)
             .frame(maxWidth: 760, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .leading)
+            #if os(macOS)
+            .background(FitOnDoubleClick(page: 760))
+            #endif
         }
         .overlay { if work.isEmpty { emptyNote } }
         .navigationTitle("Work")
@@ -939,6 +943,9 @@ struct GHList: View {
             .padding(28)
             .frame(maxWidth: 900, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .leading)
+            #if os(macOS)
+            .background(FitOnDoubleClick(page: 900))
+            #endif
         }
         .overlay {
             if rows.isEmpty {
@@ -1443,9 +1450,48 @@ struct PaneScreen: View {
 #endif
 
 #if os(macOS)
+/// Whether a pane's drawer is open beside the page (the page then has no room to give back).
+private struct DrawerOpenKey: EnvironmentKey { static let defaultValue = false }
+extension EnvironmentValues {
+    var drawerOpen: Bool {
+        get { self[DrawerOpenKey.self] }
+        set { self[DrawerOpenKey.self] = newValue }
+    }
+}
+
+/// Double-click a page's empty space: the window narrows to the sidebar and the page's column (Nat: "too wide?
+/// double click to fit?"). Only ever narrows, and not while a drawer is open beside the page.
+struct FitOnDoubleClick: View {
+    let page: CGFloat
+    @Environment(\.drawerOpen) private var drawerOpen
+    var body: some View {
+        Color.clear.contentShape(Rectangle())
+            .onTapGesture(count: 2) { if !drawerOpen { Drawer.fit(page: page) } }
+            .help(drawerOpen ? "" : "Double-click empty space to fit the window to this page")
+    }
+}
+
 /// Grows or shrinks the app window to the right (or left, at the screen edge) so a drawer adds room instead of
 /// taking it from the Work column.
 @MainActor enum Drawer {
+    /// The window as wide as its sidebar and a page of `page` points, plus the scroll bar; its left edge stays.
+    static func fit(page: CGFloat) {
+        guard let w = NSApp.keyWindow ?? NSApp.windows.first(where: { $0.isVisible && $0.canBecomeMain }),
+              let content = w.contentView else { return }
+        let sidebar = splitView(in: content).flatMap { s in s.arrangedSubviews.first.map { s.isSubviewCollapsed($0) ? 0 : $0.frame.width } } ?? 272
+        let width = (sidebar + page + 16).rounded()
+        guard w.frame.width > width + 1 else { return }   // only ever narrows
+        var f = w.frame
+        f.size.width = w.frameRect(forContentRect: NSRect(x: 0, y: 0, width: width, height: content.frame.height)).width
+        w.setFrame(f, display: true, animate: true)
+    }
+
+    private static func splitView(in v: NSView) -> NSSplitView? {
+        if let s = v as? NSSplitView, s.isVertical { return s }
+        for sub in v.subviews { if let s = splitView(in: sub) { return s } }
+        return nil
+    }
+
     /// `leftward`: the window's right edge stays put and it grows to the left — what a drag on the drawer's left edge wants
     static func grow(by dx: CGFloat, leftward: Bool = false, animate: Bool = true) {
         guard let w = NSApp.keyWindow ?? NSApp.windows.first(where: { $0.isVisible && $0.canBecomeMain }) else { return }
