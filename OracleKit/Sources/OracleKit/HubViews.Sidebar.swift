@@ -169,12 +169,12 @@ struct RemoteSection: View {
                 .buttonStyle(.plain).handCursor().help("The Network page: every machine, full size")
                 Spacer()
                 Button { addError = nil; adding = true } label: { Image(systemName: "plus").font(.system(size: 11, weight: .semibold)) }
-                    .buttonStyle(.plain).foregroundStyle(.secondary).handCursor().help("Add a remote session: herdr --remote <target> --session <name>")
+                    .buttonStyle(.plain).foregroundStyle(.secondary).handCursor().help("Save a machine in herdr: herdr machine add <target> --label <name> --remote-session <session>")
                     .popover(isPresented: $adding, arrowEdge: .trailing) { form }
             }
             .padding(.horizontal, 14).padding(.top, 14).padding(.bottom, 4)
-            if store.remotes.isEmpty, store.unknownTraces.isEmpty {
-                Text("None yet: attach with herdr --remote, or +").font(.system(size: 11)).foregroundStyle(.tertiary).padding(.horizontal, 14)
+            if store.remotes.isEmpty {
+                Text("No saved herdr machines yet: +, or herdr machine add").font(.system(size: 11)).foregroundStyle(.tertiary).padding(.horizontal, 14)
             }
             // one group per machine (Nat: "if we have many machines, group, show machine"): its users, how many of
             // its sessions run, then every session — the ones attached or remembered, and all that run there
@@ -187,20 +187,6 @@ struct RemoteSection: View {
                             .padding(.leading, 14)
                     }
                 }
-            }
-            ForEach(store.unknownTraces.sorted(by: { $0.key < $1.key }), id: \.key) { name, prefix in
-                Button { session = name; target = ""; addError = nil; adding = true } label: {
-                    HStack(spacing: 10) {
-                        Circle().strokeBorder(Color.secondary.opacity(0.5)).frame(width: 7, height: 7)
-                        Text(name).font(.custom("Avenir Next", size: 14)).lineLimit(1)
-                        Text(prefix + "…").font(.system(size: 11, design: .monospaced)).foregroundStyle(.tertiary).lineLimit(1)
-                        Spacer(minLength: 4)
-                        Text("add").font(.system(size: 12)).foregroundStyle(HubStyle.accent)
-                    }
-                    .foregroundStyle(.secondary).padding(.horizontal, 14).padding(.vertical, 7).contentShape(Rectangle())
-                }
-                .buttonStyle(.plain).handCursor()
-                .help("This Mac attached to a remote session \(name) on a target starting \(prefix)…, which no ssh host here explains. Add its target to list it.")
             }
         }
     }
@@ -228,14 +214,16 @@ struct RemoteSection: View {
         .buttonStyle(.plain).handCursor()
         .help(([host + " — \(running) of \(sessions.count) sessions running"] + herdr.map { "herdr " + $0 } + problems).joined(separator: "\n"))
         .contextMenu {
-            Button("Forget \(host) (the hub's list; saved herdr machines stay)", role: .destructive) { store.forgetMachine(host: host) }
+            ForEach(sessions) { r in
+                Button("Remove saved machine \(r.label ?? r.session) (herdr machine remove)") { Task { _ = await store.removeMachine(r) } }
+            }
         }
     }
 
     private var form: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Add a remote session").font(.headline)
-            Text("As you would type it: herdr --remote <target> --session <name>. Every session running on the machine shows up under it.")
+            Text("Save a machine in herdr").font(.headline)
+            Text("Opens WezTerm with herdr machine add: it may ask before it installs or starts herdr there. One saved machine is one remote session.")
                 .font(.caption).foregroundStyle(.secondary).frame(width: 300, alignment: .leading).fixedSize(horizontal: false, vertical: true)
             TextField("target — user@host", text: $target).textFieldStyle(.roundedBorder).frame(width: 300)
             TextField("session — default", text: $session).textFieldStyle(.roundedBorder).frame(width: 300)
@@ -243,11 +231,9 @@ struct RemoteSection: View {
             HStack {
                 Spacer()
                 Button("Cancel") { adding = false }
-                Button("Add") {
-                    Task {
-                        addError = await store.addRemote(target: target, session: session.isEmpty ? "default" : session)
-                        if addError == nil { adding = false; target = ""; session = "" }
-                    }
+                Button("Save in herdr…") {
+                    addError = store.saveMachine(target: target, session: session.isEmpty ? "default" : session, label: "")
+                    if addError == nil { adding = false; target = ""; session = "" }
                 }.buttonStyle(.borderedProminent).disabled(target.trimmingCharacters(in: .whitespaces).isEmpty)
             }
         }
@@ -287,14 +273,8 @@ struct RemoteRow: View {
         .contextMenu {
             Button("Open in WezTerm") { store.openRemote(remote) }
             Button("Copy \(remote.command)") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(remote.command, forType: .string) }
-            if remote.label == nil {
-                Button("Copy the command that saves it as a herdr machine") {
-                    let cmd = "herdr machine add \(remote.target) --remote-session \(remote.session) --label \"\(remote.session) · \(remote.shortTarget)\""
-                    NSPasteboard.general.clearContents(); NSPasteboard.general.setString(cmd, forType: .string)
-                }
-                Divider()
-                Button("Forget", role: .destructive) { store.forgetRemote(remote) }
-            }
+            Divider()
+            Button("Remove saved machine (herdr machine remove)") { Task { _ = await store.removeMachine(remote) } }
         }
     }
 

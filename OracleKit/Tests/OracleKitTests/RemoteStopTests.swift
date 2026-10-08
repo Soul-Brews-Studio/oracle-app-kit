@@ -1,30 +1,31 @@
 import XCTest
 @testable import OracleKit
 
-/// Stopping remote sessions from the Network page (#100): the command, what failed, and the resume check.
+/// Saved herdr machines on the Network page: `herdr --machine <id>` answers, read back (#100, herdr-machines).
 final class RemoteStopTests: XCTestCase {
-    func testStopCommandStopsEachSessionAndReportsItsStatus() {
-        let cmd = RemoteParse.stopCommand(sessions: ["default", "infra-team"])
-        XCTAssertTrue(cmd.hasPrefix(RemoteParse.remotePath))
-        XCTAssertTrue(cmd.contains("echo @@stop default; herdr session stop default >/dev/null 2>&1; echo rc=$?"))
-        XCTAssertTrue(cmd.contains("echo @@stop infra-team; herdr session stop infra-team >/dev/null 2>&1; echo rc=$?"))
+    func testStatusServerFields() {
+        let out = "status: running\nversion: 0.9.1\nendpoint_compatible: yes\nsocket: machine:c0acfe15/infra-teamexit\n"
+        XCTAssertEqual(RemoteParse.statusField("status", in: out), "running")
+        XCTAssertEqual(RemoteParse.statusField("version", in: out), "0.9.1")
+        XCTAssertNil(RemoteParse.statusField("pid", in: out))
     }
 
-    func testFailuresAreTheSessionsWithoutAZeroStatus() {
-        let out = "@@stop default\nrc=0\n@@stop infra-team\nrc=1\n"
-        XCTAssertEqual(RemoteParse.stopFailures(out, asked: ["default", "infra-team"]), ["infra-team"])
-        XCTAssertEqual(RemoteParse.stopFailures("", asked: ["default"]), ["default"])   // ssh said nothing: not stopped
+    func testSavedMachinesCarryTheirProfileId() {
+        let json = #"[{"id":"c0acfe15786dc11998248c59315ff1b8","label":"white","target":"nat@white.example","session":"infra-teamexit","enabled":true,"selected":false},{"id":"off","label":"x","target":"a@b","session":"default","enabled":false}]"#
+        let m = RemoteParse.machines(Data(json.utf8))
+        XCTAssertEqual(m.map(\.profileId), ["c0acfe15786dc11998248c59315ff1b8"])   // a disabled profile is not listed
+        XCTAssertEqual(m.first?.id, "nat@white.example|infra-teamexit")
+        XCTAssertEqual(m.first?.label, "white")
     }
 
     func testResumeSplitsAgentsWithASavedSessionFromPlainShells() {
         // m5 records agent_session through its claude hook; white (no integration) records none (#100)
         let m5 = #"{"result":{"agents":[{"agent":"claude","name":"neo","agent_session":{"source":"herdr:claude","kind":"id","value":"8f3a"}},{"agent":"codex","pane_id":"w2:p1"}]}}"#
         let white = #"{"result":{"agents":[{"agent":"claude","name":"a"},{"agent":"claude","name":"b"}]}}"#
-        let r = RemoteParse.resume("@@session default\n\(m5)\n@@session infra-team\n\(white)\n")
-        XCTAssertEqual(r["default"]?.resumes, ["claude": 1])
-        XCTAssertEqual(r["default"]?.lost, ["w2:p1 (codex)"])
-        XCTAssertEqual(r["infra-team"]?.resumes, [:])
-        XCTAssertEqual(r["infra-team"]?.lost, ["a (claude)", "b (claude)"])
+        XCTAssertEqual(RemoteParse.resume(agentList: m5)?.resumes, ["claude": 1])
+        XCTAssertEqual(RemoteParse.resume(agentList: m5)?.lost, ["w2:p1 (codex)"])
+        XCTAssertEqual(RemoteParse.resume(agentList: white)?.resumes, [:])
+        XCTAssertEqual(RemoteParse.resume(agentList: white)?.lost, ["a (claude)", "b (claude)"])
         XCTAssertNil(RemoteParse.resume(agentList: #"{"error":{"code":"server_not_running"}}"#))
     }
 }

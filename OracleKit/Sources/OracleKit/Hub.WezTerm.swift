@@ -168,6 +168,12 @@ public enum WezTerm {
 
     /// A remote session to Nat: the WezTerm window already attached to it, or a new one running
     /// `herdr --remote <target> --session <s>`; moved to the main display and focused, as `show(session:)` does.
+    /// A new WezTerm window running `herdr <args>`, for a herdr command that may ask something (`herdr machine add`).
+    public static func run(_ args: [String]) async {
+        _ = await Shell.run("wezterm", ["cli", "spawn", "--new-window", "--", Shell.which("herdr") ?? "herdr"] + args)
+        await MainActor.run { _ = NSRunningApplication.runningApplications(withBundleIdentifier: bundleId).first?.activate() }
+    }
+
     public static func show(remote r: RemoteSession) async {
         let yabai = Shell.which("yabai") != nil
         var window: Int?
