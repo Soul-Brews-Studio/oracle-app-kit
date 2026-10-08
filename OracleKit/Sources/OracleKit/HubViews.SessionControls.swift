@@ -68,8 +68,15 @@ struct SessionControls: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text(Self.warning(ends: ends(), checked: checked, resume: resume, ref: ref))
+            Text(Self.warning(ends: ends(), checked: checked, resume: resume, ref: ref) + againLines)
         }
+    }
+
+    /// What Start runs again on a remote session after its server is up: the commands its agents were started with.
+    private var againLines: String {
+        guard case .remote(let r) = ref, let l = store.launches[r.id], !l.isEmpty else { return "" }
+        return "\n" + (restart ? "After it starts again" : "Start later") + ", the hub runs again:\n"
+            + l.map { "  \($0.command)   (in \(($0.cwd as NSString).lastPathComponent))" }.joined(separator: "\n")
     }
 
     @ViewBuilder private func button(_ title: String, tint: Color, _ action: @escaping () -> Void) -> some View {

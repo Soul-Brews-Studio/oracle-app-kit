@@ -230,19 +230,20 @@ private struct SessionLine: View {
     let needsYou: Bool
     let attached: Bool
     var controls: AnyView? = nil   // Stop / Restart / Start (SessionControls), beside the row, not inside its button
+    var params: [LaunchParam] = []  // what its agents were started with: discord, skip perms … (their command line)
     let action: () -> Void
     @State private var hover = false
     var body: some View {
-        HStack(spacing: 4) {
         Button(action: action) {
             HStack(spacing: 9) {
                 Circle().fill(running ? Color.green : Color.secondary.opacity(0.35)).frame(width: 7, height: 7)
-                Text(name).font(.callout.weight(.medium)).lineLimit(1)
+                Text(name).font(.callout.weight(.medium)).lineLimit(1).layoutPriority(1)
                 if !detail.isEmpty { Text(detail).font(.caption).foregroundStyle(.tertiary).lineLimit(1) }
+                ForEach(params, id: \.self) { ParamChip(param: $0) }
                 Spacer(minLength: 4)
                 if attached { Image(systemName: "link").font(.system(size: 10)).foregroundStyle(.secondary).help("This Mac is attached to it now") }
                 if needsYou { HubGlyph(status: "done") }
-                Text(count).font(.callout.monospacedDigit()).foregroundStyle(.secondary)
+                Text(count).font(.callout.monospacedDigit()).foregroundStyle(.secondary).lineLimit(1).fixedSize()
             }
             .foregroundStyle(running ? Color.primary : Color.secondary)
             .padding(.horizontal, 8).padding(.vertical, 6)
@@ -250,12 +251,38 @@ private struct SessionLine: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain).handCursor()
-            // Stop / Restart wait for the pointer; a stopped row keeps Start in view. Space stays reserved: no jump.
-            if let controls {
-                controls.opacity(hover || !running ? 1 : 0).allowsHitTesting(hover || !running)
+        // Stop / Restart float over the row's end on hover — they take no width, so the chips keep theirs; a stopped
+        // row keeps Start in view, where "off" was
+        .overlay(alignment: .trailing) {
+            if let controls, hover || !running {
+                controls.padding(.horizontal, 6).padding(.vertical, 3)
+                    .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color(nsColor: .windowBackgroundColor)))
+                    .padding(.trailing, 4)
             }
         }
         .onHover { hover = $0 }
+    }
+}
+
+/// One parameter of an agent's command as a small chip: a channel ("discord", accent), its model, a permission bypass
+/// ("skip perms", orange), the conversation it picked.
+struct ParamChip: View {
+    let param: LaunchParam
+    var body: some View {
+        let tint: Color = switch param.kind {
+        case .channel: HubStyle.accent
+        case .danger: .orange
+        case .model, .conversation: .secondary
+        }
+        HStack(spacing: 3) {
+            if param.kind == .channel { Image(systemName: "bubble.left.and.bubble.right.fill").font(.system(size: 8)) }
+            Text(param.text).font(.caption2.weight(.semibold)).lineLimit(1)
+        }
+        .fixedSize()   // a chip keeps its width: "discord", never a column of letters
+        .foregroundStyle(tint)
+        .padding(.horizontal, 6).padding(.vertical, 1.5)
+        .background(Capsule().fill(tint.opacity(0.15)))
+        .help(param.kind == .channel ? "Its Claude Code listens on the \(param.text) channel (--channels)" : "From the command it was started with")
     }
 }
 
@@ -337,14 +364,7 @@ private struct MachineCard: View {
                 // the card names the login; a row adds herdr's name only when this card holds several, and "ssh"
                 let labels = Set(sessions.compactMap(\.label))
                 let detail = [labels.count > 1 && r.label != host ? r.label : nil, st?.viaSSH == true ? "ssh" : nil].compactMap { $0 }
-                SessionLine(name: r.session, detail: detail.joined(separator: " · "),
-                            // unreadable is not stopped: "?" and no Start, which would start a second server
-                            count: st.map { $0.problem != nil ? "?" : $0.running ? "\($0.agents) agent\($0.agents == 1 ? "" : "s")" : "off" } ?? "…",
-                            running: st?.running == true, needsYou: (st?.needsYou ?? 0) > 0,
-                            attached: store.attachedRemotes.contains(r.id),
-                            controls: st == nil || st?.problem != nil ? nil : AnyView(SessionControls(store: store, ref: .remote(r), running: st?.running == true,
-                                                              ends: { "herdr --machine \(r.label ?? r.host) server stop: every pane of \(r.session) ends, \(st?.agents ?? 0) agents included." },
-                                                              compact: true, error: $stopError))) { if let onOpen { onOpen(r) } else { store.openRemote(r) } }
+                sessionRow(r, st: st, detail: detail.joined(separator: " · "))
                     .help(r.command)
                     .contextMenu {
                         Button("Open in WezTerm") { store.openRemote(r) }
@@ -415,6 +435,32 @@ private struct MachineCard: View {
             Text(stopWarning)
         }
     }
+
+    /// A session's row: its count ("?" when unreadable, which is not stopped), the channel chips its agents were
+    /// started with, and Stop / Restart / Start beside it. Split out: one expression was too much for Swift.
+    private func sessionRow(_ r: RemoteSession, st: RemoteState?, detail: String) -> some View {
+        SessionLine(name: r.session, detail: detail, count: Self.countText(st), running: st?.running == true,
+                    needsYou: (st?.needsYou ?? 0) > 0, attached: store.attachedRemotes.contains(r.id),
+                    controls: controls(r, st),
+                    // a card row has room for the channels; the session's page shows every parameter
+                    params: store.params(of: r).filter { $0.kind == .channel }) { open(r) }
+    }
+
+    static func countText(_ st: RemoteState?) -> String {
+        guard let st else { return "…" }
+        if st.problem != nil { return "?" }   // unreadable is not stopped: no Start, which would start a second server
+        return st.running ? "\(st.agents) agent\(st.agents == 1 ? "" : "s")" : "off"
+    }
+
+    private func controls(_ r: RemoteSession, _ st: RemoteState?) -> AnyView? {
+        guard let st, st.problem == nil else { return nil }
+        let agents = st.agents
+        return AnyView(SessionControls(store: store, ref: .remote(r), running: st.running,
+                                       ends: { "herdr --machine \(r.label ?? r.host) server stop: every pane of \(r.session) ends, \(agents) agents included." },
+                                       compact: true, error: $stopError))
+    }
+
+    private func open(_ r: RemoteSession) { if let onOpen { onOpen(r) } else { store.openRemote(r) } }
 
     @ViewBuilder private func cardMenu(_ running: [RemoteSession]) -> some View {
         if !running.isEmpty {
