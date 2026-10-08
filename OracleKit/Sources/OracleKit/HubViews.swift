@@ -38,6 +38,16 @@ struct HubRootView: View {
         ?? ["search": HubPick.search, "trace": .trace, "map": .map, "settings": .settings][UserDefaults.standard.string(forKey: "hubPage") ?? ""] ?? .all   // -hubPage search|trace|map|settings
     @ObservedObject private var index = GHIndex.shared
     @State private var focusTick = 0
+    // Pages visited, like a browser's (Nat: Discord's mouse 4 / 5): back and forward, and the move in flight so
+    // going back is not itself recorded as a visit
+    @State private var back: [HubPick] = []
+    @State private var forward: [HubPick] = []
+    @State private var travelling = false
+    @State private var mouse: Any?
+
+    private func goBack() { guard let p = back.popLast() else { return }; forward.append(pick); travelling = true; pick = p }
+    private func goForward() { guard let p = forward.popLast() else { return }; back.append(pick); travelling = true; pick = p }
+
     var body: some View {
         NavigationSplitView {
             HubSidebar(store: store, pick: $pick, menuBar: $menuBar)
@@ -53,6 +63,34 @@ struct HubRootView: View {
             }
         }
         .tint(HubStyle.accent)
+        .onChange(of: pick) { old, _ in
+            if travelling { travelling = false } else { back.append(old); forward = []; if back.count > 50 { back.removeFirst() } }
+        }
+        .toolbar {
+            ToolbarItemGroup(placement: .navigation) {
+                Button { goBack() } label: { Image(systemName: "chevron.left") }.disabled(back.isEmpty)
+                    .help("Back — mouse button 4, ⌘[")
+                Button { goForward() } label: { Image(systemName: "chevron.right") }.disabled(forward.isEmpty)
+                    .help("Forward — mouse button 5, ⌘]")
+            }
+        }
+        .background {   // ⌘[ ⌘]: back and forward
+            Button("") { goBack() }.keyboardShortcut("[", modifiers: .command).opacity(0).allowsHitTesting(false)
+            Button("") { goForward() }.keyboardShortcut("]", modifiers: .command).opacity(0).allowsHitTesting(false)
+        }
+        .onAppear {
+            // mouse 4 / 5 (buttonNumber 3 / 4): a LOCAL monitor — only the hub's own windows, no Accessibility or
+            // Input Monitoring permission
+            guard mouse == nil else { return }
+            mouse = NSEvent.addLocalMonitorForEvents(matching: .otherMouseDown) { e in
+                HubLog.shared.add(.info, "mouse: button \(e.buttonNumber + 1) (buttonNumber \(e.buttonNumber))\(e.buttonNumber == 3 ? " → back" : e.buttonNumber == 4 ? " → forward" : "")")
+                switch e.buttonNumber {
+                case 3: goBack(); return nil
+                case 4: goForward(); return nil
+                default: return e
+                }
+            }
+        }
         .background {   // ⌘K: search, from anywhere in the hub
             Button("") { pick = .search; focusTick += 1 }.keyboardShortcut("k", modifiers: .command).opacity(0).allowsHitTesting(false)
         }
@@ -398,13 +436,18 @@ struct SessionSpaces: View {
     @State private var esc: Any?
     @AppStorage("hub.drawerWidth") private var drawerWidth: Double = 620
     var body: some View {
-        HStack(spacing: 0) {
-            list
-            if let sp = open {
-                Divider()
-                SpaceDrawer(space: sp, accent: HubStyle.accent) { closeDrawer() }
-                    .frame(width: drawerWidth)
-                    .transition(.move(edge: .trailing).combined(with: .opacity))
+        // A wide window gives the drawer what the list does not use: the list's column is at most 900 pt (+ its
+        // padding), so the drawer takes the rest — never less than its own width (Nat: "give the scene to the right")
+        GeometryReader { geo in
+            HStack(spacing: 0) {
+                if !(full && open != nil) { list }
+                if let sp = open {
+                    if !full { Divider() }
+                    SpaceDrawer(space: sp, accent: HubStyle.accent, close: { closeDrawer() }, full: full,
+                                toggleFull: { withAnimation(.easeOut(duration: 0.15)) { full.toggle() } })
+                        .frame(width: full ? geo.size.width : max(CGFloat(drawerWidth), geo.size.width - Self.listRoom))
+                        .transition(.move(edge: .trailing).combined(with: .opacity))
+                }
             }
         }
         .onDisappear { closeDrawer() }
@@ -423,6 +466,7 @@ struct SessionSpaces: View {
             let dx = CGFloat(drawerWidth) + 1; grown += dx
             DispatchQueue.main.async { Drawer.grow(by: dx) }
             esc = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { e in
+                if e.keyCode == 53, open != nil, full { withAnimation(.easeOut(duration: 0.15)) { full = false }; return nil }   // full screen first
                 if e.keyCode == 53, open != nil { closeDrawer(); return nil }
                 return e
             }
@@ -431,22 +475,98 @@ struct SessionSpaces: View {
     }
     private func closeDrawer() {
         guard open != nil || grown > 0 else { return }
-        withAnimation(.easeOut(duration: 0.18)) { open = nil }
+        withAnimation(.easeOut(duration: 0.18)) { open = nil; full = false }
         if grown > 0 { let dx = grown; grown = 0; DispatchQueue.main.async { Drawer.grow(by: -dx) } }
         if let m = esc { NSEvent.removeMonitor(m); esc = nil }
     }
 
+    /// What the space list needs beside the drawer: its 900 pt column and 28 pt of padding each side.
+    static let listRoom: CGFloat = 900 + 56
+    @State private var full = false   // the drawer fills the page (f); esc comes back to the list, like a browser
     @State private var clientWindow: WezTerm.ClientWindow?
+    @State private var filter = ""
+    @FocusState private var filterFocused: Bool
+    @State private var keys: Any?   // the page's key monitor: Gmail's keys — / or ⌘F filter, j/k move, o open, s show, x pick, esc clears
+    @State private var cursor: String?          // the row j/k is on
+    @State private var marks: Set<String> = []  // rows picked with x
+    @State private var confirmBatch = false
+    @State private var batchAgents: [String: [ClosedAgent]]?
+
+    /// The rows as the page shows them now: filtered, worktrees of a folded group hidden (not while filtering).
+    private func visibleRows() -> [HubSpace] {
+        let all = Self.treeOrder(store.spaces.filter { $0.session == session }.sorted { store.listNumber($0) < store.listNumber($1) })
+        return all.filter { sp in
+            shown(sp, in: all) && (!filter.isEmpty || !(sp.linked && folded.contains(sp.session + ":" + (sp.repo ?? ""))))
+        }
+    }
+
+    private func move(_ step: Int) {
+        let rows = visibleRows(); guard !rows.isEmpty else { return }
+        let i = rows.firstIndex { $0.id == cursor }.map { min(max($0 + step, 0), rows.count - 1) } ?? (step > 0 ? 0 : rows.count - 1)
+        cursor = rows[i].id
+    }
+
+    /// A space shows when the filter is empty, it matches (label, branch, repo), or one of its worktrees matches.
+    private func shown(_ sp: HubSpace, in all: [HubSpace]) -> Bool {
+        let q = filter.trimmingCharacters(in: .whitespaces).lowercased()
+        guard !q.isEmpty else { return true }
+        let hit = { (x: HubSpace) in [x.label, x.branch ?? "", x.repo ?? ""].contains { $0.lowercased().contains(q) } }
+        if hit(sp) { return true }
+        if !sp.linked, let r = sp.repo { return all.contains { $0.linked && $0.repo == r && hit($0) } }
+        return false
+    }
+
+    private func installKeys() {
+        guard keys == nil else { return }
+        keys = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { e in
+            let mods = e.modifierFlags.intersection(.deviceIndependentFlagsMask)
+            let typing = NSApp.keyWindow?.firstResponder is NSTextView   // a field already has the keys
+            if mods == .command, e.charactersIgnoringModifiers == "f" { filterFocused = true; return nil }
+            if typing {   // in the filter: ↓ or ⏎ leaves it for the rows, like Gmail's search
+                if filterFocused, e.keyCode == 125 || e.keyCode == 36 { filterFocused = false; if cursor == nil { move(1) }; return nil }
+                return e
+            }
+            if e.keyCode == 53 {   // esc: the drawer first (its own monitor), then the picks, the filter, the cursor
+                if open != nil { return e }
+                if !marks.isEmpty { marks = []; return nil }
+                if !filter.isEmpty { filter = ""; return nil }
+                if cursor != nil { cursor = nil; return nil }
+                return e
+            }
+            let row = { visibleRows().first { $0.id == cursor } }
+            if e.keyCode == 125 { move(1); return nil }                    // ↓
+            if e.keyCode == 126 { move(-1); return nil }                   // ↑
+            if e.keyCode == 36, mods.isEmpty { if let r = row() { openDrawer(r) }; return nil }   // ⏎
+            guard mods.subtracting([.shift, .capsLock]).isEmpty, let c = e.charactersIgnoringModifiers else { return e }
+            switch c {
+            case "/": filterFocused = true
+            case "j": move(1)
+            case "k": move(-1)
+            case "o": if let r = row() { openDrawer(r) }
+            case "s": if let r = row() { store.showInHerdr(r) }
+            case "f": if open != nil { withAnimation(.easeOut(duration: 0.15)) { full.toggle() } }
+            case "x": if let id = cursor { if marks.contains(id) { marks.remove(id) } else { marks.insert(id) } }
+            case "#": if !marks.isEmpty { batchAgents = nil; confirmBatch = true
+                          Task { var a: [String: [ClosedAgent]] = [:]
+                                 for sp in visibleRows() where marks.contains(sp.id) { a[sp.id] = await store.agents(in: sp) ?? [] }
+                                 batchAgents = a } }
+            default: return e
+            }
+            return nil
+        }
+    }
 
     @ViewBuilder private var list: some View {
         let s = store.sessions.first { $0.name == session }
         let byNumber = store.spaces.filter { $0.session == session }.sorted { store.listNumber($0) < store.listNumber($1) }
-        let spaces = Self.treeOrder(byNumber)
+        let all = Self.treeOrder(byNumber)
+        let spaces = all.filter { shown($0, in: all) }
+        ScrollViewReader { proxy in
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(alignment: .firstTextBaseline, spacing: 10) {
                     Text(session).font(.system(size: 30, weight: .bold, design: .rounded))
-                    Text(s?.running == true ? "running · \(spaces.count) spaces" : "stopped").font(.callout).foregroundStyle(.secondary)
+                    Text(s?.running == true ? "running · \(all.count) spaces" : "stopped").font(.callout).foregroundStyle(.secondary)
                     if s?.running == true, let w = clientWindow {
                         // where its WezTerm window is: Show in herdr switches in place when front, raises it when behind
                         Text(w.label).font(.caption.weight(.semibold))
@@ -486,16 +606,51 @@ struct SessionSpaces: View {
                     .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
                         .strokeBorder(Color.secondary.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [6, 5])))
                 }
+                if s?.running == true, !all.isEmpty {
+                    HStack(spacing: 8) {
+                        Image(systemName: "line.3.horizontal.decrease").foregroundStyle(.secondary)
+                        TextField("Filter spaces — type, or press /   (⌘F)", text: $filter)
+                            .textFieldStyle(.plain).focused($filterFocused)
+                            .onExitCommand { if filter.isEmpty { filterFocused = false } else { filter = "" } }
+                        if !filter.isEmpty {
+                            Text("\(spaces.count) of \(all.count)").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                            Button { filter = "" } label: { Image(systemName: "xmark.circle.fill") }.buttonStyle(.plain).foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(.horizontal, 12).padding(.vertical, 8)
+                    .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.primary.opacity(0.05)))
+                    .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(filterFocused ? HubStyle.accent : Color.primary.opacity(0.08)))
+                }
+                if !marks.isEmpty {
+                    HStack(spacing: 10) {
+                        Text("\(marks.count) picked").font(.callout.weight(.semibold))
+                        Button("Close picked… (#)", role: .destructive) {
+                            batchAgents = nil; confirmBatch = true
+                            Task { var a: [String: [ClosedAgent]] = [:]
+                                   for sp in spaces where marks.contains(sp.id) { a[sp.id] = await store.agents(in: sp) ?? [] }
+                                   batchAgents = a }
+                        }.controlSize(.small).tint(.red)
+                        Button("Clear (esc)") { marks = [] }.controlSize(.small)
+                    }
+                } else if s?.running == true, !all.isEmpty {
+                    Text("j k move · o open · s show in herdr · x pick · # close picked · / filter · esc clear")
+                        .font(.caption).foregroundStyle(.tertiary)
+                }
                 VStack(spacing: 2) {
+                    if spaces.isEmpty, !filter.isEmpty {
+                        Text("No space matches “\(filter)”").foregroundStyle(.secondary).padding(.vertical, 12)
+                    }
                     ForEach(spaces) { sp in
                         let key = sp.session + ":" + (sp.repo ?? "")
                         let kids = sp.linked || sp.repo == nil ? [] : spaces.filter { $0.linked && $0.repo == sp.repo }
-                        if !(sp.linked && folded.contains(key)) {   // a worktree row hides while its main space is folded
+                        if !(sp.linked && folded.contains(key)) || !filter.isEmpty {   // a worktree row hides while its main space is folded (not while filtering)
                             SpaceLine(space: sp, app: sp.repo.map { store.apps[HubParse.appKey(forRepo: $0)] } ?? nil, store: store,
                                       children: kids,
                                       fold: kids.isEmpty ? nil : Binding(get: { folded.contains(key) },
                                                                           set: { if $0 { folded.insert(key) } else { folded.remove(key) } }),
-                                      selected: open?.id == sp.id, onOpen: { openDrawer(sp) })
+                                      selected: open?.id == sp.id, cursor: cursor == sp.id, marked: marks.contains(sp.id),
+                                      onOpen: { cursor = sp.id; openDrawer(sp) })
+                                .id(sp.id)
                         }
                     }
                 }
@@ -505,8 +660,25 @@ struct SessionSpaces: View {
             .frame(maxWidth: 900, alignment: .leading)
             .frame(maxWidth: .infinity)   // centred in what the sidebar and the drawer leave (#57); a narrow window is unchanged
         }
+        .onChange(of: cursor) { _, id in if let id { withAnimation(.easeOut(duration: 0.12)) { proxy.scrollTo(id, anchor: .center) } } }
+        }
         .navigationTitle(session)
-        .onChange(of: session) { _, _ in closeDrawer() }
+        .onChange(of: session) { _, _ in closeDrawer(); filter = ""; cursor = nil; marks = [] }
+        .confirmationDialog("Close \(marks.count) spaces?", isPresented: $confirmBatch, titleVisibility: .visible) {
+            Button("Close \(marks.count) spaces", role: .destructive) {
+                let picked = visibleRows().filter { marks.contains($0.id) }, agents = batchAgents ?? [:]
+                Task {
+                    for sp in picked { if let e = await store.closeSpace(sp, children: [], agents: [sp.id: agents[sp.id] ?? []]) { stopError = e } }
+                    marks = []
+                }
+            }.disabled(batchAgents == nil)
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            let n = (batchAgents ?? [:]).values.reduce(0) { $0 + $1.count }
+            Text(batchAgents == nil ? "Reading the agents in them…" : "\(n) agent\(n == 1 ? "" : "s") in them stop; each comes back resumed if you reopen its space from Recently closed. The rest of \(session) keeps running.")
+        }
+        .onAppear { installKeys() }
+        .onDisappear { if let k = keys { NSEvent.removeMonitor(k); keys = nil } }
         .task(id: session) {
             while !Task.isCancelled {
                 clientWindow = await WezTerm.clientWindow(session: session)
@@ -593,6 +765,8 @@ struct SpaceLine: View {
     var children: [HubSpace] = []        // worktree spaces under this main space: closing it closes them too
     var fold: Binding<Bool>? = nil       // main space with worktrees: hide / show its rows
     var selected = false                 // its panes are in the drawer
+    var cursor = false                   // the keyboard's row (j/k)
+    var marked = false                   // picked with x, for a batch close
     var onOpen: (() -> Void)? = nil      // a click on the row (not on a button): open its panes in the drawer
     @State private var hover = false
     @State private var confirmClose = false
@@ -601,6 +775,7 @@ struct SpaceLine: View {
     var body: some View {
         HStack(spacing: 10) {
             if space.linked { Text("└").font(.callout.monospaced()).foregroundStyle(.tertiary) }
+            if marked { Image(systemName: "checkmark.square.fill").foregroundStyle(HubStyle.accent).font(.system(size: 12)) }
             if let f = fold {   // fold the worktree rows under this main space
                 Button { withAnimation(.snappy) { f.wrappedValue.toggle() } } label: {
                     Image(systemName: f.wrappedValue ? "chevron.right" : "chevron.down")
@@ -657,7 +832,8 @@ struct SpaceLine: View {
         .padding(.vertical, 7).padding(.horizontal, 10)
         .padding(.leading, space.linked ? 14 : 0)
         .background(RoundedRectangle(cornerRadius: 9, style: .continuous)
-            .fill(selected ? HubStyle.accent.opacity(0.16) : hover ? Color.primary.opacity(0.05) : Color.clear))
+            .fill(selected ? HubStyle.accent.opacity(0.16) : marked ? HubStyle.accent.opacity(0.08) : hover ? Color.primary.opacity(0.05) : Color.clear))
+        .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).strokeBorder(cursor ? HubStyle.accent.opacity(0.7) : .clear, lineWidth: 1.5))
         .onHover { h in hover = h; if onOpen != nil { if h { NSCursor.pointingHand.push() } else { NSCursor.pop() } } }
         .help(onOpen == nil ? "" : "Click to see its panes live (esc closes)")
     }
@@ -680,6 +856,8 @@ struct SpaceDrawer: View {
     let space: HubSpace
     let accent: Color
     let close: () -> Void
+    var full = false
+    var toggleFull: (() -> Void)? = nil
     struct Pane: Identifiable, Hashable { let id: String; let agent: String?; let status: String; let cwd: String; let focused: Bool }
     @State private var panes: [Pane] = []
     @State private var pick: String?
@@ -692,7 +870,13 @@ struct SpaceDrawer: View {
                 Text(space.label).font(.callout.weight(.semibold)).foregroundStyle(accent).lineLimit(1)
                 Text(space.session + " · " + space.spaceId).font(.caption.monospaced()).foregroundStyle(.secondary)
                 Spacer(minLength: 6)
-                Text("esc").font(.caption.monospaced()).foregroundStyle(.tertiary)
+                Text(full ? "esc back" : "f full · esc").font(.caption.monospaced()).foregroundStyle(.tertiary)
+                if let toggleFull {
+                    Button(action: toggleFull) {
+                        Image(systemName: full ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right").font(.callout.weight(.semibold))
+                    }
+                    .buttonStyle(.plain).foregroundStyle(.secondary).handCursor().help(full ? "Back to the list (esc)" : "Full screen (f)")
+                }
                 Button(action: close) { Image(systemName: "xmark").font(.callout.weight(.semibold)) }
                     .buttonStyle(.plain).foregroundStyle(.secondary).handCursor().help("Close (esc)")
             }
