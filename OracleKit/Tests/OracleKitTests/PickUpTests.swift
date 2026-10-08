@@ -4,11 +4,30 @@ import XCTest
 /// The Issues page and /herdr-ticket's one-shot mode meet in two places: the words the page puts in the message box,
 /// and the worktree name and lock the skill writes, which must flip the card to "in a worktree".
 final class PickUpTests: XCTestCase {
-    func testCommandsFollowTheWorktree() {
-        XCTAssertEqual(PickUp.commands(issue: 4, inWorktree: false).map(\.text), ["/herdr-ticket 4 --oneshot"])
-        XCTAssertEqual(PickUp.commands(issue: 4, inWorktree: true).map(\.text),
-                       ["/herdr-ticket --continue 4 ", "/herdr-ticket --open 4"])   // the human types the follow-up after the space
-        XCTAssertEqual(PickUp.commands(issue: 4, inWorktree: false).map(\.label), ["Pick up (one-shot)"])
+    func testActionsFollowTheWorktree() {
+        // stateful first, the one-shot is the option; once a worktree names the issue, open its session
+        XCTAssertEqual(PickUp.actions(inWorktree: false).map(\.action), [.agent, .oneshot])
+        XCTAssertEqual(PickUp.actions(inWorktree: false).first?.label, "Pick up")
+        XCTAssertEqual(PickUp.actions(inWorktree: true).map(\.action), [.open])
+    }
+
+    func testArgumentsRunTheTicketScript() {
+        XCTAssertEqual(PickUp.arguments(.agent, issue: 4, repo: "/r/maeon-craft-oracle").dropFirst(),
+                       ["pick", "4", "--repo", "/r/maeon-craft-oracle", "--json"])
+        XCTAssertEqual(PickUp.arguments(.oneshot, issue: 4, repo: "/r/m").dropFirst(), ["pick", "4", "--oneshot", "--repo", "/r/m", "--json"])
+        XCTAssertEqual(PickUp.arguments(.open, issue: 7, repo: "/r/m").dropFirst(), ["open", "7", "--repo", "/r/m", "--json"])
+        XCTAssertTrue(PickUp.arguments(.agent, issue: 4, repo: "/r/m")[0].hasSuffix("/.claude/skills/herdr-ticket/ticket.sh"))
+        XCTAssertEqual(PickUp.command(.oneshot, issue: 4), "ticket.sh pick 4 --oneshot")
+    }
+
+    func testOutcomeReadsTheScriptsJSON() {
+        // the lines ticket.sh printed in the 2026-10-08 runs
+        XCTAssertEqual(PickUp.outcome(status: 0, json: #"{"ok":true,"issue":153,"worktree":"/r/wt/x","pane":"w2X:p1","session":"377275b4","mode":"agent","started":true}"#),
+                       .started(pane: "w2X:p1"))
+        XCTAssertEqual(PickUp.outcome(status: 0, json: #"{"ok":true,"existing":true,"issue":4,"worktree":"/r/wt/x","session":"u","pane":""}"#), .existing)
+        XCTAssertEqual(PickUp.outcome(status: 1, json: #"{"ok":false,"error":"cannot read issue #99999 in o/r","fix":["gh issue view 99999 -R o/r"]}"#),
+                       .failed("cannot read issue #99999 in o/r\ngh issue view 99999 -R o/r"))
+        if case .failed(let why) = PickUp.outcome(status: 2, json: "") { XCTAssertTrue(why.contains("exited 2")) } else { XCTFail("no JSON must fail") }
     }
 
     func testOneShotWorktreeNamesItsIssue() {

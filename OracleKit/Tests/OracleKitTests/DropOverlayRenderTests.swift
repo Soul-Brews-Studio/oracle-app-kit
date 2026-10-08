@@ -62,14 +62,17 @@ final class GHCardRenderTests: XCTestCase {
         let taken = GHItem(number: 7, title: "[Parity] Audit all pages and navigation", author: "nazt", updatedAt: ago, url: nil, isDraft: false)
         let accent = Color(hex: "#f5b041")
         func picks(_ n: Int, _ inWorktree: Bool) -> [GHCard.Pick] {
-            PickUp.commands(issue: n, inWorktree: inWorktree).map { GHCard.Pick(label: $0.label, command: $0.text) {} }
+            PickUp.actions(inWorktree: inWorktree).map { GHCard.Pick(label: $0.label, command: PickUp.command($0.action, issue: n)) {} }
         }
         let v = VStack(alignment: .leading, spacing: 18) {
             Text("Pick up an issue.").font(.custom("Avenir Next", size: 30).weight(.bold)).tracking(-0.5)
             VStack(spacing: 8) {
                 GHCard(item: open, status: ("no worktree yet", accent), detail: "nazt · 2 weeks ago", picks: picks(4, false), hover: true)
+                GHCard(item: open, status: ("starting…", accent), detail: "nazt · 2 weeks ago · after the click", busy: true)
                 GHCard(item: taken, status: ("in a worktree", .green), detail: "nazt · 2 weeks ago · worktree audit-pages",
                        picks: picks(7, true), hover: true)
+                GHCard(item: taken, status: ("couldn't start", .red), detail: "nazt · 2 weeks ago · why is in the tooltip",
+                       failure: "cannot read issue #7\ngh issue view 7 -R o/r")
                 GHCard(item: open, status: ("no worktree yet", accent), detail: "nazt · 2 weeks ago · pointer elsewhere", picks: picks(4, false))
             }
         }

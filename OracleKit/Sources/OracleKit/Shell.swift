@@ -36,6 +36,29 @@ public enum Shell {
         } onCancel: { running.cancel() }
     }
 
+    /// Like run, but answers when the tool fails too: its exit status and stdout (nil only when the tool is missing or
+    /// would not start), for a script that explains its failure on stdout. `env` adds to the environment.
+    public static func capture(_ tool: String, _ args: [String], env extra: [String: String] = [:],
+                               timeout: TimeInterval = 10) async -> (status: Int32, out: String)? {
+        guard let path = which(tool) else { return nil }
+        return await withCheckedContinuation { cont in
+            DispatchQueue.global().async {
+                let p = Process(); let out = Pipe()
+                p.executableURL = URL(fileURLWithPath: path); p.arguments = args
+                var env = ProcessInfo.processInfo.environment
+                env["PATH"] = searchPaths.joined(separator: ":")
+                for (k, v) in extra { env[k] = v }
+                p.environment = env
+                p.standardOutput = out; p.standardError = FileHandle.nullDevice   // an unread stderr pipe can fill and hang it
+                do { try p.run() } catch { cont.resume(returning: nil); return }
+                DispatchQueue.global().asyncAfter(deadline: .now() + timeout) { if p.isRunning { p.terminate() } }
+                let data = out.fileHandleForReading.readDataToEndOfFile()
+                p.waitUntilExit()
+                cont.resume(returning: (p.terminationStatus, String(decoding: data, as: UTF8.self)))
+            }
+        }
+    }
+
     /// The process of one run, so a cancelled task can terminate it.
     private final class Running: @unchecked Sendable {
         private let lock = NSLock()
@@ -52,5 +75,7 @@ public enum Shell {
 public enum Shell {
     public static func which(_ tool: String) -> String? { nil }
     public static func run(_ tool: String, _ args: [String], timeout: TimeInterval = 10) async -> String? { nil }
+    public static func capture(_ tool: String, _ args: [String], env extra: [String: String] = [:],
+                               timeout: TimeInterval = 10) async -> (status: Int32, out: String)? { nil }
 }
 #endif
