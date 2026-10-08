@@ -103,6 +103,7 @@ public struct OracleRootView: View {
                 if wasEmpty, !isEmpty {
                     let dx = drawerWidth + DrawerHandle.width; Drawer.grow(by: dx); drawerGrown += dx
                     escMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { e in   // esc closes the ACTIVE pane
+                        if LiveTerminal.typing { return e }   // …unless you are typing into a pane: then esc is the agent's
                         if e.keyCode == 53, openPane != nil { openPane = nil; return nil }
                         return e
                     }
@@ -1327,6 +1328,7 @@ struct TerminalColumn: View {
     var active = true
     var activate: () -> Void = {}
     let close: () -> Void
+    @AppStorage(LiveTerminal.enabledKey) private var live = true   // ☑ the pane live (when the app links a terminal) · ☐ its text
     var body: some View {
         let act = store.activity.first { $0.place == place }
         let shell = store.spaces.flatMap(\.panes).first { $0.place == place }   // a plain shell pane: no agent record
@@ -1339,6 +1341,10 @@ struct TerminalColumn: View {
                 Text(act?.title ?? shell.map { ($0.agent ?? "shell") + " · " + (($0.cwd as NSString).lastPathComponent) } ?? "")
                     .font(.callout).foregroundStyle(.secondary).lineLimit(1).truncationMode(.tail)
                 Spacer(minLength: 6)
+                if LiveTerminal.make != nil {
+                    Toggle("Live", isOn: $live).toggleStyle(.checkbox).font(.caption).handCursor()
+                        .help("Ticked: the pane itself, live; click it (or Type) to type into it, ⌘⎋ gives it back. Unticked: its text, read every second.")
+                }
                 if let item = store.work.first(where: { $0.panes.contains { $0.place == place } }) {
                     Button("bring here") { store.bringToMain(item); close() }.buttonStyle(.borderless).font(.caption.weight(.medium)).handCursor()
                         .help("Bring this pane's WezTerm window to the main display")
@@ -1350,7 +1356,12 @@ struct TerminalColumn: View {
             .background(active ? store.config.color.opacity(0.12) : Color.clear)
             .contentShape(Rectangle()).onTapGesture(perform: activate)   // click a header: that pane becomes the active one
             Divider()
-            PaneScreen(place: place)
+            if live, let make = LiveTerminal.make {
+                // the pane itself, live (herdr's stream in Ghostty): read-only until you click it, press Type or i
+                make(LiveTerminal.Spec.place(place, typeToControl: true)).id(place)
+            } else {
+                PaneScreen(place: place)
+            }
         }
     }
 }

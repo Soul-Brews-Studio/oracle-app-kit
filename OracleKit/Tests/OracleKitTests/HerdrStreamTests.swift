@@ -137,3 +137,14 @@ final class LiveFitTests: XCTestCase {
         print("LiveFit: \(cases) cases, worst \(worst) pt under the best quarter-point font")
     }
 }
+
+final class LiveSpecTests: XCTestCase {
+    /// An oracle app's drawer names a pane "<session>:<pane>"; a bare pane id is the default session's.
+    func testAPlaceNamesTheSessionAndThePane() {
+        let s = LiveTerminal.Spec.place("laris-co:w27:p1", typeToControl: true)
+        XCTAssertEqual(s.session, "laris-co"); XCTAssertEqual(s.pane, "w27:p1")
+        XCTAssertFalse(s.control); XCTAssertTrue(s.typeToControl)
+        let d = LiveTerminal.Spec.place("w27:p1", typeToControl: false)
+        XCTAssertNil(d.session); XCTAssertEqual(d.pane, "w27:p1")
+    }
+}

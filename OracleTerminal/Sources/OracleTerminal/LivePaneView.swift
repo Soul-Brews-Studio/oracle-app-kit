@@ -35,7 +35,7 @@ final class StreamBox: @unchecked Sendable {
     let state: TerminalViewState
     let session: InMemoryTerminalSession
     private let box: StreamBox
-    private(set) var spec: LiveTerminal.Spec?
+    @Published private(set) var spec: LiveTerminal.Spec?   // the mode in use: an observe-until-you-type pane switches itself
     private var stream: HerdrStream?
     private var generation = 0   // which stream's events count: a stopped one's stragglers do not
     private var takeover = false // one-shot: the next control stream takes the pane from its client
@@ -79,7 +79,12 @@ final class StreamBox: @unchecked Sendable {
             .sink { [weak self] _ in self?.end() }   // a quitting hub gives a controlled pane back its size
             .store(in: &bag)
         state.$isFocused.sink { [weak self] _ in
-            DispatchQueue.main.async { self?.updateTyping() }   // after the published value has landed
+            DispatchQueue.main.async {   // after the published value has landed
+                guard let self else { return }
+                // a click into a pane that observes until you type: that is the request (Nat: "can not typing?")
+                if self.state.isFocused, let s = self.spec, s.typeToControl, !s.control, !self.heldElsewhere { self.wantTyping() }
+                self.updateTyping()
+            }
         }.store(in: &bag)
     }
 
@@ -139,10 +144,25 @@ final class StreamBox: @unchecked Sendable {
         begin(LiveTerminal.Spec(session: spec.session, pane: spec.pane, control: true))
     }
 
-    /// `i` or Type: the pane gets the keyboard as soon as its control stream has drawn (now, if it has).
+    /// `i` or Type: the pane gets the keyboard as soon as its control stream has drawn (now, if it has). A pane that
+    /// observes until you type takes control first, at this view's size.
     func wantTyping() {
+        guard let s = spec else { return }
         wantsTyping = true
-        if spec?.control == true, !heldElsewhere, controlFrames > 0 { takeKeyboard() }
+        if s.typeToControl, !s.control, !heldElsewhere {
+            begin(LiveTerminal.Spec(session: s.session, pane: s.pane, control: true, typeToControl: true)); return
+        }
+        if s.control, !heldElsewhere, controlFrames > 0 { takeKeyboard() }
+    }
+
+    /// ⌘⎋: the keys go back to the page; a pane that observes until you type is given back its own size too.
+    func stopTyping() {
+        wantsTyping = false
+        resignKeyboard()
+        if let s = spec, s.typeToControl, s.control {
+            begin(LiveTerminal.Spec(session: s.session, pane: s.pane, control: false, typeToControl: true))
+        }
+        updateTyping()
     }
 
     func changeFont(by step: Float) {
@@ -388,7 +408,7 @@ struct LivePaneView: View {
         .onChange(of: spec) { _, s in pane.begin(s) }
         .onDisappear { pane.end() }
         .onReceive(NotificationCenter.default.publisher(for: LiveTerminal.focusNotification)) { _ in pane.wantTyping() }
-        .background(StopTypingKey(active: pane.typing) { focused = false; NSApp.keyWindow?.makeFirstResponder(nil) })
+        .background(StopTypingKey(active: pane.typing) { focused = false; pane.stopTyping() })
     }
 
     @ViewBuilder private var footer: some View {
@@ -397,7 +417,7 @@ struct LivePaneView: View {
                 Text(p).font(.caption.monospaced()).foregroundStyle(.orange).textSelection(.enabled)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            if pane.cropped, !spec.control || pane.heldElsewhere {
+            if pane.cropped, pane.spec?.control != true || pane.heldElsewhere {
                 Text("\(spec.pane) is bigger than this drawer even at \(Int(LivePane.minFont)) pt: showing its top-left part. Widen the drawer, or f for full screen.")
                     .font(.caption).foregroundStyle(.orange)
             }
@@ -407,7 +427,10 @@ struct LivePaneView: View {
                 if pane.heldElsewhere {
                     Button("Take over") { pane.takeOver() }.buttonStyle(.borderless).font(.caption.weight(.semibold)).handCursor()
                         .help("herdr --session \(spec.session ?? "default") terminal session control \(spec.pane) --takeover — the other client is closed")
-                } else if spec.control {
+                } else if pane.spec?.control != true, spec.typeToControl {
+                    Button("Type") { pane.wantTyping() }.buttonStyle(.borderless).font(.caption.weight(.semibold)).handCursor()
+                        .help("Click the pane, or Type: it takes this drawer's size and your keys; ⌘⎋ gives it back")
+                } else if pane.spec?.control == true {
                     Button("A−") { pane.changeFont(by: -1) }.buttonStyle(.borderless).font(.caption.weight(.semibold)).handCursor()
                         .help("Smaller text: the pane gets more columns")
                     Button("A+") { pane.changeFont(by: 1) }.buttonStyle(.borderless).font(.caption.weight(.semibold)).handCursor()
@@ -423,14 +446,14 @@ struct LivePaneView: View {
     }
 
     private var summary: String {
-        let mode = spec.control && !pane.heldElsewhere ? "control" : "observe"
+        let mode = pane.spec?.control == true && !pane.heldElsewhere ? "control" : "observe"
         var parts = ["live · \(mode)"]
         if let g = pane.grid { parts.append("\(g.cols)×\(g.rows)") }
         if mode == "observe", let p = pane.paneGrid { parts.append("pane \(p.cols)×\(p.rows)") }
         parts.append(String(format: "%.1f pt", Double(pane.applied)))
         if let t = pane.lastFrame { parts.append("frame \(t.formatted(date: .omitted, time: .standard))") }
         else { parts.append("waiting for the first frame") }
-        if mode == "control" { parts.append("the pane keeps this size until you leave full screen") }
+        if mode == "control" { parts.append(spec.typeToControl ? "the pane keeps this size until ⌘⎋" : "the pane keeps this size until you leave full screen") }
         return parts.joined(separator: " · ")
     }
 }
