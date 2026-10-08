@@ -29,7 +29,7 @@ final class StreamBox: @unchecked Sendable {
     static let background = "0a0a0f", foreground = "dcdcdc"
     static let padX = 8, padY = 6
     static let minFont: Float = 6, maxFont: Float = 20
-    /// The reader's size in control mode (⌘+ / ⌘− in the drawer's footer).
+    /// The reader's size in control mode (A− / A+ in the drawer's footer).
     static let fontKey = "hub.liveFont"
 
     let state: TerminalViewState
@@ -38,7 +38,7 @@ final class StreamBox: @unchecked Sendable {
     private(set) var spec: LiveTerminal.Spec?
     private var stream: HerdrStream?
     private var generation = 0   // which stream's events count: a stopped one's stragglers do not
-    private var takeover = false
+    private var takeover = false // one-shot: the next control stream takes the pane from its client
 
     @Published private(set) var problem: String?        // what went wrong, then the command that helps
     @Published private(set) var heldElsewhere = false    // another client controls the pane: offer a takeover
@@ -46,13 +46,19 @@ final class StreamBox: @unchecked Sendable {
     @Published private(set) var grid: (cols: Int, rows: Int)?       // the surface's grid now
     @Published private(set) var applied: Float = 13
     @Published private(set) var lastFrame: Date?        // the footer's clock: set at most once a second
+    @Published private(set) var typing = false          // control, and the keyboard is the pane's
+    @Published private(set) var cropped = false         // observe: the pane is bigger than the view at the smallest font
     private(set) var frames = 0
-    @Published private(set) var typing = false
 
+    private var wantsTyping = false      // `i` / Type: take the keyboard once the control stream has drawn
+    private var controlFrames = 0        // frames of the running control stream
+    private var fits: Float?             // observe: the largest font measured to hold the pane, at this view size
+    private var tooBig: Float?           // observe: the smallest font measured not to hold it
+    private var pixels: (Int, Int)?      // the surface's size: a new one voids `fits` and `tooBig`
     private var settle: DispatchWorkItem?
     private var poll: Task<Void, Never>?
     private var retry: Task<Void, Never>?
-    private var failures = 0   // streams in a row that ended without a frame
+    private var failures = 0             // streams in a row that ended without a frame
     private var bag: Set<AnyCancellable> = []
 
     init() {
@@ -72,10 +78,8 @@ final class StreamBox: @unchecked Sendable {
         NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)
             .sink { [weak self] _ in self?.end() }   // a quitting hub gives a controlled pane back its size
             .store(in: &bag)
-        state.$isFocused.sink { [weak self] f in
-            guard let self else { return }
-            typing = f && spec?.control == true
-            LiveTerminal.typing = typing
+        state.$isFocused.sink { [weak self] _ in
+            DispatchQueue.main.async { self?.updateTyping() }   // after the published value has landed
         }.store(in: &bag)
     }
 
@@ -98,26 +102,25 @@ final class StreamBox: @unchecked Sendable {
 
     func begin(_ next: LiveTerminal.Spec) {
         let samePane = spec?.pane == next.pane && spec?.session == next.session
+        let wasControl = spec?.control == true
         spec = next
         problem = nil; heldElsewhere = false
-        if !samePane { takeover = false; paneGrid = nil; frames = 0; lastFrame = nil; failures = 0 }
-        typing = state.isFocused && next.control; LiveTerminal.typing = typing
+        if !samePane { takeover = false; paneGrid = nil; frames = 0; lastFrame = nil; failures = 0; fits = nil; tooBig = nil }
+        // a click in the drawer (to select text) is not a request to type: only `i` or Type give the pane the keys
+        if next.control != wasControl, !(next.control && wantsTyping) { resignKeyboard() }
+        if !next.control { wantsTyping = false }
+        updateTyping()
         stopStream()
         poll?.cancel(); poll = nil
+        cropped = false
         if next.control {
+            controlFrames = 0
             let want = Float(UserDefaults.standard.object(forKey: Self.fontKey) as? Double ?? 14)
             setFont(want)
             scheduleSettle()   // control starts once the grid has settled at the reader's font
         } else {
             fit()
-            poll = Task { [weak self] in
-                var first = true
-                while !Task.isCancelled {
-                    await self?.readPaneSize(force: first)
-                    first = false
-                    try? await Task.sleep(for: .seconds(3))
-                }
-            }
+            startPoll()
         }
     }
 
@@ -125,8 +128,9 @@ final class StreamBox: @unchecked Sendable {
         spec = nil
         poll?.cancel(); poll = nil; retry?.cancel(); retry = nil
         settle?.cancel(); settle = nil
+        wantsTyping = false
         stopStream()
-        if LiveTerminal.typing { LiveTerminal.typing = false }
+        updateTyping()
     }
 
     func takeOver() {
@@ -135,11 +139,33 @@ final class StreamBox: @unchecked Sendable {
         begin(LiveTerminal.Spec(session: spec.session, pane: spec.pane, control: true))
     }
 
+    /// `i` or Type: the pane gets the keyboard as soon as its control stream has drawn (now, if it has).
+    func wantTyping() {
+        wantsTyping = true
+        if spec?.control == true, !heldElsewhere, controlFrames > 0 { takeKeyboard() }
+    }
+
     func changeFont(by step: Float) {
-        guard spec?.control == true else { return }
+        guard spec?.control == true, !heldElsewhere else { return }
         let f = min(Self.maxFont + 8, max(Self.minFont, applied + step))
         UserDefaults.standard.set(Double(f), forKey: Self.fontKey)
         setFont(f)
+    }
+
+    private func takeKeyboard() {
+        wantsTyping = false
+        state.requestFocus()
+    }
+
+    private func resignKeyboard() {
+        guard let v = state.attachedPlatformView, let w = v.window, w.firstResponder === v else { return }
+        w.makeFirstResponder(nil)
+    }
+
+    private func updateTyping() {
+        let t = state.isFocused && spec?.control == true && !heldElsewhere
+        if typing != t { typing = t }
+        LiveTerminal.typing = t
     }
 
     // MARK: - Streams
@@ -149,8 +175,10 @@ final class StreamBox: @unchecked Sendable {
         stopStream()
         generation += 1
         let mine = generation
+        let take = mode == .control && takeover
+        if mode == .control { takeover = false; controlFrames = 0 }
         let s = HerdrStream(session: spec.session, pane: spec.pane, mode: mode, cols: cols, rows: rows,
-                            takeover: mode == .control && takeover) { [weak self] e in
+                            takeover: take) { [weak self] e in
             guard let self, mine == self.generation, self.stream != nil else { return }   // a stopped stream's late events
             self.handle(e)
         }
@@ -173,9 +201,16 @@ final class StreamBox: @unchecked Sendable {
             let now = Date()
             if lastFrame.map({ now.timeIntervalSince($0) >= 1 }) ?? true { lastFrame = now }
             if problem != nil, !heldElsewhere { problem = nil }
+            if stream?.mode == .control {
+                controlFrames += 1
+                if wantsTyping { takeKeyboard() }
+            }
         case .closed(let reason):
             if HerdrStreamWire.isHeldElsewhere(reason) || HerdrStreamWire.wasTakenOver(reason) {
                 heldElsewhere = true
+                wantsTyping = false
+                resignKeyboard()
+                updateTyping()
                 problem = HerdrStreamWire.wasTakenOver(reason)
                     ? "another client took \(spec?.pane ?? "the pane") over — reading it instead"
                     : "another client controls \(spec?.pane ?? "the pane") (Heeler, or herdr terminal attach) — reading it instead"
@@ -202,26 +237,44 @@ final class StreamBox: @unchecked Sendable {
         }
     }
 
-    /// Control was refused: read the pane, and keep offering the takeover.
+    /// Control was refused: read the pane at its own size (fitted again), following its size as observe does,
+    /// and keep offering the takeover.
     private func startObserveFallback() {
         guard let spec, spec.control else { return }
         stopStream()
-        Task { [weak self] in await self?.readPaneSize(force: true) }   // refits, then observes
+        fits = nil; tooBig = nil
+        startPoll()
+    }
+
+    private func startPoll() {
+        poll?.cancel()
+        poll = Task { [weak self] in
+            var first = true
+            while !Task.isCancelled {
+                await self?.readPaneSize(force: first)
+                first = false
+                try? await Task.sleep(for: .seconds(3))
+            }
+        }
     }
 
     // MARK: - Sizes
+
+    private var observing: Bool { spec.map { !$0.control || heldElsewhere } ?? false }
 
     private func surfaceResized(_ vp: InMemoryTerminalViewport) {
         let g = (cols: Int(vp.columns), rows: Int(vp.rows))
         guard g.cols > 0, g.rows > 0 else { return }
         let changed = grid.map { $0 != g } ?? true
         grid = g
-        guard let spec else { return }
-        if spec.control && !heldElsewhere {
-            if changed || stream == nil { scheduleSettle() }
-        } else {
+        let px = (Int(vp.widthPixels), Int(vp.heightPixels))
+        if px.0 > 0, pixels.map({ $0 != px }) ?? true { pixels = px; fits = nil; tooBig = nil }   // a new view size
+        guard spec != nil else { return }
+        if observing {
             fit()
             if changed { scheduleRefresh() }
+        } else if changed || stream == nil {
+            scheduleSettle()
         }
     }
 
@@ -230,7 +283,7 @@ final class StreamBox: @unchecked Sendable {
         settle?.cancel()
         let w = DispatchWorkItem { [weak self] in
             MainActor.assumeIsolated {
-                guard let self, let spec = self.spec, spec.control, !self.heldElsewhere || self.takeover, let g = self.grid else { return }
+                guard let self, let spec = self.spec, spec.control, !self.heldElsewhere, let g = self.grid else { return }
                 if let s = self.stream, s.mode == .control { s.resize(cols: g.cols, rows: g.rows) }
                 else { self.start(.control, cols: g.cols, rows: g.rows) }
             }
@@ -244,12 +297,20 @@ final class StreamBox: @unchecked Sendable {
         settle?.cancel()
         let w = DispatchWorkItem { [weak self] in
             MainActor.assumeIsolated {
-                guard let self, let spec = self.spec, !spec.control || self.heldElsewhere, let g = self.paneGrid, self.stream != nil else { return }
-                self.start(.observe, cols: g.cols, rows: g.rows)
+                guard let self, self.observing, self.stream != nil, let size = self.observeSize else { return }
+                self.start(.observe, cols: size.cols, rows: size.rows)
             }
         }
         settle = w
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: w)
+    }
+
+    /// What observe asks herdr for: the pane's own size, or, when the pane does not fit even at the smallest
+    /// font, the top-left part that does (herdr crops; frames wider than the grid would wrap into garbage).
+    private var observeSize: (cols: Int, rows: Int)? {
+        guard let pg = paneGrid else { return nil }
+        guard cropped, let g = grid else { return pg }
+        return (min(pg.cols, g.cols), min(pg.rows, g.rows))
     }
 
     /// Observe: the pane's own size, from herdr's layout. A new size refits the font and restarts the stream.
@@ -262,14 +323,15 @@ final class StreamBox: @unchecked Sendable {
             if paneGrid == nil { problem = "can't read the size of \(spec.pane)\n  herdr \(args.joined(separator: " "))" }
             return
         }
-        guard self.spec == spec else { return }
+        guard self.spec == spec, observing else { return }
         if force || paneGrid.map({ $0 != g }) ?? true {
+            if paneGrid.map({ $0 != g }) ?? true { fits = nil; tooBig = nil }
             paneGrid = g
             if problem?.hasPrefix("can't read the size") == true { problem = nil }
             fit()
-            if !spec.control || heldElsewhere { start(.observe, cols: g.cols, rows: g.rows) }
-        } else if stream == nil, !spec.control {
-            start(.observe, cols: g.cols, rows: g.rows)
+            if let size = observeSize { start(.observe, cols: size.cols, rows: size.rows) }
+        } else if stream == nil, let size = observeSize {
+            start(.observe, cols: size.cols, rows: size.rows)
         }
     }
 
@@ -284,16 +346,14 @@ final class StreamBox: @unchecked Sendable {
         return (w, h)
     }
 
-    /// Observe: the largest font whose grid still holds the pane's (herdr crops a smaller viewer from the top
-    /// left, and an agent's input box is in its bottom rows). A grid scales as 1/font, so the font that fits is
-    /// this one times the room the grid has: no pixel sizes (a window on a 1x display beside a 2x one made
-    /// those wrong: 12.8 pt where 20 fitted), one or two steps, each checked on the grid that comes back.
+    /// Observe: the largest font whose grid holds the pane (`LiveFit`: measured bounds, so it settles).
     private func fit() {
-        guard let spec, !spec.control || heldElsewhere, let pg = paneGrid, let g = grid else { return }
-        let room = min(Double(g.cols) / Double(pg.cols), Double(g.rows) / Double(pg.rows))
-        let f = (Double(applied) * room * 0.99 * 4).rounded(.down) / 4
-        let target = Float(max(Double(Self.minFont), min(Double(Self.maxFont), f)))
-        if abs(target - applied) >= 0.25 { setFont(target) }
+        guard observing, let pg = paneGrid, let g = grid else { return }
+        let step = LiveFit.next(font: applied, grid: g, pane: pg, fits: fits, tooBig: tooBig,
+                                minFont: Self.minFont, maxFont: Self.maxFont)
+        fits = step.fits; tooBig = step.tooBig
+        if cropped != step.cropped { cropped = step.cropped }
+        if step.font != applied { setFont(step.font) }
     }
 
     private func setFont(_ f: Float) {
@@ -324,9 +384,10 @@ struct LivePaneView: View {
             }
             footer
         }
-        .onAppear { pane.begin(spec); LiveTerminal.focus = { focused = true } }
+        .onAppear { pane.begin(spec) }
         .onChange(of: spec) { _, s in pane.begin(s) }
-        .onDisappear { pane.end(); LiveTerminal.focus = nil }
+        .onDisappear { pane.end() }
+        .onReceive(NotificationCenter.default.publisher(for: LiveTerminal.focusNotification)) { _ in pane.wantTyping() }
         .background(StopTypingKey(active: pane.typing) { focused = false; NSApp.keyWindow?.makeFirstResponder(nil) })
     }
 
@@ -336,21 +397,24 @@ struct LivePaneView: View {
                 Text(p).font(.caption.monospaced()).foregroundStyle(.orange).textSelection(.enabled)
                     .fixedSize(horizontal: false, vertical: true)
             }
+            if pane.cropped, !spec.control || pane.heldElsewhere {
+                Text("\(spec.pane) is bigger than this drawer even at \(Int(LivePane.minFont)) pt: showing its top-left part. Widen the drawer, or f for full screen.")
+                    .font(.caption).foregroundStyle(.orange)
+            }
             HStack(spacing: 10) {
                 Text(summary).font(.caption).foregroundStyle(.tertiary).lineLimit(1)
                 Spacer(minLength: 6)
                 if pane.heldElsewhere {
-                    Button("Take over") { pane.takeOver() }.buttonStyle(.borderless).font(.caption.weight(.semibold)).handCursorIfAvailable()
+                    Button("Take over") { pane.takeOver() }.buttonStyle(.borderless).font(.caption.weight(.semibold)).handCursor()
                         .help("herdr --session \(spec.session ?? "default") terminal session control \(spec.pane) --takeover — the other client is closed")
-                }
-                if spec.control {
-                    Button("A−") { pane.changeFont(by: -1) }.buttonStyle(.borderless).font(.caption.weight(.semibold))
+                } else if spec.control {
+                    Button("A−") { pane.changeFont(by: -1) }.buttonStyle(.borderless).font(.caption.weight(.semibold)).handCursor()
                         .help("Smaller text: the pane gets more columns")
-                    Button("A+") { pane.changeFont(by: 1) }.buttonStyle(.borderless).font(.caption.weight(.semibold))
+                    Button("A+") { pane.changeFont(by: 1) }.buttonStyle(.borderless).font(.caption.weight(.semibold)).handCursor()
                         .help("Bigger text: the pane gets fewer columns")
                     if !pane.typing {
-                        Button("Type") { focused = true }.buttonStyle(.borderless).font(.caption.weight(.semibold))
-                            .help("Keys go to the pane (i, or click it); ⌘⎋ gives them back")
+                        Button("Type") { pane.wantTyping() }.buttonStyle(.borderless).font(.caption.weight(.semibold)).handCursor()
+                            .help("Keys go to the pane (i); ⌘⎋ gives them back")
                     }
                 }
             }
@@ -393,12 +457,5 @@ private struct StopTypingKey: NSViewRepresentable {
                 }
             } else if !on, let m = monitor { NSEvent.removeMonitor(m); monitor = nil }
         }
-    }
-}
-
-private extension View {
-    /// The pointing hand, as OracleKit's buttons have it.
-    func handCursorIfAvailable() -> some View {
-        onHover { inside in if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() } }
     }
 }

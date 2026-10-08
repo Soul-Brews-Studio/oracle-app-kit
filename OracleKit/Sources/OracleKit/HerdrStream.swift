@@ -198,6 +198,40 @@ public final class HerdrStream: @unchecked Sendable {
 }
 #endif
 
+/// Observe's font fit, apart from the terminal: the largest font whose grid still holds the pane's (herdr crops a
+/// smaller viewer from the top left, and an agent's input box is in its bottom rows).
+///
+/// A grid scales about as 1/font, so the next font is this one times the room the grid has: no pixel sizes (a
+/// window on a 1x display beside a 2x one made those wrong: 12.8 pt where 20 fitted). Cells are whole pixels, so
+/// that guess can overshoot; every grid that comes back is a measurement, and the font stays between the largest
+/// that held the pane and the smallest that did not, so it settles instead of cycling (8.75 → 8.5 → 8.25 → 8.75 …
+/// without the bounds, in the review's model).
+public enum LiveFit {
+    public struct Step: Equatable, Sendable {
+        public var font: Float
+        public var fits: Float?      // the largest font measured to hold the pane, at this view size
+        public var tooBig: Float?    // the smallest font measured not to
+        public var cropped: Bool     // not even the smallest font holds it
+    }
+
+    public static func next(font: Float, grid: (cols: Int, rows: Int), pane: (cols: Int, rows: Int),
+                            fits: Float?, tooBig: Float?, minFont: Float = 6, maxFont: Float = 20) -> Step {
+        guard pane.cols > 0, pane.rows > 0, grid.cols > 0, grid.rows > 0 else {
+            return Step(font: font, fits: fits, tooBig: tooBig, cropped: false)
+        }
+        let holds = grid.cols >= pane.cols && grid.rows >= pane.rows
+        let fits = holds ? max(fits ?? 0, font) : fits
+        let tooBig = holds ? tooBig : min(tooBig ?? .greatestFiniteMagnitude, font)
+        let room = min(Double(grid.cols) / Double(pane.cols), Double(grid.rows) / Double(pane.rows))
+        var target = min(maxFont, max(minFont, Float((Double(font) * room * 0.99 * 4).rounded(.down) / 4)))
+        if let tb = tooBig, target >= tb { target = tb - 0.25 }   // measured too big: stay under it
+        if let f = fits, target < f { target = f }               // measured to hold the pane: never below it
+        target = max(minFont, target)
+        return Step(font: abs(target - font) >= 0.25 ? target : font, fits: fits, tooBig: tooBig,
+                    cropped: !holds && font <= minFont)
+    }
+}
+
 /// A live terminal for one herdr pane, when the app links one: the hub installs Ghostty's (OracleTerminal), as
 /// Heeler draws herdr panes. Without it a drawer reads the pane's text every second (`PaneScreen`).
 public enum LiveTerminal {
@@ -213,8 +247,9 @@ public enum LiveTerminal {
     #endif
     /// True while a live terminal in control mode has the keyboard: the page's own keys (j/k, esc…) stand aside.
     @MainActor public static var typing = false
-    /// Gives the shown live terminal the keyboard (the hub's `i`).
-    @MainActor public static var focus: (() -> Void)?
+    /// Posted to give the shown live terminal the keyboard (the hub's `i`): it takes it once its control stream
+    /// has drawn, so keys typed in between are not lost to the page's shortcuts.
+    public static let focusNotification = Notification.Name("co.laris.oracle.liveTerminal.focus")
     /// Whether the drawers draw live terminals; off, they read the pane's text every second (with its history).
     public static let enabledKey = "hub.liveTerminal"
 }

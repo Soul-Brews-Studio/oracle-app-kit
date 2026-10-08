@@ -554,7 +554,7 @@ struct SessionSpaces: View {
             case "f": if open != nil { withAnimation(.easeOut(duration: 0.15)) { full.toggle() } }
             case "i": if open != nil {   // type into the pane: full screen first, so the pane is sized to the page
                           if !full { withAnimation(.easeOut(duration: 0.15)) { full = true } }
-                          DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { LiveTerminal.focus?() } }
+                          NotificationCenter.default.post(name: LiveTerminal.focusNotification, object: nil) }
             case "x": if let id = cursor { if marks.contains(id) { marks.remove(id) } else { marks.insert(id) } }
             case "#": if !marks.isEmpty { batchAgents = nil; confirmBatch = true
                           Task { var a: [String: [ClosedAgent]] = [:]

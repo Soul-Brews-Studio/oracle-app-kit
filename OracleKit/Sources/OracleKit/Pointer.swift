@@ -18,7 +18,7 @@ private struct HandCursor: ViewModifier {
     }
 }
 
-extension View { func handCursor() -> some View { modifier(HandCursor()) } }
+extension View { public func handCursor() -> some View { modifier(HandCursor()) } }
 #else
-extension View { func handCursor() -> some View { self } }
+extension View { public func handCursor() -> some View { self } }
 #endif

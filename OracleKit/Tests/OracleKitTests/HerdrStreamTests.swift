@@ -85,3 +85,55 @@ final class HerdrStreamTests: XCTestCase {
     }
     #endif
 }
+
+/// Observe's font fit against a model of Ghostty's grid with whole-pixel cells (the review found the unbounded
+/// version cycling 8.75 → 8.5 → 8.25 → 8.75 for a 110×40 pane in a 620×750 pt drawer at 2x).
+final class LiveFitTests: XCTestCase {
+    /// cells round up to whole pixels; 8 pt / 6 pt of padding each side, as the live pane configures Ghostty
+    private func grid(font f: Float, view: (w: Double, h: Double), scale s: Double) -> (cols: Int, rows: Int) {
+        let cw = (0.6 * Double(f) * s).rounded(.up), ch = (1.32 * Double(f) * s).rounded(.up)
+        return (Int(((view.w - 16) * s / cw).rounded(.down)), Int(((view.h - 12) * s / ch).rounded(.down)))
+    }
+
+    private func settle(pane: (cols: Int, rows: Int), view: (w: Double, h: Double), scale: Double)
+        -> (font: Float, steps: Int, step: LiveFit.Step) {
+        var font: Float = 13, fits: Float?, tooBig: Float?
+        for n in 1...20 {
+            let s = LiveFit.next(font: font, grid: grid(font: font, view: view, scale: scale), pane: pane, fits: fits, tooBig: tooBig)
+            if s.font == font { return (font, n, s) }
+            font = s.font; fits = s.fits; tooBig = s.tooBig
+        }
+        return (font, 99, LiveFit.Step(font: font, fits: fits, tooBig: tooBig, cropped: false))
+    }
+
+    func testTheReviewsCycleSettles() {
+        let r = settle(pane: (110, 40), view: (620, 750), scale: 2)
+        XCTAssertLessThan(r.steps, 12)
+        let g = grid(font: r.font, view: (620, 750), scale: 2)
+        XCTAssertTrue(g.cols >= 110 && g.rows >= 40, "\(r.font) pt gives \(g)")
+    }
+
+    /// Every drawer, pane and display: it settles within a few steps, on a font that holds the pane (or the
+    /// smallest one, cropped), at most 0.75 pt under the best quarter-point font.
+    func testEveryCaseSettlesOnAFontThatHolds() {
+        var worst: Float = 0, cases = 0
+        for scale in [1.0, 2.0] { for view in [(420.0, 500.0), (620, 750), (900, 1000), (1300, 1250)] {
+            for cols in [40, 66, 80, 99, 110, 150, 200] { for rows in [3, 20, 27, 40, 43, 60] {
+                cases += 1
+                let r = settle(pane: (cols, rows), view: view, scale: scale)
+                XCTAssertLessThan(r.steps, 12, "pane \(cols)×\(rows) view \(view) @\(scale)x did not settle")
+                let holds = { (f: Float) -> Bool in let g = self.grid(font: f, view: view, scale: scale); return g.cols >= cols && g.rows >= rows }
+                let best = stride(from: Float(20), through: 6, by: -0.25).first(where: holds)
+                if let best {
+                    XCTAssertTrue(holds(r.font), "pane \(cols)×\(rows) view \(view) @\(scale)x: \(r.font) pt does not hold it")
+                    XCTAssertLessThanOrEqual(best - r.font, 0.75, "pane \(cols)×\(rows) view \(view) @\(scale)x: \(r.font) pt, best \(best)")
+                    worst = max(worst, best - r.font)
+                } else {
+                    XCTAssertEqual(r.font, 6, "pane \(cols)×\(rows) view \(view) @\(scale)x: nothing holds it, so the smallest font")
+                    XCTAssertTrue(r.step.cropped)
+                }
+            } }
+        } }
+        print("LiveFit: \(cases) cases, worst \(worst) pt under the best quarter-point font")
+    }
+}
