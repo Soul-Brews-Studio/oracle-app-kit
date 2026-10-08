@@ -7,12 +7,8 @@ import AppKit
 struct SessionSpaces: View {
     @ObservedObject var store: HubStore
     let session: String
-    @State private var confirmStop = false
-    @State private var stopping = false
     @State private var stopError: String?
-    @State private var resume: (resumes: [String: Int], lost: [String])?
     @State private var closed: [ClosedSpace] = []
-    @State private var starting = false
     @State private var folded: Set<String> = []   // main spaces whose worktree rows are hidden; key = session:repo
     @State private var reopenError: String?
     @State private var open: HubSpace?           // the space whose panes the drawer shows
@@ -186,11 +182,7 @@ struct SessionSpaces: View {
                     }
                     Spacer()
                     if s?.running == true {
-                        Button(stopping ? "Stopping…" : "Stop session", role: .destructive) {
-                            resume = nil; confirmStop = true
-                            Task { resume = await store.resumeCheck(session) }
-                        }
-                            .controlSize(.small).tint(.red).disabled(stopping).handCursor()
+                        SessionControls(store: store, ref: .local(session), running: true, ends: { stopEnds }, error: $stopError)
                             .help("herdr session stop \(session) — ends every pane in it")
                         Button("Open in WezTerm") { store.openSession(session) }.controlSize(.small)
                     }
@@ -203,10 +195,7 @@ struct SessionSpaces: View {
                         Text("This herdr session is not running. Open it in WezTerm, or from any terminal:").foregroundStyle(.secondary)
                         Text("herdr --session \(session)").font(.callout.monospaced()).textSelection(.enabled)
                         HStack(spacing: 8) {
-                            Button(starting ? "Starting…" : "Start in background") {
-                                starting = true; stopError = nil
-                                Task { stopError = await store.startSession(session); starting = false }
-                            }.buttonStyle(.borderedProminent).controlSize(.small).disabled(starting).handCursor()
+                            SessionControls(store: store, ref: .local(session), running: false, startLabel: "Start in background", error: $stopError)
                                 .help("herdr --session \(session) server, detached — no window; agents with a saved session resume")
                             Button("Open in WezTerm") { store.openSession(session) }.controlSize(.small).handCursor()
                         }
@@ -296,15 +285,6 @@ struct SessionSpaces: View {
                 try? await Task.sleep(for: .seconds(2))
             }
         }
-        .confirmationDialog("Stop \(session)?", isPresented: $confirmStop, titleVisibility: .visible) {
-            Button("Stop \(session)", role: .destructive) {
-                stopping = true; stopError = nil
-                Task { stopError = await store.stopSession(session); stopping = false }
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text(stopWarning)
-        }
         .onChange(of: session) { _, _ in stopError = nil; reopenError = nil; loadClosed() }
         .onChange(of: store.lastRefresh) { _, _ in loadClosed() }
         .onAppear { loadClosed() }
@@ -353,18 +333,14 @@ struct SessionSpaces: View {
         .padding(.top, 10)
     }
 
-    /// What stopping ends, counted from the live spaces — busy agents named first.
-    private var stopWarning: String {
+    /// What stopping ends, counted from the live spaces — busy agents named first. SessionControls adds the resume part.
+    private var stopEnds: String {
         let spaces = store.spaces.filter { $0.session == session }
         let agents = spaces.reduce(0) { $0 + $1.agents }, panes = spaces.reduce(0) { $0 + $1.panes }
         let busy = spaces.filter { ["working", "done", "blocked"].contains($0.status) }
             .map { "\($0.label) (\(HubParse.word($0.status)))" }
         var t = "Ends \(spaces.count) spaces, \(panes) panes and \(agents) agents."
         if !busy.isEmpty { t += "\nStill active: " + busy.joined(separator: ", ") + "." }
-        guard let r = resume else { return t + "\nChecking which agents will resume…" }
-        let back = r.resumes.sorted { $0.key < $1.key }.map { "\($0.value) \($0.key)" }.joined(separator: ", ")
-        t += "\nReopen resumes " + (back.isEmpty ? "no agents" : back) + " where they were."
-        if !r.lost.isEmpty { t += "\nNo saved session, back as a plain shell: " + r.lost.joined(separator: ", ") + "." }
         return t
     }
 }

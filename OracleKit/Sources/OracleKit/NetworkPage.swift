@@ -179,9 +179,11 @@ private struct SessionLine: View {
     let running: Bool
     let needsYou: Bool
     let attached: Bool
+    var controls: AnyView? = nil   // Stop / Restart / Start (SessionControls), beside the row, not inside its button
     let action: () -> Void
     @State private var hover = false
     var body: some View {
+        HStack(spacing: 4) {
         Button(action: action) {
             HStack(spacing: 9) {
                 Circle().fill(running ? Color.green : Color.secondary.opacity(0.35)).frame(width: 7, height: 7)
@@ -199,6 +201,8 @@ private struct SessionLine: View {
         }
         .buttonStyle(.plain).handCursor()
         .onHover { hover = $0 }
+            if let controls { controls }
+        }
     }
 }
 
@@ -271,17 +275,16 @@ private struct MachineCard: View {
                 SessionLine(name: r.session, detail: users.count > 1 ? (r.user ?? "") : "",
                             count: st.map { $0.running ? "\($0.agents) agent\($0.agents == 1 ? "" : "s")" : "off" } ?? "…",
                             running: st?.running == true, needsYou: (st?.needsYou ?? 0) > 0,
-                            attached: store.attachedRemotes.contains(r.id)) { store.openRemote(r) }
+                            attached: store.attachedRemotes.contains(r.id),
+                            controls: AnyView(SessionControls(store: store, ref: .remote(r), running: st?.running == true,
+                                                              ends: { "herdr --machine \(r.label ?? r.host) server stop: every pane of \(r.session) ends, \(st?.agents ?? 0) agents included." },
+                                                              compact: true, error: $stopError))) { store.openRemote(r) }
                     .help(r.command)
                     .contextMenu {
                         Button("Open in WezTerm") { store.openRemote(r) }
                         Button("Copy \(r.command)") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(r.command, forType: .string) }
                         if store.attachedRemotes.contains(r.id) {
                             Button("Detach this Mac (\(r.session) keeps running)") { Task { stopError = await store.detachRemote(r) } }
-                        }
-                        if st?.running == true {
-                            Divider()
-                            Button("Stop \(r.session)…", role: .destructive) { ask([r]) }.disabled(stopping)
                         }
                     }
             }
