@@ -1016,6 +1016,9 @@ public final class OracleAppDelegate: NSObject, NSApplicationDelegate {
             // oracle-<name>://issue|inbox|message?url=&title=&text= — the Chrome "Send to oracle" menu (browser/chrome)
             switch u.host {
             case "issue", "inbox", "message": deliverLink(u)
+            case "front":   // the hub's app card: this window on that display (oracle-<name>://front?display=<id>)
+                let id = URLComponents(url: u, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "display" }?.value.flatMap(UInt32.init)
+                Self.bringFront(display: id)
             default:
                 NSApp.activate(ignoringOtherApps: true)
                 NotificationCenter.default.post(name: .oracleOpenSection, object: u.host ?? "open")
@@ -1024,6 +1027,28 @@ public final class OracleAppDelegate: NSObject, NSApplicationDelegate {
         guard !drops.isEmpty else { return }
         if ready { deliver(drops) } else { pending += drops }
     }
+    /// This app's window on the given display (the hub sends the main display's id), centred in its visible frame
+    /// and no bigger than it, then in front. Already there: just in front. An app moves its own window, so this
+    /// needs no Accessibility; macOS puts it in that display's current Space, where Nat is looking.
+    @MainActor static func bringFront(display id: UInt32?) {
+        NSApp.activate(ignoringOtherApps: true)
+        guard let w = NSApp.windows.first(where: { $0.canBecomeMain && $0.isVisible }) ?? NSApp.windows.first(where: { $0.canBecomeMain })
+        else { return }
+        if w.isMiniaturized { w.deminiaturize(nil) }
+        let number = { (s: NSScreen) in (s.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value }
+        if let target = NSScreen.screens.first(where: { number($0) == id }) ?? NSScreen.screens.first,
+           w.screen.flatMap(number) != number(target) {
+            w.setFrame(Self.centred(w.frame.size, in: target.visibleFrame), display: true)
+        }
+        w.makeKeyAndOrderFront(nil)
+    }
+
+    /// A window of this size, centred in a visible frame and shrunk to fit it.
+    static func centred(_ size: NSSize, in v: NSRect) -> NSRect {
+        let w = min(size.width, v.width), h = min(size.height, v.height)
+        return NSRect(x: (v.midX - w / 2).rounded(), y: (v.midY - h / 2).rounded(), width: w, height: h)
+    }
+
     /// Copy ONCE here, then tell every window to refresh (each window copying would duplicate files).
     private func deliver(_ urls: [URL]) {
         let n = OracleStore.copyIntoInbox(urls, config: OracleConfig.current)
