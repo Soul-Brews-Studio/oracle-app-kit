@@ -7,3 +7,5 @@ ANEEmbed/tokenizer-ffi/target/
 ANEEmbed/.build/
 ANEEmbed/.swiftpm/
 .tmp/
+OracleTerminal/.build/
+OracleTerminal/.swiftpm/

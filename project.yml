@@ -16,6 +16,8 @@ packages:
     path: OracleKit
   ANEEmbed:            # the in-process ANE embedder the hub links (copied from the Chippy service)
     path: ANEEmbed
+  OracleTerminal:      # the hub's live terminal: Ghostty (libghostty-spm, Heeler's pin) fed by herdr's stream
+    path: OracleTerminal
 aggregateTargets:
   CalVer:              # runs first in every build: one CalVer for an app AND its extensions (scripts/calver-stamp.sh)
     buildScripts:

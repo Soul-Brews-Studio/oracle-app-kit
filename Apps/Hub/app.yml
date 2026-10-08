@@ -13,6 +13,7 @@ targets:
         product: ANEEmbedCore
       - package: ANEEmbed
         product: MapLayoutUMAP
+      - package: OracleTerminal         # live panes in the space drawer (only the hub links Ghostty)
     preBuildScripts:
       - name: Build the tokenizer + UMAP (Rust)
         basedOnDependencyAnalysis: false

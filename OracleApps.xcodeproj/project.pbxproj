@@ -88,6 +88,7 @@
 		A92220ACB1EEA09648D09C9F /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = D8034BE3BE3303D05E137A02 /* OracleKit */; };
 		AA2DD123CEF605C9E6C787A3 /* NeoWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 5EDFE877D27D8F8E8ECC5030 /* NeoWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		AA516104F3FF540DCB538557 /* ANEEmbedCore in Frameworks */ = {isa = PBXBuildFile; productRef = E21624C123AE7BFF0CA6252F /* ANEEmbedCore */; };
+		B0233F4583F0D53D569DE5DF /* OracleTerminal in Frameworks */ = {isa = PBXBuildFile; productRef = C2E19590487A24ABC285AFA0 /* OracleTerminal */; };
 		B06309C44C8E11A1C90E9075 /* AthenaConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C34FED5257B206064C6E7E7 /* AthenaConfig.swift */; };
 		BD95A60EDF666B29F5538E29 /* ANEEmbedCore in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = BEE0829B4ADE75163F6AD679 /* ANEEmbedCore */; };
 		BFBDC167CC330C830EDC0901 /* AthenaWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EDEF2C3DE3B2B9562C67750 /* AthenaWidget.swift */; };
@@ -341,6 +342,7 @@
 		5E220E57022CA2B7EB0FD203 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		5EDEF2C3DE3B2B9562C67750 /* AthenaWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AthenaWidget.swift; sourceTree = "<group>"; };
 		5EDFE877D27D8F8E8ECC5030 /* NeoWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = NeoWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		81315A196BFF69192EF075E3 /* OracleTerminal */ = {isa = PBXFileReference; lastKnownFileType = folder; name = OracleTerminal; path = OracleTerminal; sourceTree = SOURCE_ROOT; };
 		83F5B866C705325F7C2918CF /* NexusWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = NexusWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		85CC7A862B4A57539A3EC547 /* NeoExtras.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NeoExtras.swift; sourceTree = "<group>"; };
 		907F6BD4CB49E2095191A779 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -421,6 +423,7 @@
 				EDC954BB53A1938A2913FFC4 /* OracleKit in Frameworks */,
 				AA516104F3FF540DCB538557 /* ANEEmbedCore in Frameworks */,
 				CF034138F765942980273B77 /* MapLayoutUMAP in Frameworks */,
+				B0233F4583F0D53D569DE5DF /* OracleTerminal in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -544,6 +547,7 @@
 			children = (
 				AB9292953362D8EFB6FE8DE2 /* ANEEmbed */,
 				E6B04B136F929B594FC6EF73 /* OracleKit */,
+				81315A196BFF69192EF075E3 /* OracleTerminal */,
 			);
 			name = Packages;
 			sourceTree = "<group>";
@@ -877,6 +881,7 @@
 				84774326CBC858F01F5A8C1F /* OracleKit */,
 				E21624C123AE7BFF0CA6252F /* ANEEmbedCore */,
 				F02E3571191A5EED9D261FEC /* MapLayoutUMAP */,
+				C2E19590487A24ABC285AFA0 /* OracleTerminal */,
 			);
 			productName = Oracles;
 			productReference = 3D0E66039AC6C174A076DB9F /* Oracles.app */;
@@ -1131,6 +1136,7 @@
 			packageReferences = (
 				1CB57D1B9DF86679A25DB009 /* XCLocalSwiftPackageReference "ANEEmbed" */,
 				294EE4DEF81BAF52228E424F /* XCLocalSwiftPackageReference "OracleKit" */,
+				CCD0EA4698484DF61AC4CDFB /* XCLocalSwiftPackageReference "OracleTerminal" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 4B3911DA704ADFCF590622F2 /* Products */;
@@ -2886,6 +2892,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = OracleKit;
 		};
+		CCD0EA4698484DF61AC4CDFB /* XCLocalSwiftPackageReference "OracleTerminal" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = OracleTerminal;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -2948,6 +2958,10 @@
 		BF28BFF93E30F2016054C7FC /* OracleKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = OracleKit;
+		};
+		C2E19590487A24ABC285AFA0 /* OracleTerminal */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = OracleTerminal;
 		};
 		D228F516928AAEE2C39582C7 /* OracleKit */ = {
 			isa = XCSwiftPackageProductDependency;

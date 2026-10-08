@@ -1,6 +1,7 @@
 import SwiftUI
 import OracleKit
 import ANEEmbedCore
+import OracleTerminal
 
 /// ARRA Oracles — the landing app: every herdr session, every space, every oracle; a click opens the oracle's app.
 @main
@@ -12,6 +13,7 @@ struct HubApp: App {
         Task { await BundledANE.load(mode: mode) }   // the bundled model loads in the background and installs itself
         ModelLoad.shared.reload = { mode in Task { await BundledANE.load(mode: mode) } }
         MapLayoutEngine.install()   // Map page: UMAP in-process (Apple's Rust crate)
+        OracleTerminal.install()    // the space drawer draws panes live: herdr's stream in Ghostty, as Heeler does
         ModelLoad.shared.retry = { Task { await BundledANE.load(mode: UserDefaults.standard.string(forKey: "hub.engineMode") ?? "ane") } }
         MCPServer.serve(name: "arra-oracles", port: 4790) { GHIndex.shared }   // agents search the fleet's issues, PRs and notes
         QueryListener.shared.start()   // #37: every oracle app's queries fire the fleet map
