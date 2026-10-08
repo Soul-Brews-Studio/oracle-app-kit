@@ -47,9 +47,9 @@ struct PanePeek: View {
     }
 }
 
-/// Rest the pointer on a row and its pane's screen opens beside the pointer (Nat: "can we close to mouse"): anchored a
-/// little below-right of where it stopped, so the popover never lands under the cursor and closes itself. Moving
-/// restarts the wait; leaving the row closes it.
+/// Rest the pointer on a row and its pane's screen opens to the right of the pointer (Nat: "can we close to mouse",
+/// then "the right of the mouse"): anchored just right of where it stopped, so the popover never lands under the cursor
+/// and closes itself. Moving restarts the wait; leaving the row closes it.
 struct PeekOnHover: ViewModifier {
     let title: String
     let workspace: String
@@ -72,8 +72,8 @@ struct PeekOnHover: ViewModifier {
                 }
             }
             .popover(isPresented: $shown,
-                     attachmentAnchor: .rect(.rect(CGRect(x: point.x + 14, y: point.y + 10, width: 1, height: 1))),
-                     arrowEdge: .bottom) { PanePeek(title: title, workspace: workspace, run: run) }
+                     attachmentAnchor: .rect(.rect(CGRect(x: point.x + 16, y: point.y, width: 1, height: 1))),
+                     arrowEdge: .trailing) { PanePeek(title: title, workspace: workspace, run: run) }
     }
 }
 
