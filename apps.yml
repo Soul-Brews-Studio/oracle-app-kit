@@ -3,6 +3,8 @@ include:
     relativePaths: false
   - path: Apps/Hub/app.yml
     relativePaths: false
+  - path: Apps/Maeon/app.yml
+    relativePaths: false
   - path: Apps/MapSpike/app.yml
     relativePaths: false
   - path: Apps/Neo/app.yml

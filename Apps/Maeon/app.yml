@@ -1,0 +1,180 @@
+targets:
+  Maeon:
+    type: application
+    supportedDestinations: [macOS, iOS]
+    sources:
+      - path: Apps/Maeon
+        excludes: ["app.yml", "Info.plist", "Widget/**", "Share/**", "*.entitlements"]
+      - path: Apps/Shared
+    preBuildScripts:
+      - name: Build the tokenizer + UMAP (Rust)
+        basedOnDependencyAnalysis: false
+        script: |
+          [ "$PLATFORM_NAME" = macosx ] || exit 0
+          export PATH="/opt/homebrew/opt/rustup/bin:$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+          if ! command -v cargo >/dev/null; then
+            echo "error: cargo not found: the Memory page's embedder builds its tokenizer with Rust. Install it, then build again:"
+            echo "error:   brew install rustup && /opt/homebrew/opt/rustup/bin/rustup default stable"
+            exit 1
+          fi
+          cd "$SRCROOT/ANEEmbed/tokenizer-ffi" && cargo build --release --locked
+    postBuildScripts:
+      - name: Stamp CalVer
+        basedOnDependencyAnalysis: false
+        inputFiles:                           # after ProcessInfoPlistFile, which would overwrite the stamp
+          - $(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)
+        script: sh "$SRCROOT/scripts/calver-stamp.sh"
+    dependencies:
+      - target: CalVer                  # one CalVer per build for the app and its extensions (project.yml)
+      - package: OracleKit
+      - package: ANEEmbed           # the Memory page's in-process embedder (Mac only)
+        product: ANEEmbedCore
+        destinationFilters: [macOS]
+      - package: ANEEmbed
+        product: MapLayoutUMAP
+        destinationFilters: [macOS]
+      - package: OracleTerminal         # the Work drawer's live terminal: herdr's stream in Ghostty (Mac only)
+        destinationFilters: [macOS]
+      - target: MaeonWidget
+      - target: MaeonShare
+        destinationFilters: [macOS]
+    entitlements:
+      path: Apps/Maeon/Maeon.entitlements
+      properties:          # xcodegen WRITES this file from here — a path alone becomes an empty <dict/>
+        com.apple.security.application-groups: [6K28WEXX78.co.laris.oracle.maeon-craft]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: co.laris.oracle.maeon-craft
+        PRODUCT_NAME: Maeon
+        INFOPLIST_KEY_CFBundleDisplayName: Maeon Oracle
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        TARGETED_DEVICE_FAMILY: "1,2"
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        ENABLE_APP_SANDBOX: NO
+        ENABLE_HARDENED_RUNTIME: NO
+        ENABLE_USER_SCRIPT_SANDBOXING: NO     # the tokenizer is built with cargo
+        "ARCHS[sdk=macosx*]": arm64           # the Neural Engine and the Float16 code exist only on Apple silicon
+        "CODE_SIGN_ENTITLEMENTS[sdk=iphone*]": Apps/Maeon/Maeon-iOS.entitlements    # iOS wants group.<id>, not the team-prefixed macOS form
+    info:
+      path: Apps/Maeon/Info.plist
+      properties:
+        CFBundleName: Maeon
+        CFBundleDisplayName: Maeon Oracle
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen: {}
+        # #46, iPhone/iPad: the pairing code is scanned with the camera; the Mac is reached over the mesh, plain HTTP to its
+        # NetBird address, which WireGuard encrypts (only loopback and 100.64.0.0/10 answer, with a bearer token). ATS lets no
+        # 100.x address through, not even with NSAllowsLocalNetworking (measured: "requires the use of a secure connection"),
+        # and NSAllowsArbitraryLoads is ignored when NSAllowsLocalNetworking is set — so it stands alone
+        NSCameraUsageDescription: Scan the pairing code that the Maeon app on your Mac shows in Settings → Companion.
+        NSLocalNetworkUsageDescription: Reach the Maeon app on your Mac over your private mesh (NetBird).
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+        UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationPortrait, UIInterfaceOrientationPortraitUpsideDown, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+        CFBundleURLTypes:            # widget taps open oracle-<name>://open — the app must own the scheme
+          - CFBundleURLName: co.laris.oracle.maeon-craft
+            CFBundleURLSchemes: [oracle-maeon-craft]
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: Anything for Maeon
+            CFBundleTypeRole: Viewer
+            LSHandlerRank: Alternate
+            LSItemContentTypes: [public.item, public.content, public.folder, public.url, public.data]
+        NSServices:                  # right-click → Services, anywhere: selected text, links, Finder files
+          - NSMenuItem: { default: "New Maeon Oracle issue" }
+            NSMessage: newIssue
+            NSPortName: Maeon
+            NSSendTypes: [public.utf8-plain-text, public.plain-text, public.url, public.file-url]
+            NSSendFileTypes: [public.item]
+            NSRequiredContext: {}       # enabled by default — without it macOS hides the service until switched on
+          - NSMenuItem: { default: "Send to Maeon Oracle inbox" }
+            NSMessage: sendToInbox
+            NSPortName: Maeon
+            NSSendTypes: [public.utf8-plain-text, public.plain-text, public.url, public.file-url]
+            NSSendFileTypes: [public.item]
+            NSRequiredContext: {}
+          - NSMenuItem: { default: "Message Maeon Oracle" }
+            NSMessage: messageOracle
+            NSPortName: Maeon
+            NSSendTypes: [public.utf8-plain-text, public.plain-text, public.url, public.file-url]
+            NSSendFileTypes: [public.item]
+            NSRequiredContext: {}
+  MaeonWidget:
+    type: app-extension
+    supportedDestinations: [macOS, iOS]
+    sources:
+      - path: Apps/Maeon/Widget
+        excludes: ["*.entitlements", "Info.plist"]
+      - path: Apps/Maeon/MaeonConfig.swift
+    postBuildScripts:
+      - name: Stamp CalVer
+        basedOnDependencyAnalysis: false
+        inputFiles:                           # after ProcessInfoPlistFile, which would overwrite the stamp
+          - $(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)
+        script: sh "$SRCROOT/scripts/calver-stamp.sh"
+    dependencies:
+      - target: CalVer
+      - package: OracleKit
+      - sdk: WidgetKit.framework
+      - sdk: SwiftUI.framework
+    entitlements:
+      path: Apps/Maeon/Widget/MaeonWidget.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.application-groups: [6K28WEXX78.co.laris.oracle.maeon-craft]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: co.laris.oracle.maeon-craft.widget
+        PRODUCT_NAME: MaeonWidget
+        "CODE_SIGN_ENTITLEMENTS[sdk=iphone*]": Apps/Maeon/Widget/MaeonWidget-iOS.entitlements
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SKIP_INSTALL: YES
+        ENABLE_APP_SANDBOX: YES
+    info:
+      path: Apps/Maeon/Widget/Info.plist
+      properties:
+        CFBundleDisplayName: Maeon Oracle
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+  MaeonShare:                    # the macOS Share menu entry (Share ▸ Maeon Oracle) — OracleShareViewController
+    type: app-extension
+    supportedDestinations: [macOS]
+    sources:
+      - path: Apps/Maeon/Share
+        excludes: ["*.entitlements", "Info.plist"]
+      - path: Apps/Maeon/MaeonConfig.swift
+    postBuildScripts:
+      - name: Stamp CalVer
+        basedOnDependencyAnalysis: false
+        inputFiles:                           # after ProcessInfoPlistFile, which would overwrite the stamp
+          - $(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)
+        script: sh "$SRCROOT/scripts/calver-stamp.sh"
+    dependencies:
+      - target: CalVer
+      - package: OracleKit
+    entitlements:
+      path: Apps/Maeon/Share/MaeonShare.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: co.laris.oracle.maeon-craft.share
+        PRODUCT_NAME: MaeonShare
+        SKIP_INSTALL: YES
+        ENABLE_APP_SANDBOX: YES
+    info:
+      path: Apps/Maeon/Share/Info.plist
+      properties:
+        CFBundleDisplayName: Maeon Oracle
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
+          NSExtensionAttributes:
+            NSExtensionActivationRule:
+              NSExtensionActivationSupportsWebURLWithMaxCount: 1
+              NSExtensionActivationSupportsText: true
+              NSExtensionActivationSupportsFileWithMaxCount: 1
