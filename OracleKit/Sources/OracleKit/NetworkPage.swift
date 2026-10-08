@@ -251,6 +251,7 @@ private struct MachineCard: View {
     @State private var resume: [String: ResumeCheck]?
     @State private var stopping = false
     @State private var stopError: String?
+    @State private var pendingRemove: RemoteSession?            // the saved machine "Remove" asks about
     var body: some View {
         let targets = Array(Set(sessions.map(\.target))).sorted()
         let users = Array(Set(sessions.compactMap(\.user))).sorted()
@@ -285,15 +286,26 @@ private struct MachineCard: View {
                     }
             }
         }
-        .contextMenu {
-            if !running.isEmpty {
-                Button("Stop all \(running.count) on \(host)…", role: .destructive) { ask(running) }.disabled(stopping)
+        .contextMenu { cardMenu(running) }
+        // the same menu, visible: right-click alone hid Remove (Nat: "we should have ui to remove herdr machine?")
+        .overlay(alignment: .topTrailing) {
+            Menu { cardMenu(running) } label: {
+                Image(systemName: "ellipsis.circle").font(.system(size: 15)).foregroundStyle(.secondary)
             }
-            ForEach(sessions) { r in
-                Button("Remove saved machine \(r.label ?? r.session) (herdr machine remove; \(r.session) keeps running)") {
-                    Task { stopError = await store.removeMachine(r) }
-                }
+            .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().padding(12).handCursor()
+            .help("Stop, Remove saved machine")
+        }
+        .confirmationDialog("Remove the saved machine \(pendingRemove?.label ?? pendingRemove?.session ?? "")?",
+                            isPresented: Binding(get: { pendingRemove != nil }, set: { if !$0 { pendingRemove = nil } }),
+                            titleVisibility: .visible) {
+            Button("Remove", role: .destructive) {
+                if let r = pendingRemove { Task { stopError = await store.removeMachine(r) } }
+                pendingRemove = nil
             }
+            Button("Cancel", role: .cancel) { pendingRemove = nil }
+        } message: {
+            Text("herdr machine remove \(pendingRemove?.profileId ?? ""): herdr forgets it and the hub stops listing it. "
+                 + "\(pendingRemove?.session ?? "The session") keeps running on \(host); save it again with herdr machine add.")
         }
         .confirmationDialog(pendingStop.count == 1 ? "Stop \(pendingStop[0].session) on \(host)?" : "Stop \(pendingStop.count) sessions on \(host)?",
                             isPresented: $confirmStop, titleVisibility: .visible) {
@@ -305,6 +317,16 @@ private struct MachineCard: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text(stopWarning)
+        }
+    }
+
+    @ViewBuilder private func cardMenu(_ running: [RemoteSession]) -> some View {
+        if !running.isEmpty {
+            Button("Stop all \(running.count) on \(host)…", role: .destructive) { ask(running) }.disabled(stopping)
+            Divider()
+        }
+        ForEach(sessions) { r in
+            Button("Remove saved machine \(r.label ?? r.session) (\(r.session))…") { pendingRemove = r }
         }
     }
 
