@@ -70,12 +70,22 @@ public struct RemoteState: Sendable, Equatable {
     public var workspaces: [RemoteWorkspace] = []
     /// read over plain ssh: the machine's herdr predates the `--machine` API bridge (0.9.0)
     public var viaSSH = false
+    /// where each agent runs: its workspace, pane and folder (from `herdr agent list`)
+    public var agentList: [RemoteAgent] = []
 
     public init(running: Bool, agents: Int = 0, working: Int = 0, needsYou: Int = 0, version: String? = nil,
                 problem: String? = nil, checked: Date = Date()) {
         self.running = running; self.agents = agents; self.working = working; self.needsYou = needsYou
         self.version = version; self.problem = problem; self.checked = checked
     }
+}
+
+/// One agent of a remote session, as `herdr agent list` places it.
+public struct RemoteAgent: Sendable, Equatable {
+    public let workspace: String
+    public let pane: String
+    public let cwd: String
+    public let kind: String     // claude, codex, …
 }
 
 /// One workspace of a remote session (`herdr workspace list`).
@@ -134,8 +144,34 @@ public enum RemoteParse {
         }
         let agents = ((o["result"] as? [String: Any])?["agents"] as? [[String: Any]]) ?? []
         let status = agents.map { ($0["agent_status"] as? String) ?? ($0["status"] as? String) ?? "" }
-        return RemoteState(running: true, agents: agents.count, working: status.filter { $0 == "working" }.count,
-                           needsYou: status.filter { $0 == "blocked" || $0 == "done" }.count, version: version, checked: at)
+        var st = RemoteState(running: true, agents: agents.count, working: status.filter { $0 == "working" }.count,
+                             needsYou: status.filter { $0 == "blocked" || $0 == "done" }.count, version: version, checked: at)
+        st.agentList = agents.compactMap { a in
+            guard let pane = a["pane_id"] as? String else { return nil }
+            return RemoteAgent(workspace: a["workspace_id"] as? String ?? "", pane: pane, cwd: a["cwd"] as? String ?? "",
+                               kind: a["agent"] as? String ?? "agent")
+        }
+        return st
+    }
+
+    /// One shell word, single-quoted, for a command line that crosses ssh or `sh -c`.
+    public static func shellQuote(_ s: String) -> String { "'" + s.replacingOccurrences(of: "'", with: "'\\''") + "'" }
+
+    /// A login's running agents as its process table says — "<folder>\t<command line>" per line (Linux /proc).
+    static let launchesCommand = "for p in $(pgrep -u \"$(id -u)\" -x claude; pgrep -u \"$(id -u)\" -x codex); do "
+        + "printf '%s\\t' \"$(readlink /proc/$p/cwd)\"; tr '\\0' ' ' < /proc/$p/cmdline; echo; done"
+
+    /// What `launchesCommand` printed → one launch per folder (the last line wins).
+    public static func launches(_ out: String, at: Date = Date()) -> [AgentLaunch] {
+        var byCwd: [String: AgentLaunch] = [:]
+        for line in out.split(separator: "\n") {
+            let parts = line.split(separator: "\t", maxSplits: 1).map(String.init)
+            guard parts.count == 2, parts[0].hasPrefix("/") else { continue }
+            let command = parts[1].trimmingCharacters(in: .whitespaces)
+            guard !command.isEmpty else { continue }
+            byCwd[parts[0]] = AgentLaunch(cwd: parts[0], command: command, seen: at)
+        }
+        return byCwd.values.sorted { $0.cwd < $1.cwd }
     }
 
     /// One `key: value` line of `herdr status server` ("status: running", "version: 0.9.1").

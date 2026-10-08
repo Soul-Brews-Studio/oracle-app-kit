@@ -74,13 +74,27 @@ struct RemoteSessionPage: View {
                 .controlSize(.small).handCursor()
                 .help("herdr workspace focus \(w.id) on \(remote.label ?? remote.host), then this Mac's window on \(remote.session)")
         }
-        .padding(.horizontal, 10).padding(.vertical, 7)
+        .padding(.horizontal, 10).padding(.top, 7).padding(.bottom, launchLine(w) == nil ? 7 : 2)
+        .overlay(alignment: .bottomLeading) {
+            // how its agent was started: what Start / Restart runs again (Nat: "the important thing is …")
+            if let l = launchLine(w) {
+                Text("starts with  " + l).font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                    .textSelection(.enabled).padding(.leading, 34).offset(y: 12)
+            }
+        }
+        .padding(.bottom, launchLine(w) == nil ? 0 : 14)
         .contentShape(Rectangle())
         // rest on the row: its pane's screen, read from the machine (Nat: "hover show tty? preview")
         .peekOnHover(w.label, workspace: w.id, run: { [r = remote, via = store.remoteState[remote.id]?.viaSSH == true] args in
             let out = await HubStore.remoteHerdr(r, args, viaSSH: via)
             return out?.status == 0 ? out?.out : nil
         })
+    }
+
+    /// The remembered command of the agent in this workspace (matched by its folder), if any.
+    private func launchLine(_ w: RemoteWorkspace) -> String? {
+        let cwds = Set((store.remoteState[remote.id]?.agentList ?? []).filter { $0.workspace == w.id }.map(\.cwd))
+        return store.launches[remote.id]?.first { cwds.contains($0.cwd) }?.command
     }
 
     private func stateLine(_ st: RemoteState?, spaces: Int) -> String {

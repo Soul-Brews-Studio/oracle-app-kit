@@ -45,7 +45,7 @@ extension HubStore {
         for _ in 0..<10 {
             if let s = await Self.remoteHerdr(r, ["status", "server"], viaSSH: remoteState[r.id]?.viaSSH == true, timeout: 15), s.status == 0,
                RemoteParse.statusField("status", in: s.out) == "running" {
-                await refresh(remotes: true); return nil
+                return await relaunch(r)   // then its agents, with the commands they were started with
             }
             try? await Task.sleep(for: .seconds(1))
         }

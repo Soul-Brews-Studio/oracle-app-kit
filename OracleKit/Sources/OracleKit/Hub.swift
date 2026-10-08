@@ -13,6 +13,8 @@ public final class HubStore: ObservableObject {
     /// Remote herdr sessions (HubRemote.swift): remembered by the hub, saved as herdr machines, attached from here now.
     @Published public private(set) var remotes: [RemoteSession] = []
     @Published public private(set) var remoteState: [String: RemoteState] = [:]
+    /// how each remote session's agents were started, so Start / Restart can run them again (Hub.Launches.swift)
+    @Published public internal(set) var launches: [String: [AgentLaunch]] = LaunchMemory.load()
     /// each machine (ssh target) the hub knows: its herdr and every session on it (Nat: "if we have many machines,
     /// group, show machine")
     @Published public private(set) var remoteMachines: [String: RemoteMachineState] = [:]
@@ -117,6 +119,7 @@ public final class HubStore: ObservableObject {
                 remoteMachines[r.target] = m
             }
         }
+        await recordLaunches()   // and how their agents were started, while they run
     }
 
     /// One saved machine: its server's status, then its agents. A problem ends with the command to run.
