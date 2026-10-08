@@ -436,13 +436,17 @@ struct SessionSpaces: View {
     @State private var esc: Any?
     @AppStorage("hub.drawerWidth") private var drawerWidth: Double = 620
     var body: some View {
-        HStack(spacing: 0) {
-            list
-            if let sp = open {
-                Divider()
-                SpaceDrawer(space: sp, accent: HubStyle.accent) { closeDrawer() }
-                    .frame(width: drawerWidth)
-                    .transition(.move(edge: .trailing).combined(with: .opacity))
+        // A wide window gives the drawer what the list does not use: the list's column is at most 900 pt (+ its
+        // padding), so the drawer takes the rest — never less than its own width (Nat: "give the scene to the right")
+        GeometryReader { geo in
+            HStack(spacing: 0) {
+                list
+                if let sp = open {
+                    Divider()
+                    SpaceDrawer(space: sp, accent: HubStyle.accent) { closeDrawer() }
+                        .frame(width: max(CGFloat(drawerWidth), geo.size.width - Self.listRoom))
+                        .transition(.move(edge: .trailing).combined(with: .opacity))
+                }
             }
         }
         .onDisappear { closeDrawer() }
@@ -474,6 +478,8 @@ struct SessionSpaces: View {
         if let m = esc { NSEvent.removeMonitor(m); esc = nil }
     }
 
+    /// What the space list needs beside the drawer: its 900 pt column and 28 pt of padding each side.
+    static let listRoom: CGFloat = 900 + 56
     @State private var clientWindow: WezTerm.ClientWindow?
     @State private var filter = ""
     @FocusState private var filterFocused: Bool
