@@ -157,20 +157,24 @@ public enum RemoteParse {
     /// One shell word, single-quoted, for a command line that crosses ssh or `sh -c`.
     public static func shellQuote(_ s: String) -> String { "'" + s.replacingOccurrences(of: "'", with: "'\\''") + "'" }
 
-    /// A login's running agents as its process table says — "<folder>\t<command line>" per line (Linux /proc).
+    /// A login's running agents as its process table says — "<pid>\t<folder>\t<command line>" per line (Linux /proc).
     static let launchesCommand = "for p in $(pgrep -u \"$(id -u)\" -x claude; pgrep -u \"$(id -u)\" -x codex); do "
-        + "printf '%s\\t' \"$(readlink /proc/$p/cwd)\"; tr '\\0' ' ' < /proc/$p/cmdline; echo; done"
+        + "printf '%s\\t%s\\t' \"$p\" \"$(readlink /proc/$p/cwd)\"; tr '\\0' ' ' < /proc/$p/cmdline; echo; done"
 
-    /// What `launchesCommand` printed → one launch per folder (the last line wins).
+    /// What `launchesCommand` printed → each running agent: its pid, folder and command line.
+    public static func liveAgents(_ out: String) -> [(pid: Int, cwd: String, command: String)] {
+        out.split(separator: "\n").compactMap { line in
+            let parts = line.split(separator: "\t", maxSplits: 2, omittingEmptySubsequences: false).map(String.init)
+            guard parts.count == 3, let pid = Int(parts[0]), parts[1].hasPrefix("/") else { return nil }
+            let command = parts[2].trimmingCharacters(in: .whitespaces)
+            return command.isEmpty ? nil : (pid, parts[1], command)
+        }
+    }
+
+    /// The same, as launches to remember: one per folder (the last line wins).
     public static func launches(_ out: String, at: Date = Date()) -> [AgentLaunch] {
         var byCwd: [String: AgentLaunch] = [:]
-        for line in out.split(separator: "\n") {
-            let parts = line.split(separator: "\t", maxSplits: 1).map(String.init)
-            guard parts.count == 2, parts[0].hasPrefix("/") else { continue }
-            let command = parts[1].trimmingCharacters(in: .whitespaces)
-            guard !command.isEmpty else { continue }
-            byCwd[parts[0]] = AgentLaunch(cwd: parts[0], command: command, seen: at)
-        }
+        for a in liveAgents(out) { byCwd[a.cwd] = AgentLaunch(cwd: a.cwd, command: a.command, seen: at) }
         return byCwd.values.sorted { $0.cwd < $1.cwd }
     }
 

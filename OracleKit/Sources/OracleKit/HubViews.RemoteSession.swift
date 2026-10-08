@@ -67,6 +67,7 @@ struct RemoteSessionPage: View {
             if ["working", "blocked", "done"].contains(w.status) { HubGlyph(status: w.status) }
             else { Circle().strokeBorder(Color.secondary.opacity(0.6)).frame(width: 9, height: 9).frame(width: 14) }
             Text(w.label).font(.custom("Avenir Next", size: 15).weight(.medium)).lineLimit(1)
+            ForEach(store.params(of: remote, workspace: w.id), id: \.self) { ParamChip(param: $0) }
             Spacer(minLength: 8)
             Text("\(w.panes) pane\(w.panes == 1 ? "" : "s") · \(HubParse.word(w.status))")
                 .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
