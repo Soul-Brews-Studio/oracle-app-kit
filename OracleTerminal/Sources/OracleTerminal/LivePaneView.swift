@@ -2,7 +2,11 @@ import AppKit
 import Combine
 import GhosttyTerminal
 import OracleKit
+import os
 import SwiftUI
+
+/// `log show --predicate 'subsystem == "co.laris.oracle.live"'` (the `log` in Nat's zsh is a function: use /usr/bin/log)
+let liveLog = Logger(subsystem: "co.laris.oracle.live", category: "fit")
 
 public enum OracleTerminal {
     /// The hub's drawers draw herdr panes with Ghostty from now on (`LiveTerminal.make`).
@@ -59,6 +63,8 @@ final class StreamBox: @unchecked Sendable {
     private var poll: Task<Void, Never>?
     private var retry: Task<Void, Never>?
     private var failures = 0             // streams in a row that ended without a frame
+    private var gridAt = Date.distantPast  // when the surface last reported a grid
+    private var recheck: DispatchWorkItem?
     private var bag: Set<AnyCancellable> = []
 
     init() {
@@ -287,6 +293,7 @@ final class StreamBox: @unchecked Sendable {
         guard g.cols > 0, g.rows > 0 else { return }
         let changed = grid.map { $0 != g } ?? true
         grid = g
+        gridAt = Date()
         let px = (Int(vp.widthPixels), Int(vp.heightPixels))
         if px.0 > 0, pixels.map({ $0 != px }) ?? true { pixels = px; fits = nil; tooBig = nil }   // a new view size
         guard spec != nil else { return }
@@ -371,6 +378,7 @@ final class StreamBox: @unchecked Sendable {
         guard observing, let pg = paneGrid, let g = grid else { return }
         let step = LiveFit.next(font: applied, grid: g, pane: pg, fits: fits, tooBig: tooBig,
                                 minFont: Self.minFont, maxFont: Self.maxFont)
+        liveLog.notice("fit \(self.spec?.pane ?? "", privacy: .public): \(self.applied, privacy: .public) pt grid \(g.cols, privacy: .public)x\(g.rows, privacy: .public) pane \(pg.cols, privacy: .public)x\(pg.rows, privacy: .public) → \(step.font, privacy: .public) pt")
         fits = step.fits; tooBig = step.tooBig
         if cropped != step.cropped { cropped = step.cropped }
         if step.font != applied { setFont(step.font) }
@@ -379,6 +387,21 @@ final class StreamBox: @unchecked Sendable {
     private func setFont(_ f: Float) {
         applied = f
         state.controller.setTerminalConfiguration(Self.config(font: f))
+        guard observing else { return }
+        // Cells are whole pixels: a smaller font can draw the same cell (16.75–18 pt all give 11 px at 1x), and then no
+        // grid comes back and the fit would stop on a cropped pane (163 columns of 165, measured in Pulse). With the
+        // grid still too small and nothing new after 0.3 s, the same grid is the measurement: step down again.
+        let at = Date()
+        recheck?.cancel()
+        let w = DispatchWorkItem { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self, self.observing, self.gridAt < at, let pg = self.paneGrid, let g = self.grid,
+                      g.cols < pg.cols || g.rows < pg.rows else { return }
+                self.fit()
+            }
+        }
+        recheck = w
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: w)
     }
 }
 
