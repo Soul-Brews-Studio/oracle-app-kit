@@ -105,6 +105,23 @@ public final class OracleStore: ObservableObject {
     }
 
     #if os(macOS)
+    /// One pane in its WezTerm window, active (Nat: "how to open in wezterm and active?"): herdr shows its space and
+    /// tab and focuses the pane (an agent's by id), then WezTerm comes to the front on the main display and STAYS in
+    /// front — unlike bring here, this app does not come back on top. A live drawer lets go of the pane first.
+    public func openInWezTerm(place: String) {
+        NotificationCenter.default.post(name: LiveTerminal.releaseNotification, object: place)
+        guard let space = spaces.first(where: { $0.panes.contains { $0.place == place } }),
+              let tab = space.tabs.first(where: { $0.panes.contains { $0.place == place } }),
+              let pane = tab.panes.first(where: { $0.place == place }) else { return }
+        Task.detached {
+            try? await Task.sleep(for: .milliseconds(300))   // the drawer's release: the pane's own size back first
+            _ = await Shell.run("herdr", ["--session", space.session, "workspace", "focus", space.workspaceId])
+            _ = await Shell.run("herdr", ["--session", space.session, "tab", "focus", tab.tabId])
+            if pane.agent != nil { _ = await Shell.run("herdr", ["--session", space.session, "agent", "focus", pane.paneId]) }
+            await WezTerm.show(session: space.session, label: space.label)
+        }
+    }
+
     /// Bring a worktree's herdr space to Nat: focus it in herdr, then move its WezTerm window to the main
     /// display and focus it (the ARRA Oracles path — WezTerm.show).
     public func bringToMain(_ item: WorkItem) {
