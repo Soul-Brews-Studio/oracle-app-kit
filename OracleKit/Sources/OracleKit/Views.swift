@@ -23,7 +23,10 @@ public struct OracleRootView: View {
     @State private var openPane: String?      // the ACTIVE pane in the drawer (message box + esc go to it)
     @State private var openPanes: [String] = []   // every pane in the drawer, stacked, at most 3 (Nat: "open 2nd and 3rd pane")
     @State private var escMonitor: Any?
-    @AppStorage("oracle.drawerWidth") private var drawerWidth: Double = 560   // dragged wider or narrower, remembered
+    @AppStorage("oracle.drawerWidth") private var drawerWidth: Double = 560   // what opening the drawer adds to the window, when the screen has room
+    /// Work's width while the drawer is open: the drawer takes the rest (Nat, 2026-10-08: "when expand … the middle
+    /// can narrow"). Dragging the drawer's edge moves it; remembered.
+    @AppStorage("oracle.workNarrow") private var workNarrow: Double = 480
     // how much the drawer has grown the window — macOS saves the window frame on quit, so growth must be undone on launch
     @AppStorage("oracle.drawerGrown") private var drawerGrown: Double = 0
     #if os(iOS)
@@ -39,6 +42,11 @@ public struct OracleRootView: View {
 
     private var c: OracleConfig { store.config }
 
+    /// The drawer's width: everything but Work's narrow width and the handle, and never under 360.
+    static func drawerRoom(total: CGFloat, work: Double) -> CGFloat {
+        max(360, total - CGFloat(max(420, work)) - 7)
+    }
+
     private func closePane(_ place: String) {
         if place == openPane { openPane = nil } else { openPanes.removeAll { $0 == place } }
     }
@@ -51,6 +59,7 @@ public struct OracleRootView: View {
             OracleSidebar(store: store, section: $section, menuBar: $menuBar, openPane: $openPane)
                 .navigationSplitViewColumnWidth(min: 240, ideal: 272)
         } detail: {
+            GeometryReader { geo in
             HStack(spacing: 0) {
                 detail
                     .frame(minWidth: 420, maxWidth: .infinity, maxHeight: .infinity)   // Work always fills its column
@@ -58,9 +67,12 @@ public struct OracleRootView: View {
                     .safeAreaInset(edge: .bottom) { HeyComposer(store: store, text: $heyText, focus: openPane) }
                     #endif
                 #if os(macOS)
-                // the 3rd column exists only while a pane is open (Nat: 3 columns all the time was "too nested")
+                // the 3rd column exists only while a pane is open (Nat: 3 columns all the time was "too nested").
+                // Work narrows to `workNarrow` and the drawer takes the rest of the window
                 if !openPanes.isEmpty, section == .status {
-                    DrawerHandle(width: $drawerWidth)
+                    let room = Self.drawerRoom(total: geo.size.width, work: workNarrow)
+                    DrawerHandle(width: Binding(get: { Double(room) },
+                                                set: { workNarrow = max(420, Double(geo.size.width) - $0 - Double(DrawerHandle.width)) }))
                     VStack(spacing: 0) {
                         ForEach(openPanes, id: \.self) { place in
                             TerminalColumn(store: store, place: place, active: place == openPane,
@@ -68,10 +80,11 @@ public struct OracleRootView: View {
                             if place != openPanes.last { Divider() }
                         }
                     }
-                    .frame(width: drawerWidth)
+                    .frame(width: room)
                     .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
                 #endif
+            }
             }
             #if os(macOS)
             // a right DRAWER: the window grows by the drawer's width so Work keeps its size (Nat: "not resize the current")
@@ -103,6 +116,11 @@ public struct OracleRootView: View {
             .onAppear {   // quit with the drawer open: the saved frame still holds the drawer's width — take it back
                 guard drawerGrown > 0 else { return }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { Drawer.grow(by: -drawerGrown, animate: false); drawerGrown = 0 }
+            }
+            .task {   // -oracleOpenPane <session:pane> (tests): that pane's drawer, once the window has settled
+                guard let p = UserDefaults.standard.string(forKey: "oracleOpenPane") else { return }
+                try? await Task.sleep(for: .seconds(2))
+                openPane = p
             }
             #endif
                 .toolbar {
