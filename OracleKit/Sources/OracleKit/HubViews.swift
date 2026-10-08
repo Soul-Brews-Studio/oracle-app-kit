@@ -153,11 +153,12 @@ struct HubSidebar: View {
                 .padding(.horizontal, 26).padding(.top, 18).padding(.bottom, 4)
             ScrollView {
                 VStack(spacing: 2) {
-                    ForEach(store.sessions.sorted { ($0.running ? 0 : 1, $0.name) < ($1.running ? 0 : 1, $1.name) }) { s in
+                    ForEach(store.localSessions.sorted { ($0.running ? 0 : 1, $0.name) < ($1.running ? 0 : 1, $1.name) }) { s in
                         SessionRow(session: s, spaces: store.spaces.filter { $0.session == s.name },
                                    on: pick == .session(s.name), store: store,
                                    onDelete: { deleteError = nil; deletingHolds = HubStore.contents(of: s); deleting = s }) { pick = .session(s.name) }
                     }
+                    RemoteSection(store: store)
                 }
                 .padding(.horizontal, 12)
             }
@@ -250,6 +251,133 @@ struct SessionRow: View {
     }
 }
 
+/// Remote herdr sessions (Nat: "can we list the remote? if not machine, like this?" — `herdr --remote <target>
+/// --session <s>`): what this Mac is attached to now, saved herdr machines, ones the hub remembers or read back from
+/// the traces a remote attach leaves. A click opens it in WezTerm, the way Nat types it.
+struct RemoteSection: View {
+    @ObservedObject var store: HubStore
+    @State private var adding = false
+    @State private var target = ""
+    @State private var session = ""
+    @State private var addError: String?
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack {
+                Text("Remote").font(.custom("Avenir Next", size: 13).weight(.medium)).foregroundStyle(.secondary)
+                Spacer()
+                Button { addError = nil; adding = true } label: { Image(systemName: "plus").font(.system(size: 11, weight: .semibold)) }
+                    .buttonStyle(.plain).foregroundStyle(.secondary).handCursor().help("Add a remote session: herdr --remote <target> --session <name>")
+                    .popover(isPresented: $adding, arrowEdge: .trailing) { form }
+            }
+            .padding(.horizontal, 14).padding(.top, 14).padding(.bottom, 4)
+            if store.remotes.isEmpty, store.unknownTraces.isEmpty {
+                Text("None yet: attach with herdr --remote, or +").font(.system(size: 11)).foregroundStyle(.tertiary).padding(.horizontal, 14)
+            }
+            ForEach(store.remotes) { r in RemoteRow(remote: r, state: store.remoteState[r.id], attached: store.attachedRemotes.contains(r.id), store: store) }
+            ForEach(store.unknownTraces.sorted(by: { $0.key < $1.key }), id: \.key) { name, prefix in
+                Button { session = name; target = ""; addError = nil; adding = true } label: {
+                    HStack(spacing: 10) {
+                        Circle().strokeBorder(Color.secondary.opacity(0.5)).frame(width: 7, height: 7)
+                        Text(name).font(.custom("Avenir Next", size: 14)).lineLimit(1)
+                        Text(prefix + "…").font(.system(size: 11, design: .monospaced)).foregroundStyle(.tertiary).lineLimit(1)
+                        Spacer(minLength: 4)
+                        Text("add").font(.system(size: 12)).foregroundStyle(HubStyle.accent)
+                    }
+                    .foregroundStyle(.secondary).padding(.horizontal, 14).padding(.vertical, 7).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain).handCursor()
+                .help("This Mac attached to a remote session \(name) on a target starting \(prefix)…, which no ssh host here explains. Add its target to list it.")
+            }
+        }
+    }
+
+    private var form: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Add a remote session").font(.headline)
+            Text("As you would type it: herdr --remote <target> --session <name>").font(.caption).foregroundStyle(.secondary)
+            TextField("target — user@host", text: $target).textFieldStyle(.roundedBorder).frame(width: 300)
+            TextField("session — default", text: $session).textFieldStyle(.roundedBorder).frame(width: 300)
+            if let e = addError { Text(e).font(.caption).foregroundStyle(.orange) }
+            HStack {
+                Spacer()
+                Button("Cancel") { adding = false }
+                Button("Add") {
+                    Task {
+                        addError = await store.addRemote(target: target, session: session.isEmpty ? "default" : session)
+                        if addError == nil { adding = false; target = ""; session = "" }
+                    }
+                }.buttonStyle(.borderedProminent).disabled(target.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+        }
+        .padding(16)
+    }
+}
+
+struct RemoteRow: View {
+    let remote: RemoteSession
+    let state: RemoteState?
+    let attached: Bool
+    @ObservedObject var store: HubStore
+    @State private var hover = false
+    var body: some View {
+        Button { store.openRemote(remote) } label: {
+            HStack(spacing: 10) {
+                Circle().fill(dot).frame(width: 7, height: 7)
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(remote.session).font(.custom("Avenir Next", size: 14)).lineLimit(1)
+                    Text(remote.label ?? remote.shortTarget).font(.system(size: 10.5)).foregroundStyle(.tertiary).lineLimit(1)
+                }
+                Spacer(minLength: 4)
+                if attached { Image(systemName: "link").font(.system(size: 10)).foregroundStyle(.secondary).help("This Mac is attached to it now") }
+                if let s = state, s.needsYou > 0 { HubGlyph(status: "done") }
+                Text(count).font(.system(size: 12).monospacedDigit()).foregroundStyle(.secondary)
+            }
+            .foregroundStyle(state?.running == true ? Color.primary.opacity(0.85) : Color.secondary)
+            .padding(.horizontal, 14).padding(.vertical, 6)
+            .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(hover ? Color.primary.opacity(0.06) : Color.clear))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain).handCursor()
+        .onHover { hover = $0 }
+        .help(help)
+        .contextMenu {
+            Button("Open in WezTerm") { store.openRemote(remote) }
+            Button("Copy \(remote.command)") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(remote.command, forType: .string) }
+            if remote.label == nil {
+                Button("Copy the command that saves it as a herdr machine") {
+                    let cmd = "herdr machine add \(remote.target) --remote-session \(remote.session) --label \"\(remote.session) · \(remote.shortTarget)\""
+                    NSPasteboard.general.clearContents(); NSPasteboard.general.setString(cmd, forType: .string)
+                }
+                Divider()
+                Button("Forget", role: .destructive) { store.forgetRemote(remote) }
+            }
+        }
+    }
+
+    private var dot: Color {
+        guard let s = state else { return Color.secondary.opacity(0.35) }
+        if s.problem != nil { return .orange }
+        return s.running ? (s.working > 0 ? .green : Color.green.opacity(0.6)) : Color.secondary.opacity(0.35)
+    }
+
+    private var count: String {
+        guard let s = state else { return "…" }
+        if s.problem != nil { return "?" }
+        return s.running ? "\(s.agents)" : "off"
+    }
+
+    private var help: String {
+        var lines = [remote.command]
+        if let s = state {
+            if let p = s.problem { lines.append(p) }
+            else if s.running { lines.append("\(s.agents) agent\(s.agents == 1 ? "" : "s") · \(s.working) working · \(s.needsYou) need you · herdr \(s.version ?? "?")") }
+            else { lines.append("not running there — Open starts it (herdr --remote starts the remote server)") }
+            lines.append("checked \(s.checked.formatted(date: .omitted, time: .shortened))")
+        }
+        return lines.joined(separator: "\n")
+    }
+}
+
 /// herdr's marks: ◐ working · ✓ needs you (done) · ! blocked · ○ idle · \u{00B7} no agent (drawn small).
 struct HubGlyph: View {
     let status: String
@@ -296,7 +424,8 @@ struct OracleBoard: View {
                     Text(need > 0 ? "\(need) need you" : working > 0 ? "\(working) working" : "all quiet")
                         .font(.system(size: 40, weight: .bold, design: .rounded))
                         .foregroundStyle(need + working > 0 ? HubStyle.accent : Color.secondary)
-                    Text("\(running) of \(store.sessions.count) herdr sessions running · \(store.spaces.count) spaces · \(store.oracles.count) repos")
+                    Text("\(running) of \(store.localSessions.count) herdr sessions running · \(store.spaces.count) spaces · \(store.oracles.count) repos"
+                         + (store.remotes.isEmpty ? "" : " · \(store.remotes.count) remote"))
                         .font(.callout).foregroundStyle(.secondary)
                 }
                 if !withApp.isEmpty {
