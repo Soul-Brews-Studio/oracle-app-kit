@@ -113,16 +113,14 @@ extension CompanionServer {
 
     nonisolated static func work(items: [WorkItem], activity: [OracleSnapshot.Activity], problems: [String], refreshed: Date?,
                                  spaces: [HerdrSpace] = []) -> CompanionAPI.Work {
-        CompanionAPI.Work(items: items.map { workItem($0, shells: shells(of: $0, spaces: spaces)) }, activity: panes(activity),
+        CompanionAPI.Work(items: items.map { workItem($0, shells: shells(of: $0, work: items, spaces: spaces)) }, activity: panes(activity),
                           problems: problems, refreshed: refreshed)
     }
 
     /// The plain shells in a worktree's herdr space, or with their folder in it: the Mac's Work page lists them after its
     /// agents (panesOf). The phone may read their screen; it never types into one — that would run commands on the Mac.
-    nonisolated static func shells(of w: WorkItem, spaces: [HerdrSpace]) -> [CompanionAPI.Pane] {
-        let agents = Set(w.panes.map(\.place))
-        return spaces.filter { $0.checkout == w.path || $0.panes.contains { $0.cwd == w.path || $0.cwd.hasPrefix(w.path + "/") } }
-            .flatMap(\.panes).filter { $0.agent == nil && !agents.contains($0.place) }
+    nonisolated static func shells(of w: WorkItem, work: [WorkItem], spaces: [HerdrSpace]) -> [CompanionAPI.Pane] {
+        WorkParse.shells(of: w, work: work, spaces: spaces)   // the deepest owner, as on the Mac (#88)
             .map { CompanionAPI.Pane(place: $0.place, title: CompanionAPI.shellTitle, status: "idle", since: nil, cwd: $0.cwd) }
     }
 
@@ -140,7 +138,7 @@ extension CompanionServer {
 
     /// A pane the phone may read: an agent pane the Work data lists, or a plain shell the Work page shows.
     nonisolated static func readable(_ place: String, activity: [OracleSnapshot.Activity], work: [WorkItem], spaces: [HerdrSpace]) -> Bool {
-        listed(place, activity: activity, work: work) || work.contains { shells(of: $0, spaces: spaces).contains { $0.place == place } }
+        listed(place, activity: activity, work: work) || work.contains { shells(of: $0, work: work, spaces: spaces).contains { $0.place == place } }
     }
 
     /// An agent pane the Work data lists — in the activity, or one a work item holds. Only these are messaged.
