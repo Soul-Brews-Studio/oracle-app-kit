@@ -122,19 +122,44 @@ public final class HubStore: ObservableObject {
     /// One saved machine: its server's status, then its agents. A problem ends with the command to run.
     nonisolated static func probe(_ r: RemoteSession) async -> RemoteState {
         guard let id = r.profileId else { return RemoteState(running: false) }
-        async let status = Shell.capture("herdr", ["--machine", id, "status", "server"], timeout: 20)
-        async let agents = Shell.run("herdr", ["--machine", id, "agent", "list"], timeout: 20)
-        let (s, a) = await (status, agents)
+        var viaSSH = false
+        var s = await remoteHerdr(r, ["status", "server"], viaSSH: false)
+        if s.map({ $0.out.contains("does not support machine API forwarding") }) == true {
+            viaSSH = true   // herdr's own window still shows it: its viewing connection needs no bridge
+            s = await remoteHerdr(r, ["status", "server"], viaSSH: true)
+        }
         let version = s.flatMap { RemoteParse.statusField("version", in: $0.out) }
         let running = s.map { $0.status == 0 && RemoteParse.statusField("status", in: $0.out) == "running" } ?? false
         guard running else {
             let why = s.map { RemoteParse.statusField("status", in: $0.out) ?? "no answer" } ?? "herdr is missing here"
-            return RemoteState(running: false, version: version,
-                               problem: why == "stopped" ? nil : "\(r.label ?? r.host): \(why) (its herdr may be older than 0.9.1, which --machine needs) — run:  herdr --machine \(r.label ?? id) status server")
+            let ask = viaSSH ? "ssh \(r.target) 'herdr --session \(r.session) status server'" : "herdr --machine \(r.label ?? id) status server"
+            var st = RemoteState(running: false, version: version,
+                                 problem: why == "stopped" ? nil : "\(r.label ?? r.host): \(why) — run:  \(ask)")
+            st.viaSSH = viaSSH
+            return st
         }
-        var st = a.map { RemoteParse.probe($0) } ?? RemoteState(running: true)
-        st.running = true; st.version = version
+        async let agents = remoteHerdr(r, ["agent", "list"], viaSSH: viaSSH)
+        async let spaces = remoteHerdr(r, ["workspace", "list"], viaSSH: viaSSH)
+        let (a, w) = await (agents, spaces)
+        var st = a.map { RemoteParse.probe($0.out) } ?? RemoteState(running: true)
+        st.running = true; st.version = version; st.viaSSH = viaSSH
+        st.workspaces = w.map { RemoteParse.workspaces($0.out) } ?? []
         return st
+    }
+
+    /// `herdr <args>` for a saved machine's session: `herdr --machine <id> <args>` (stderr folded into the answer, so
+    /// "does not support machine API forwarding" can be read), or, for a machine whose herdr predates that bridge,
+    /// `ssh <target> herdr --session <s> <args>`. Only ever called with the hub's own fixed arguments.
+    nonisolated static func remoteHerdr(_ r: RemoteSession, _ args: [String], viaSSH: Bool, timeout: TimeInterval = 20) async -> (status: Int32, out: String)? {
+        if viaSSH {
+            guard r.isSafe else { return nil }
+            let cmd = "export PATH=$HOME/.local/bin:$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH; herdr --session \(r.session) "
+                + args.joined(separator: " ")
+            return await Shell.capture("ssh", ["-o", "BatchMode=yes", "-o", "ConnectTimeout=6", r.target, cmd], timeout: timeout)
+        }
+        guard let id = r.profileId, id.allSatisfy({ $0.isHexDigit }), let herdr = Shell.which("herdr") else { return nil }
+        let q = "'" + herdr.replacingOccurrences(of: "'", with: "'\\''") + "'"
+        return await Shell.capture("sh", ["-c", "\(q) --machine \(id) \(args.joined(separator: " ")) 2>&1"], timeout: timeout)
     }
 
     /// A folder herdr lists as a session but that only a remote client wrote: a client log, no session.json or server log.
