@@ -20,7 +20,9 @@ for a in "$@"; do case $a in
   --relaunch) RELAUNCH=1;; --no-launch) NOLAUNCH=1;; --shots) SHOTS=1;; --deep) DEEP=1;; --ios) IOS=1;;
   *) print -r -- "✗ unknown option $a — usage: check.sh <Name> [--relaunch] [--no-launch] [--shots] [--deep] [--ios]"; exit 2;;
 esac; done
-K=${0:A:h}/../..; K=${K:A}; D=$K/Apps/$N; A="/Applications/$N.app"; LOG="$HOME/Library/Logs/ARRA Oracles/$N.log"
+K=${0:A:h}/../..; K=${K:A}; D=$K/Apps/$N
+AN=$(rg -m1 -o --replace '$1' '^ {8}PRODUCT_NAME: (.+)$' "$D/app.yml" 2>/dev/null || print -r -- "$N")   # "Maeon Oracle" (#90)
+A="/Applications/$AN.app"; LOG="$HOME/Library/Logs/ARRA Oracles/$N.log"
 source $K/scripts/install-lock.sh
 fail=0
 ok()  { print -r -- "✓ $1"; }
@@ -65,7 +67,7 @@ else
   bad "not installed: $A" "zsh $K/scripts/build.sh $N --install"
 fi
 
-running() { pgrep -fl "$N\.app/Contents/MacOS/$N( |\$)" | head -1 }   # launch arguments may follow the binary
+running() { pgrep -fl "$AN\.app/Contents/MacOS/$AN( |\$)" | head -1 }   # launch arguments may follow the binary
 quit_app() { pkill -x "$N"; for i in {1..50}; do pgrep -x "$N" >/dev/null || return 0; sleep 0.2; done }
 launch() { for i in 1 2 3; do open "$A" --args "$@" 2>/dev/null && return 0; sleep 2; done; return 1 }   # -600 while quitting
 # may this run relaunch the app? (it is ours to quit only with --relaunch, and never during another agent's install)
@@ -87,8 +89,8 @@ RUN=$(running)
 if [[ -n $RUN ]] && (( ! OURS )); then
   st=$(ps -o lstart= -p ${RUN%% *} 2>/dev/null); [[ -n $st ]] && touch -t $(date -j -f "%a %b %d %T %Y" "$st" +%Y%m%d%H%M.%S 2>/dev/null) $MARK 2>/dev/null
 fi
-if [[ $RUN == *" /Applications/$N.app/"* ]]; then ok "running      ${RUN%% *} from /Applications"
-elif [[ -n $RUN ]]; then bad "running from elsewhere: ${RUN#* }" "pgrep -fl '$N.app/Contents/MacOS'   # whose copy? ask before quitting it, then: open \"$A\""
+if [[ $RUN == *" $A/"* ]]; then ok "running      ${RUN%% *} from /Applications"
+elif [[ -n $RUN ]]; then bad "running from elsewhere: ${RUN#* }" "pgrep -fl '$AN.app/Contents/MacOS'   # whose copy? ask before quitting it, then: open \"$A\""
 else bad "not running" "open \"$A\"; tail -20 \"$LOG\""; fi
 
 # MCP memory server — this app's own (another app answering on the port is a ✗)
@@ -106,8 +108,8 @@ if [[ $MR == *'"result"'* && $MR != *'"isError":true'* ]]; then ok "MCP search  
 
 # widget — registered from the /Applications copy (a worktree build registers its own)
 wpath() { pluginkit -m -v -i co.laris.oracle.$KEY.widget 2>/dev/null | rg -o '/[^\t]*\.appex' | head -1 }
-WP=$(wpath); [[ $WP == /Applications/$N.app/* ]] || { sleep 5; WP=$(wpath); }
-if [[ $WP == /Applications/$N.app/* ]]; then ok "widget       co.laris.oracle.$KEY.widget from /Applications"
+WP=$(wpath); [[ $WP == $A/* ]] || { sleep 5; WP=$(wpath); }
+if [[ $WP == $A/* ]]; then ok "widget       co.laris.oracle.$KEY.widget from /Applications"
 elif [[ -n $WP ]]; then bad "widget registered from $WP, not /Applications" "pluginkit -r '$WP'; open \"$A\""
 else bad "widget co.laris.oracle.$KEY.widget not registered" "open \"$A\"; sleep 5; pluginkit -m -v -i co.laris.oracle.$KEY.widget"; fi
 

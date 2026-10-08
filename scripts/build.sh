@@ -45,12 +45,26 @@ done
 (( INSTALL && $#built )) || exit $rc
 lock_take "${ORACLE_APP_TEAM:+ORACLE_APP_TEAM=${(q)ORACLE_APP_TEAM} }zsh $R/scripts/build.sh ${(j: :)${(q)@}}" || exit 75
 trap lock_drop EXIT; trap 'lock_drop; exit 130' INT TERM HUP
+# the installed name is the main target's PRODUCT_NAME in Apps/<dir>/app.yml: "Maeon Oracle", "ARRA Oracles" (#90)
+app_name() { local d=$1; [[ $d == Oracles ]] && d=Hub; rg -m1 -o --replace '$1' '^ {8}PRODUCT_NAME: (.+)$' "$R/Apps/$d/app.yml" 2>/dev/null || print -r -- "$1"; }
+live() { pgrep -x "$1" >/dev/null || { [[ $2 != $1 ]] && pgrep -x "$2" >/dev/null } }   # the app, or its pre-#90 name
+LSREG=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
 for s in $built; do
-  app=$s; [[ $s == Oracles ]] && app="ARRA Oracles"
-  was=0; pgrep -x "$app" >/dev/null && was=1; [[ $app == "ARRA Oracles" ]] && was=1
-  pkill -x "$app"; for i in {1..50}; do pgrep -x "$app" >/dev/null || break; sleep 0.2; done
+  app=$(app_name $s)
+  old="/Applications/$s.app"    # before #90 an oracle app's bundle was named after its scheme ("Maeon.app"), same bundle id
+  was=0; live "$app" "$s" && was=1; [[ $app == "ARRA Oracles" ]] && was=1
+  pkill -x "$app"; [[ $s != $app ]] && pkill -x "$s"; for i in {1..50}; do live "$app" "$s" || break; sleep 0.2; done
   if ! rsync -a --delete "$R/build/Build/Products/Release/$app.app/" "/Applications/$app.app/"; then
     print -r -- "✗ $app: copying into /Applications failed — nothing relaunched:  ls -ld '/Applications/$app.app'"; rc=1; continue
+  fi
+  # one copy per bundle id: LaunchServices — and the hub, which finds oracle apps by bundle id — would pick either
+  if [[ $s != $app && -d $old ]]; then
+    id_new=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "/Applications/$app.app/Contents/Info.plist" 2>/dev/null)
+    id_old=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$old/Contents/Info.plist" 2>/dev/null)
+    if [[ -n $id_new && $id_new == $id_old ]]; then
+      $LSREG -u "$old" 2>/dev/null
+      mv "$old" "$HOME/.Trash/$s $(date +%H%M%S).app" && print -r -- "  $old → Trash (now /Applications/$app.app, #90)"
+    fi
   fi
   v=$(/usr/libexec/PlistBuddy -c "Print :ARRACalVer" "/Applications/$app.app/Contents/Info.plist" 2>/dev/null)
   if (( was )); then   # -600 while the old copy is still quitting: retry

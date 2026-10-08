@@ -2502,7 +2502,7 @@
 					"@executable_path/Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = co.laris.oracle.pulse;
-				PRODUCT_NAME = Pulse;
+				PRODUCT_NAME = "Pulse Oracle";
 				SDKROOT = auto;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
 				SUPPORTS_MACCATALYST = NO;
@@ -2579,7 +2579,7 @@
 					"@executable_path/Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = co.laris.oracle.pulse;
-				PRODUCT_NAME = Pulse;
+				PRODUCT_NAME = "Pulse Oracle";
 				SDKROOT = auto;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
 				SUPPORTS_MACCATALYST = NO;
@@ -2702,7 +2702,7 @@
 					"@executable_path/Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = "co.laris.oracle.maeon-craft";
-				PRODUCT_NAME = Maeon;
+				PRODUCT_NAME = "Maeon Oracle";
 				SDKROOT = auto;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
 				SUPPORTS_MACCATALYST = NO;
@@ -2784,7 +2784,7 @@
 					"@executable_path/Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = co.laris.oracle.athena;
-				PRODUCT_NAME = Athena;
+				PRODUCT_NAME = "Athena Oracle";
 				SDKROOT = auto;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
 				SUPPORTS_MACCATALYST = NO;
@@ -2813,7 +2813,7 @@
 					"@executable_path/Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = co.laris.oracle.nexus;
-				PRODUCT_NAME = Nexus;
+				PRODUCT_NAME = "Nexus Oracle";
 				SDKROOT = auto;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
 				SUPPORTS_MACCATALYST = NO;
@@ -2909,7 +2909,7 @@
 					"@executable_path/Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = co.laris.oracle.neo;
-				PRODUCT_NAME = Neo;
+				PRODUCT_NAME = "Neo Oracle";
 				SDKROOT = auto;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
 				SUPPORTS_MACCATALYST = NO;
@@ -2982,7 +2982,7 @@
 					"@executable_path/Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = co.laris.oracle.nexus;
-				PRODUCT_NAME = Nexus;
+				PRODUCT_NAME = "Nexus Oracle";
 				SDKROOT = auto;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
 				SUPPORTS_MACCATALYST = NO;
@@ -3035,7 +3035,7 @@
 					"@executable_path/Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = co.laris.oracle.neo;
-				PRODUCT_NAME = Neo;
+				PRODUCT_NAME = "Neo Oracle";
 				SDKROOT = auto;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
 				SUPPORTS_MACCATALYST = NO;
@@ -3087,7 +3087,7 @@
 					"@executable_path/Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = co.laris.oracle.athena;
-				PRODUCT_NAME = Athena;
+				PRODUCT_NAME = "Athena Oracle";
 				SDKROOT = auto;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
 				SUPPORTS_MACCATALYST = NO;
@@ -3159,7 +3159,7 @@
 					"@executable_path/Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = "co.laris.oracle.maeon-craft";
-				PRODUCT_NAME = Maeon;
+				PRODUCT_NAME = "Maeon Oracle";
 				SDKROOT = auto;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
 				SUPPORTS_MACCATALYST = NO;

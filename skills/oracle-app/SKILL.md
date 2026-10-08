@@ -116,15 +116,15 @@ down to parity; Memory, Map, screenshots and iOS need `--deep`, `--shots`, `--io
 |---|---|---|
 | portal key | bundle id vs the portal's rule (`HubParse.appKey`) | `co.laris.oracle.<key>` == repo minus `-oracle`, lower-cased, `_` `.` → `-` |
 | app wires | `<Name>App.swift` | BundledANE, MapLayoutEngine, OracleTerminal (the Work drawer's live terminal, Mac only), `MCPServer.serve(name: "<name>-memory", port: <port>)`, `CompanionServer.serve(name: "<Name>", mcpPort: <port>)` (#46: the iPhone/iPad app; off until Settings → Companion) |
-| installed | `/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' /Applications/<Name>.app/Contents/Info.plist` | `co.laris.oracle.<key>`, display name `<Name> Oracle` (CFBundleName and the product name stay `<Name>`: logs and the trace file are named from them) |
+| installed | `/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' /Applications/<Name> Oracle.app/Contents/Info.plist` | `co.laris.oracle.<key>`, display name `<Name> Oracle` (CFBundleName and the product name stay `<Name>`: logs and the trace file are named from them) |
 | CalVer | `/usr/libexec/PlistBuddy -c 'Print :ARRACalVer' …/Info.plist` | today, Bangkok time |
 | versions | `CFBundleShortVersionString` + `CFBundleVersion` of the app and each `Contents/PlugIns/*.appex` | the widget and share carry the app's (one stamp per build — the `CalVer` target) |
-| running | `pgrep -fl "<Name>.app/Contents/MacOS/<Name>"` | from `/Applications` |
+| running | `pgrep -fl "<Name> Oracle.app/Contents/MacOS/<Name> Oracle"` | from `/Applications` |
 | no crash | `~/Library/Logs/DiagnosticReports/{<Name>,<Name>Widget,<Name>Share}-*` | none since launch |
 | MCP | `curl -s 127.0.0.1:<port>/health` | `"name":"<name>-memory"`, `"status":"ok"` |
 | MCP search | POST `/mcp` `tools/call memory_search` | a result, not an error |
 | Trace | `~/Library/Logs/ARRA Oracles/<Name>-queries.jsonl` | that exact query recorded as `source: mcp`, with its caller |
-| widget | `pluginkit -m -v -i co.laris.oracle.<key>.widget` | registered from `/Applications/<Name>.app` |
+| widget | `pluginkit -m -v -i co.laris.oracle.<key>.widget` | registered from `/Applications/<Name> Oracle.app` |
 | parity | `scripts/parity.sh` | ✓ for every app |
 | Memory (`--deep`) | `-oracleSection memory -memoryAction batch -memoryQuery <name>` | `memory batch done` / `up to date`, then the search line with ≥1 hit (`ranked N`, `best P%`, both > 0) |
 | Map (`--deep`) | `-oracleSection map -memoryAction layout` | `map layout: N docs in` or `map: N points in`, N > 0 |

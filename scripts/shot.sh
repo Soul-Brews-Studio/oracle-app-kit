@@ -14,6 +14,8 @@ OUT=$APP.png; ASIS=0
 [[ ${1:-} != "" && ${1:-} != -- && ${1:-} != --as-is ]] && { OUT=$1; shift; }
 [[ ${1:-} == --as-is ]] && { ASIS=1; shift; }
 [[ ${1:-} == -- ]] && shift
+# `shot.sh Maeon` still works after #90 renamed the bundle to "Maeon Oracle.app"
+[[ -d "/Applications/$APP.app" || ! -d "/Applications/$APP Oracle.app" ]] || APP="$APP Oracle"
 # a locked screen cannot be captured (screencapture: "could not create image from window") — say so, not "permission"
 LOCKED=$(swift -e 'import CoreGraphics; let d = CGSessionCopyCurrentDictionary() as? [String: Any] ?? [:]; print((d["CGSSessionScreenIsLocked"] as? Int) ?? 0)' 2>/dev/null)
 [[ $LOCKED == 1 ]] && { print -r -- "✗ the screen is locked — a window cannot be captured; unlock it, then:  zsh $0 ${(@q)ARGV_ALL}"; exit 3; }
