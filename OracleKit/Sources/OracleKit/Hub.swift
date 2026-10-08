@@ -155,6 +155,17 @@ public enum HubParse {
 @MainActor
 public final class HubStore: ObservableObject {
     @Published public private(set) var sessions: [HubSession] = []
+    /// Remote herdr sessions (HubRemote.swift): remembered by the hub, saved as herdr machines, attached from here now.
+    @Published public private(set) var remotes: [RemoteSession] = []
+    @Published public private(set) var remoteState: [String: RemoteState] = [:]
+    /// remotes with a `herdr --remote` client running on this Mac now
+    @Published public private(set) var attachedRemotes: Set<String> = []
+    /// local session folders that are only a remote client's trace → the remote that left it
+    @Published public private(set) var remoteTraces: [String: RemoteSession] = [:]
+    /// …and the traces no known target explains: session name → the target's first 8 characters, as herdr kept them
+    @Published public private(set) var unknownTraces: [String: String] = [:]
+    private var lastRemoteProbe = Date.distantPast
+    private var probing = false
     @Published public private(set) var spaces: [HubSpace] = []
     @Published public private(set) var oracles: [HubOracle] = []
     @Published public private(set) var apps: [String: URL] = [:]
@@ -197,8 +208,112 @@ public final class HubStore: ObservableObject {
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
         problems = issues
         lastRefresh = Date()
+        await refreshRemotes()
         #endif
     }
+
+    /// The local sessions, without the folders that are only a remote client's trace.
+    public var localSessions: [HubSession] { sessions.filter { remoteTraces[$0.name] == nil && unknownTraces[$0.name] == nil } }
+
+    #if os(macOS)
+    /// Remote sessions: attached from here now (the process table carries `herdr --remote <target> --session <s>`),
+    /// saved as herdr machines, remembered, and read back from the traces a remote attach leaves in
+    /// ~/.config/herdr/sessions (`RemoteParse.socketHash`). Probed over ssh in the background, at most every 45 s.
+    func refreshRemotes() async {
+        async let ps = Shell.run("ps", ["-axo", "args="])
+        async let machineList = Shell.run("herdr", ["machine", "list", "--json"])
+        let (psOut, machineOut) = await (ps, machineList)
+        let live = Set((psOut ?? "").split(separator: "\n").compactMap { RemoteParse.remote(of: String($0)) })
+        let machines = machineOut.map { RemoteParse.machines(Data($0.utf8)) } ?? []
+        var remembered = RemoteRegistry.load()
+        var changed = false
+        for r in live where !remembered.contains(where: { $0.id == r.id }) { remembered.append(r); changed = true }
+        let traces: [(name: String, trace: (prefix: String, hash: String))] = sessions.compactMap { s in
+            guard !s.running, !s.isDefault, let dir = s.dir, Self.isRemoteTrace(dir: dir),
+                  let log = Self.tail(dir + "/herdr-client.log"), let t = RemoteParse.trace(clientLog: log) else { return nil }
+            return (s.name, t)
+        }
+        var matched: [String: RemoteSession] = [:]
+        let sshConfig = traces.isEmpty ? "" : ((try? String(contentsOfFile: NSHomeDirectory() + "/.ssh/config", encoding: .utf8)) ?? "")
+        for _ in 0..<3 {   // a trace found teaches its domain, which can explain the next one
+            var learned = false
+            for (name, t) in traces where matched[name] == nil {
+                let known = remembered + machines
+                if let r = known.first(where: { $0.session == name && RemoteParse.left(t, $0) }) { matched[name] = r; continue }
+                let found = RemoteParse.candidates(sshConfig: sshConfig, knownTargets: known.map(\.target))
+                    .lazy.map { RemoteSession(target: $0, session: name) }.first { RemoteParse.left(t, $0) }
+                if let r = found { matched[name] = r; remembered.append(r); changed = true; learned = true }
+            }
+            if !learned { break }
+        }
+        if changed { RemoteRegistry.save(remembered) }
+        var all = machines
+        for r in remembered where !all.contains(where: { $0.id == r.id }) { all.append(r) }
+        remotes = all.sorted { ($0.session, $0.target) < ($1.session, $1.target) }
+        attachedRemotes = Set(live.map(\.id))
+        remoteTraces = matched
+        unknownTraces = Dictionary(uniqueKeysWithValues: traces.filter { matched[$0.name] == nil }.map { ($0.name, $0.trace.prefix) })
+        if Date().timeIntervalSince(lastRemoteProbe) > 45 { lastRemoteProbe = Date(); Task { await probeRemotes() } }
+    }
+
+    /// `ssh -o BatchMode=yes <target> herdr --session <s> agent list` for every remote, all at once.
+    public func probeRemotes() async {
+        guard !probing else { return }
+        probing = true; defer { probing = false }
+        await withTaskGroup(of: (String, RemoteState).self) { g in
+            for r in remotes where r.isSafe {
+                g.addTask {
+                    let out = await Shell.run("ssh", ["-o", "BatchMode=yes", "-o", "ConnectTimeout=6", r.target,
+                                                      RemoteParse.probeCommand(session: r.session)], timeout: 20)
+                    guard let out else {
+                        return (r.id, RemoteState(running: false, problem: "ssh \(r.target) did not answer without a prompt — try it in a terminal:\n  ssh \(r.target)"))
+                    }
+                    return (r.id, RemoteParse.probe(out))
+                }
+            }
+            for await (id, state) in g { remoteState[id] = state }
+        }
+    }
+
+    /// A folder herdr lists as a session but that only a remote client wrote: a client log, no session.json or server log.
+    nonisolated static func isRemoteTrace(dir: String) -> Bool {
+        let fm = FileManager.default
+        return fm.fileExists(atPath: dir + "/herdr-client.log") && !fm.fileExists(atPath: dir + "/session.json")
+            && !fm.fileExists(atPath: dir + "/herdr-server.log")
+    }
+
+    nonisolated static func tail(_ path: String, bytes: Int = 65_536) -> String? {
+        guard let h = FileHandle(forReadingAtPath: path) else { return nil }
+        defer { try? h.close() }
+        let size = (try? h.seekToEnd()) ?? 0
+        try? h.seek(toOffset: size > UInt64(bytes) ? size - UInt64(bytes) : 0)
+        return (try? h.readToEnd()).map { String(decoding: $0, as: UTF8.self) }
+    }
+
+    /// Its WezTerm window when this Mac is attached; otherwise a new one running `herdr --remote <target> --session <s>`.
+    public func openRemote(_ r: RemoteSession) {
+        guard r.isSafe else { return }
+        Task.detached { await WezTerm.show(remote: r) }
+    }
+
+    /// Remember a remote by hand (Add remote…); nil when added, else why not.
+    public func addRemote(target: String, session: String) async -> String? {
+        let r = RemoteSession(target: target.trimmingCharacters(in: .whitespaces), session: session.trimmingCharacters(in: .whitespaces))
+        guard r.isSafe else { return "a target is user@host (letters, digits, . _ - @ :), a session a plain name" }
+        var list = RemoteRegistry.load()
+        if !list.contains(where: { $0.id == r.id }) { list.append(r); RemoteRegistry.save(list) }
+        lastRemoteProbe = .distantPast
+        await refreshRemotes()
+        return nil
+    }
+
+    /// Forget one the hub remembered (a saved herdr machine stays: `herdr machine remove <id>`).
+    public func forgetRemote(_ r: RemoteSession) {
+        RemoteRegistry.save(RemoteRegistry.load().filter { $0.id != r.id })
+        remotes.removeAll { $0.id == r.id && $0.label == nil }
+        remoteState[r.id] = nil
+    }
+    #endif
 
     /// Oracles that have an app, in name order — shown first, live or not.
     public var appOracles: [HubOracle] {
@@ -542,17 +657,43 @@ public enum WezTerm {
 
     /// WezTerm panes whose terminal runs a local herdr client attached to `session`, with their window's title.
     public static func panes(running session: String) async -> [(pane: Int, windowTitle: String)] {
+        await panes { herdrSession(of: $0) == session }
+    }
+
+    /// WezTerm panes running a process whose command line passes `match`.
+    static func panes(where match: (String) -> Bool) async -> [(pane: Int, windowTitle: String)] {
         guard let json = await Shell.run("wezterm", ["cli", "list", "--format", "json"]),
               let list = try? JSONSerialization.jsonObject(with: Data(json.utf8)) as? [[String: Any]] else { return [] }
         var out: [(pane: Int, windowTitle: String)] = []
         for p in list {
             guard let id = p["pane_id"] as? Int, let tty = (p["tty_name"] as? String)?.replacingOccurrences(of: "/dev/", with: "") else { continue }
             let ps = await Shell.run("ps", ["-o", "args=", "-t", tty]) ?? ""
-            if ps.split(separator: "\n").contains(where: { herdrSession(of: String($0)) == session }) {
+            if ps.split(separator: "\n").contains(where: { match(String($0)) }) {
                 out.append((id, p["window_title"] as? String ?? ""))
             }
         }
         return out
+    }
+
+    /// A remote session to Nat: the WezTerm window already attached to it, or a new one running
+    /// `herdr --remote <target> --session <s>`; moved to the main display and focused, as `show(session:)` does.
+    public static func show(remote r: RemoteSession) async {
+        let yabai = Shell.which("yabai") != nil
+        var window: Int?
+        let clients = await panes { RemoteParse.remote(of: $0)?.id == r.id }
+        if let c = clients.first {
+            if yabai { window = await yabaiWindow(titled: { $0 == c.windowTitle }) }
+            if window == nil { _ = await Shell.run("wezterm", ["cli", "activate-pane", "--pane-id", String(c.pane)]) }
+        } else {
+            let before = Set(await weztermWindows())
+            _ = await Shell.run("wezterm", ["cli", "spawn", "--new-window", "--", Shell.which("herdr") ?? "herdr"] + r.arguments)
+            for _ in 0..<12 where yabai && window == nil {
+                try? await Task.sleep(nanoseconds: 200_000_000)
+                window = await weztermWindows().first { !before.contains($0) }
+            }
+        }
+        if let window { await bringToMain(window) }
+        else { await MainActor.run { _ = NSRunningApplication.runningApplications(withBundleIdentifier: bundleId).first?.activate() } }
     }
 
     /// "herdr --session ccdc" → "ccdc", a bare "herdr" → "default"; remote clients and one-shot CLI calls → nil.
