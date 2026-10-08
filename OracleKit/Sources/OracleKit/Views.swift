@@ -1319,6 +1319,9 @@ struct PaneScreen: View {
     @State private var text = ""
     @State private var read: Date?
     @State private var failed = false
+    /// The largest drawer font: an agent writes its rows at its pane's width (~110 columns here), so a wide drawer
+    /// is filled by a bigger font rather than by longer rows, which the pane never has.
+    static let maxFont: CGFloat = 20
     @AppStorage("oracle.drawerFit") private var fit = true   // ☑ fit the drawer · ☐ bigger font, scroll (Nat's choice)
     var body: some View {
         VStack(spacing: 0) {
@@ -1330,7 +1333,7 @@ struct PaneScreen: View {
                 // fit the height are shown — widen or heighten the drawer to see more
                 let all = shown.split(separator: "\n", omittingEmptySubsequences: false)
                 let recent = all.suffix(160).joined(separator: "\n")
-                let size = min(13, max(7, (geo.size.width - 26) / (CGFloat(max(TerminalColumn.columns(recent), 40)) * 0.602)))
+                let size = min(Self.maxFont, max(7, (geo.size.width - 26) / (CGFloat(max(TerminalColumn.columns(recent), 40)) * 0.602)))
                 let rows = max(4, Int((geo.size.height - 24) / (size * 1.22)))
                 Text(all.suffix(rows).joined(separator: "\n"))
                     .font(.system(size: size, design: .monospaced)).foregroundStyle(Color(white: 0.86))
@@ -1340,17 +1343,21 @@ struct PaneScreen: View {
                     .clipped()
             }
             } else {
-                // bigger font, scroll both ways; opens at the newest row and the leftmost column
+                // bigger font, scroll both ways; opens at the newest row and the leftmost column. At least 13 pt, and
+                // larger when the pane's rows are narrower than the drawer, so a wide drawer is filled, not half empty
+                GeometryReader { geo in
+                let size = max(13, min(Self.maxFont, (geo.size.width - 26) / (CGFloat(max(TerminalColumn.columns(shown), 40)) * 0.602)))
                 ScrollViewReader { proxy in
                     ScrollView([.vertical, .horizontal]) {
                         VStack(alignment: .leading, spacing: 0) {
-                            Text(shown).font(.system(size: 13, design: .monospaced)).foregroundStyle(Color(white: 0.86))
+                            Text(shown).font(.system(size: size, design: .monospaced)).foregroundStyle(Color(white: 0.86))
                                 .fixedSize(horizontal: true, vertical: false).textSelection(.enabled).padding(12)
                             Color.clear.frame(width: 1, height: 1).id("end")
                         }
                     }
                     .onChange(of: text) { proxy.scrollTo("end", anchor: .bottomLeading) }
                     .onAppear { proxy.scrollTo("end", anchor: .bottomLeading) }
+                }
                 }
             } }
             .background(Color(red: 0.04, green: 0.04, blue: 0.06))

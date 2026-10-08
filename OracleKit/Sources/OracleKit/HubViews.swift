@@ -440,11 +440,12 @@ struct SessionSpaces: View {
         // padding), so the drawer takes the rest — never less than its own width (Nat: "give the scene to the right")
         GeometryReader { geo in
             HStack(spacing: 0) {
-                list
+                if !(full && open != nil) { list }
                 if let sp = open {
-                    Divider()
-                    SpaceDrawer(space: sp, accent: HubStyle.accent) { closeDrawer() }
-                        .frame(width: max(CGFloat(drawerWidth), geo.size.width - Self.listRoom))
+                    if !full { Divider() }
+                    SpaceDrawer(space: sp, accent: HubStyle.accent, close: { closeDrawer() }, full: full,
+                                toggleFull: { withAnimation(.easeOut(duration: 0.15)) { full.toggle() } })
+                        .frame(width: full ? geo.size.width : max(CGFloat(drawerWidth), geo.size.width - Self.listRoom))
                         .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
             }
@@ -465,6 +466,7 @@ struct SessionSpaces: View {
             let dx = CGFloat(drawerWidth) + 1; grown += dx
             DispatchQueue.main.async { Drawer.grow(by: dx) }
             esc = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { e in
+                if e.keyCode == 53, open != nil, full { withAnimation(.easeOut(duration: 0.15)) { full = false }; return nil }   // full screen first
                 if e.keyCode == 53, open != nil { closeDrawer(); return nil }
                 return e
             }
@@ -473,13 +475,14 @@ struct SessionSpaces: View {
     }
     private func closeDrawer() {
         guard open != nil || grown > 0 else { return }
-        withAnimation(.easeOut(duration: 0.18)) { open = nil }
+        withAnimation(.easeOut(duration: 0.18)) { open = nil; full = false }
         if grown > 0 { let dx = grown; grown = 0; DispatchQueue.main.async { Drawer.grow(by: -dx) } }
         if let m = esc { NSEvent.removeMonitor(m); esc = nil }
     }
 
     /// What the space list needs beside the drawer: its 900 pt column and 28 pt of padding each side.
     static let listRoom: CGFloat = 900 + 56
+    @State private var full = false   // the drawer fills the page (f); esc comes back to the list, like a browser
     @State private var clientWindow: WezTerm.ClientWindow?
     @State private var filter = ""
     @FocusState private var filterFocused: Bool
@@ -541,6 +544,7 @@ struct SessionSpaces: View {
             case "k": move(-1)
             case "o": if let r = row() { openDrawer(r) }
             case "s": if let r = row() { store.showInHerdr(r) }
+            case "f": if open != nil { withAnimation(.easeOut(duration: 0.15)) { full.toggle() } }
             case "x": if let id = cursor { if marks.contains(id) { marks.remove(id) } else { marks.insert(id) } }
             case "#": if !marks.isEmpty { batchAgents = nil; confirmBatch = true
                           Task { var a: [String: [ClosedAgent]] = [:]
@@ -852,6 +856,8 @@ struct SpaceDrawer: View {
     let space: HubSpace
     let accent: Color
     let close: () -> Void
+    var full = false
+    var toggleFull: (() -> Void)? = nil
     struct Pane: Identifiable, Hashable { let id: String; let agent: String?; let status: String; let cwd: String; let focused: Bool }
     @State private var panes: [Pane] = []
     @State private var pick: String?
@@ -864,7 +870,13 @@ struct SpaceDrawer: View {
                 Text(space.label).font(.callout.weight(.semibold)).foregroundStyle(accent).lineLimit(1)
                 Text(space.session + " · " + space.spaceId).font(.caption.monospaced()).foregroundStyle(.secondary)
                 Spacer(minLength: 6)
-                Text("esc").font(.caption.monospaced()).foregroundStyle(.tertiary)
+                Text(full ? "esc back" : "f full · esc").font(.caption.monospaced()).foregroundStyle(.tertiary)
+                if let toggleFull {
+                    Button(action: toggleFull) {
+                        Image(systemName: full ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right").font(.callout.weight(.semibold))
+                    }
+                    .buttonStyle(.plain).foregroundStyle(.secondary).handCursor().help(full ? "Back to the list (esc)" : "Full screen (f)")
+                }
                 Button(action: close) { Image(systemName: "xmark").font(.callout.weight(.semibold)) }
                     .buttonStyle(.plain).foregroundStyle(.secondary).handCursor().help("Close (esc)")
             }
