@@ -240,7 +240,19 @@ public enum LiveTerminal {
         public let pane: String
         /// false: observe (read-only, the pane keeps its size); true: control (the pane takes this view's size and keys)
         public let control: Bool
-        public init(session: String?, pane: String, control: Bool) { self.session = session; self.pane = pane; self.control = control }
+        /// Observe until you type: a click, Type or `i` takes control at the view's size, ⌘⎋ gives the pane back
+        /// (an oracle app's Work drawer, which has no full screen).
+        public let typeToControl: Bool
+        public init(session: String?, pane: String, control: Bool, typeToControl: Bool = false) {
+            self.session = session; self.pane = pane; self.control = control; self.typeToControl = typeToControl
+        }
+
+        /// "laris-co:w27:p1" → session laris-co, pane w27:p1; a bare "w27:p1" is the default session's.
+        public static func place(_ place: String, typeToControl: Bool) -> Spec {
+            let parts = place.split(separator: ":")
+            if parts.count >= 3 { return Spec(session: String(parts[0]), pane: parts.dropFirst().joined(separator: ":"), control: false, typeToControl: typeToControl) }
+            return Spec(session: nil, pane: place, control: false, typeToControl: typeToControl)
+        }
     }
     #if canImport(SwiftUI)
     @MainActor public static var make: ((Spec) -> AnyView)?
