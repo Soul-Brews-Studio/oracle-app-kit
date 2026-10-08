@@ -5,7 +5,7 @@ import AppKit
 // MARK: - Oracles (the landing app) — sidebar: all herdr sessions · detail: every oracle as a card
 // Same look as the oracle apps: ARRA-style sidebar, cards like the Work view.
 
-enum HubPick: Hashable { case all, search, trace, map, screens, settings, session(String) }
+enum HubPick: Hashable { case all, search, trace, map, screens, network, settings, session(String) }
 
 enum HubStyle {
     static let accent = Color(hex: "#9b8cff")
@@ -35,7 +35,7 @@ struct HubRootView: View {
     @ObservedObject var store: HubStore
     @Binding var menuBar: Bool
     @State private var pick: HubPick = UserDefaults.standard.string(forKey: "hubSession").map { HubPick.session($0) }   // -hubSession <name> (tests)
-        ?? ["search": HubPick.search, "trace": .trace, "map": .map, "screens": .screens, "settings": .settings][UserDefaults.standard.string(forKey: "hubPage") ?? ""] ?? .all   // -hubPage search|trace|map|settings
+        ?? ["search": HubPick.search, "trace": .trace, "map": .map, "screens": .screens, "network": .network, "settings": .settings][UserDefaults.standard.string(forKey: "hubPage") ?? ""] ?? .all   // -hubPage search|trace|map|screens|network|settings
     @ObservedObject private var index = GHIndex.shared
     @State private var focusTick = 0
     // Pages visited, like a browser's (Nat: Discord's mouse 4 / 5): back and forward, and the move in flight so
@@ -59,6 +59,7 @@ struct HubRootView: View {
             case .trace: TraceView(name: "ARRA Oracles", accent: HubStyle.accent)
             case .map: FleetMapPage(accent: HubStyle.accent)
             case .screens: ScreensPage(store: store, accent: HubStyle.accent)
+            case .network: NetworkPage(store: store, pick: $pick)
             case .settings: SettingsView(title: "ARRA Oracles", accent: HubStyle.accent, indexes: [index, FleetMap.shared.index]) { pick = .trace }
             case .session(let name): SessionSpaces(store: store, session: name)
             }
@@ -147,6 +148,10 @@ struct HubSidebar: View {
             NavRow(symbol: "display", title: "Screens", badge: nil, on: pick == .screens, accent: HubStyle.accent, sub: true) { pick = .screens }
                 .padding(.horizontal, 12)
                 .help("Your displays as macOS arranges them: where the hub is, and each herdr session's window")
+            NavRow(symbol: "network", title: "Network", badge: store.remotes.isEmpty ? nil : "\(Set(store.remotes.map(\.host)).count + 1)",
+                   on: pick == .network, accent: HubStyle.accent, sub: true) { pick = .network }
+                .padding(.horizontal, 12)
+                .help("Every machine with herdr: this Mac and each remote one, with every session on it")
             NavRow(symbol: "gearshape", title: "Settings", badge: nil, on: pick == .settings, accent: HubStyle.accent) { pick = .settings }
                 .padding(.horizontal, 12)
             Text("Sessions").font(.custom("Avenir Next", size: 13).weight(.medium)).foregroundStyle(.secondary)
@@ -158,7 +163,7 @@ struct HubSidebar: View {
                                    on: pick == .session(s.name), store: store,
                                    onDelete: { deleteError = nil; deletingHolds = HubStore.contents(of: s); deleting = s }) { pick = .session(s.name) }
                     }
-                    RemoteSection(store: store)
+                    RemoteSection(store: store, pick: $pick)
                 }
                 .padding(.horizontal, 12)
             }
@@ -256,6 +261,7 @@ struct SessionRow: View {
 /// the traces a remote attach leaves. A click opens it in WezTerm, the way Nat types it.
 struct RemoteSection: View {
     @ObservedObject var store: HubStore
+    @Binding var pick: HubPick
     @State private var adding = false
     @State private var target = ""
     @State private var session = ""
@@ -265,7 +271,14 @@ struct RemoteSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack {
-                Text("Remote").font(.custom("Avenir Next", size: 13).weight(.medium)).foregroundStyle(.secondary)
+                Button { pick = .network } label: {
+                    HStack(spacing: 4) {
+                        Text("Remote").font(.custom("Avenir Next", size: 13).weight(.medium))
+                        Image(systemName: "arrow.up.right").font(.system(size: 9, weight: .semibold))
+                    }
+                    .foregroundStyle(pick == .network ? HubStyle.accent : Color.secondary)
+                }
+                .buttonStyle(.plain).handCursor().help("The Network page: every machine, full size")
                 Spacer()
                 Button { addError = nil; adding = true } label: { Image(systemName: "plus").font(.system(size: 11, weight: .semibold)) }
                     .buttonStyle(.plain).foregroundStyle(.secondary).handCursor().help("Add a remote session: herdr --remote <target> --session <name>")

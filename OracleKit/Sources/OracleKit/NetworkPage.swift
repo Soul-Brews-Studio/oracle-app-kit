@@ -1,0 +1,232 @@
+#if os(macOS)
+import SwiftUI
+import AppKit
+
+/// Every machine with herdr, on one page, the way All oracles shows the oracles (Nat, 2026-10-08: "can we have like
+/// landing network, full page on the right? love like this"): this Mac first, then each remote machine, a card each
+/// with every session on it. A click on a session opens it: here, its page; on another machine, in WezTerm as
+/// `herdr --remote <target> --session <s>`.
+struct NetworkPage: View {
+    @ObservedObject var store: HubStore
+    @Binding var pick: HubPick
+    @State private var target = ""
+    @State private var session = ""
+    @State private var addError: String?
+    /// top-aligned: a machine with more sessions is a taller card, and the others start level with it (Nat: "we should top")
+    private let grid = [GridItem(.adaptive(minimum: 330), spacing: 14, alignment: .top)]
+
+    var body: some View {
+        let groups = RemoteParse.groups(store.remotes, running: { store.remoteState[$0.id]?.running == true })
+        let remoteRunning = store.remotes.filter { store.remoteState[$0.id]?.running == true }
+        let localRunning = store.localSessions.filter(\.running)
+        let agents = remoteRunning.reduce(0) { $0 + (store.remoteState[$1.id]?.agents ?? 0) }
+        let need = remoteRunning.reduce(0) { $0 + (store.remoteState[$1.id]?.needsYou ?? 0) }
+            + store.spaces.filter { $0.status == "done" || $0.status == "blocked" }.count
+        let logins = Set(store.remotes.map(\.target)).count
+        let checked = store.remoteMachines.values.map(\.checked).max()
+        ScrollView {
+            VStack(alignment: .leading, spacing: 26) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(need > 0 ? "\(need) need you" : "\(localRunning.count + remoteRunning.count) sessions running")
+                        .font(.system(size: 40, weight: .bold, design: .rounded))
+                        .foregroundStyle(HubStyle.accent)
+                    Text("\(groups.count + 1) machines · this Mac and \(logins) remote login\(logins == 1 ? "" : "s") · "
+                         + "\(localRunning.count + remoteRunning.count) sessions running · \(agents) remote agents"
+                         + (checked.map { " · probed \($0.formatted(date: .omitted, time: .shortened))" } ?? ""))
+                        .font(.callout).foregroundStyle(.secondary)
+                }
+                VStack(alignment: .leading, spacing: 10) {
+                    WorkFormat.header("MACHINES", groups.count + 1, note: "click a session to open it")
+                    LazyVGrid(columns: grid, alignment: .leading, spacing: 14) {
+                        LocalMachineCard(store: store, pick: $pick)
+                        ForEach(groups, id: \.host) { g in MachineCard(store: store, host: g.host, sessions: g.sessions) }
+                    }
+                }
+                if !store.unknownTraces.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        WorkFormat.header("TRACES", store.unknownTraces.count, note: "this Mac attached to these, from a target no ssh host here explains")
+                        ForEach(store.unknownTraces.sorted(by: { $0.key < $1.key }), id: \.key) { name, prefix in
+                            HStack(spacing: 10) {
+                                Text(name).font(.callout.weight(.medium))
+                                Text("target starts " + prefix + "…").font(.caption.monospaced()).foregroundStyle(.secondary)
+                                Spacer()
+                                Button("add its target") { session = name; target = "" }.buttonStyle(.link).handCursor()
+                            }
+                        }
+                    }
+                }
+                addForm
+                Text("Each machine is asked over ssh, without a prompt (BatchMode), at most every 45 s: herdr session list, then "
+                     + "the agents of each running session. A session shows here when this Mac attached to it (herdr --remote), "
+                     + "when it is a saved herdr machine, when it runs on a machine you added, or from what an attach left in "
+                     + "~/.config/herdr/sessions.")
+                    .font(.caption).foregroundStyle(.tertiary).fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(28)
+            .frame(maxWidth: 1100, alignment: .leading)
+            .frame(maxWidth: .infinity)
+        }
+        .navigationTitle("Network")
+        .task { await store.probeRemotes() }   // fresh when the page opens
+    }
+
+    private var addForm: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text("ADD").font(.caption.weight(.semibold)).tracking(1.4)
+                Text("a machine, as you would type herdr --remote <target> --session <name>").font(.caption)
+            }
+            .foregroundStyle(.secondary)
+            HStack(spacing: 8) {
+                TextField("target — user@host", text: $target).textFieldStyle(.roundedBorder).frame(maxWidth: 320)
+                TextField("session — default", text: $session).textFieldStyle(.roundedBorder).frame(maxWidth: 200)
+                Button("Add") {
+                    Task {
+                        addError = await store.addRemote(target: target, session: session.isEmpty ? "default" : session)
+                        if addError == nil { target = ""; session = "" }
+                    }
+                }
+                .buttonStyle(.borderedProminent).disabled(target.trimmingCharacters(in: .whitespaces).isEmpty).handCursor()
+            }
+            if let e = addError { Text(e).font(.caption).foregroundStyle(.orange) }
+        }
+    }
+}
+
+/// One card per machine: its name, who logs in, its herdr, and a row per session.
+private struct MachineShell<Rows: View>: View {
+    let icon: String
+    let title: String
+    let users: String
+    let line: String
+    let problem: String?
+    @ViewBuilder let rows: () -> Rows
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 11) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 9, style: .continuous).fill(HubStyle.accent.opacity(0.18)).frame(width: 36, height: 36)
+                    Image(systemName: icon).font(.system(size: 16, weight: .semibold)).foregroundStyle(problem == nil ? HubStyle.accent : Color.orange)
+                }
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 8) {
+                        Text(title).font(.custom("Avenir Next", size: 17).weight(.semibold)).lineLimit(1)
+                        Text(users).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                    }
+                    Text(line).font(.caption.monospacedDigit()).foregroundStyle(.secondary).lineLimit(1)
+                }
+                Spacer(minLength: 4)
+            }
+            if let problem { Text(problem).font(.caption.monospaced()).foregroundStyle(.orange).textSelection(.enabled) }
+            VStack(alignment: .leading, spacing: 2) { rows() }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.primary.opacity(0.045)))
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.primary.opacity(0.08)))
+    }
+}
+
+/// A session row inside a machine card.
+private struct SessionLine: View {
+    let name: String
+    let detail: String
+    let count: String
+    let running: Bool
+    let needsYou: Bool
+    let attached: Bool
+    let action: () -> Void
+    @State private var hover = false
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 9) {
+                Circle().fill(running ? Color.green : Color.secondary.opacity(0.35)).frame(width: 7, height: 7)
+                Text(name).font(.callout.weight(.medium)).lineLimit(1)
+                if !detail.isEmpty { Text(detail).font(.caption).foregroundStyle(.tertiary).lineLimit(1) }
+                Spacer(minLength: 4)
+                if attached { Image(systemName: "link").font(.system(size: 10)).foregroundStyle(.secondary).help("This Mac is attached to it now") }
+                if needsYou { HubGlyph(status: "done") }
+                Text(count).font(.callout.monospacedDigit()).foregroundStyle(.secondary)
+            }
+            .foregroundStyle(running ? Color.primary : Color.secondary)
+            .padding(.horizontal, 8).padding(.vertical, 6)
+            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(hover ? Color.primary.opacity(0.07) : Color.clear))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain).handCursor()
+        .onHover { hover = $0 }
+    }
+}
+
+/// This Mac: its own herdr sessions; a click opens a session's page.
+private struct LocalMachineCard: View {
+    @ObservedObject var store: HubStore
+    @Binding var pick: HubPick
+    @State private var showStopped = false
+    var body: some View {
+        let local = store.localSessions.sorted { ($0.running ? 0 : 1, $0.name) < ($1.running ? 0 : 1, $1.name) }
+        let running = local.filter(\.running)
+        let stopped = local.filter { !$0.running }
+        MachineShell(icon: "laptopcomputer", title: ProcessInfo.processInfo.hostName.split(separator: ".").first.map(String.init) ?? "this Mac", users: "this Mac",
+                     line: "\(running.count) of \(local.count) sessions running · \(store.spaces.count) spaces", problem: nil) {
+            ForEach(running) { s in
+                let spaces = store.spaces.filter { $0.session == s.name }
+                SessionLine(name: s.name, detail: "", count: "\(spaces.count) spaces", running: true,
+                            needsYou: spaces.contains { $0.status == "done" || $0.status == "blocked" }, attached: false) {
+                    pick = .session(s.name)
+                }
+            }
+            if !stopped.isEmpty {
+                Button { withAnimation(.snappy) { showStopped.toggle() } } label: {
+                    HStack(spacing: 5) {
+                        Text("\(stopped.count) stopped").font(.caption).foregroundStyle(.secondary)
+                        Image(systemName: showStopped ? "chevron.down" : "chevron.right").font(.caption2.bold()).foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal, 8).padding(.top, 4).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain).handCursor()
+                if showStopped {
+                    ForEach(stopped) { s in
+                        SessionLine(name: s.name, detail: "", count: "off", running: false, needsYou: false, attached: false) { pick = .session(s.name) }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// A remote machine (all its ssh logins); a click opens a session in WezTerm, the way Nat types it.
+private struct MachineCard: View {
+    @ObservedObject var store: HubStore
+    let host: String
+    let sessions: [RemoteSession]
+    var body: some View {
+        let targets = Array(Set(sessions.map(\.target))).sorted()
+        let users = Array(Set(sessions.compactMap(\.user))).sorted()
+        let running = sessions.filter { store.remoteState[$0.id]?.running == true }
+        let agents = running.reduce(0) { $0 + (store.remoteState[$1.id]?.agents ?? 0) }
+        let versions = Set(targets.compactMap { store.remoteMachines[$0]?.version }).sorted()
+        let problem = targets.compactMap { store.remoteMachines[$0]?.problem }.first
+        MachineShell(icon: "server.rack", title: host, users: users.joined(separator: " · "),
+                     line: (versions.isEmpty ? "herdr ?" : "herdr " + versions.joined(separator: ", "))
+                        + " · \(running.count) of \(sessions.count) running · \(agents) agent\(agents == 1 ? "" : "s")",
+                     problem: problem) {
+            ForEach(sessions) { r in
+                let st = store.remoteState[r.id]
+                SessionLine(name: r.session, detail: users.count > 1 ? (r.user ?? "") : "",
+                            count: st.map { $0.running ? "\($0.agents) agent\($0.agents == 1 ? "" : "s")" : "off" } ?? "…",
+                            running: st?.running == true, needsYou: (st?.needsYou ?? 0) > 0,
+                            attached: store.attachedRemotes.contains(r.id)) { store.openRemote(r) }
+                    .help(r.command)
+                    .contextMenu {
+                        Button("Open in WezTerm") { store.openRemote(r) }
+                        Button("Copy \(r.command)") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(r.command, forType: .string) }
+                    }
+            }
+        }
+        .contextMenu {
+            Button("Forget \(host) (the hub's list; saved herdr machines stay)", role: .destructive) { store.forgetMachine(host: host) }
+        }
+    }
+}
+#endif
