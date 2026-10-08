@@ -232,11 +232,11 @@ public struct OracleRootView: View {
         let session = WorkFormat.homeSession(store.activity)
         Task { @MainActor in
             switch await PickUp.run(action, issue: it.number, repo: c.localPath, session: session) {
-            case .started(let pane):
+            case .started(let place):     // the script says which herdr server the agent is on: trust that, not a guess
                 picking[it.number] = nil
                 await store.refresh()
                 section = .status
-                openPane = session.isEmpty ? pane : "\(session):\(pane)"
+                openPane = place
             case .existing:
                 picking[it.number] = nil
                 await store.refresh()
