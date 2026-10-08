@@ -26,6 +26,10 @@ public struct OracleRootView: View {
     @State private var openPanes: [String] = []   // every pane in the drawer, stacked, at most 3 (Nat: "open 2nd and 3rd pane")
     @State private var escMonitor: Any?
     @State private var fitMonitor: Any?
+    // back / forward between pages, like the hub's: mouse 4 / 5, ⌘[ ⌘], the toolbar chevrons (#86)
+    @State private var history = PageHistory<Section>()
+    @State private var travelling = false        // a back / forward move in flight: not itself a visit
+    @State private var historyMonitor: Any?
     @State private var drawerFull = false  // the drawer over the whole page (⤢), esc comes back (Nat: "how to full screen")   // double-click the title bar, or the empty space beside the page: fit ↔ back
     @AppStorage("oracle.drawerWidth") private var drawerWidth: Double = 560   // what opening the drawer adds to the window, when the screen has room
     /// Work's width while the drawer is open: the drawer takes the rest (Nat, 2026-10-08: "when expand … the middle
@@ -78,6 +82,22 @@ public struct OracleRootView: View {
             fitLog.notice("double-click beside the page")
             Drawer.toggleFit(page: page, window: w)
             return e
+        }
+    }
+
+    private func goBack() { if let s = history.goBack(from: section ?? .status) { travelling = true; section = s } }
+    private func goForward() { if let s = history.goForward(from: section ?? .status) { travelling = true; section = s } }
+
+    /// mouse 4 / 5 (buttonNumber 3 / 4): a LOCAL monitor like the hub's — only this app's windows, no Accessibility or
+    /// Input Monitoring permission. Other buttons (the middle click a terminal pastes with) pass through.
+    private func installHistoryMonitor() {
+        guard historyMonitor == nil else { return }
+        historyMonitor = NSEvent.addLocalMonitorForEvents(matching: .otherMouseDown) { e in
+            switch e.buttonNumber {
+            case 3: goBack(); return nil
+            case 4: goForward(); return nil
+            default: return e
+            }
         }
     }
     #endif
@@ -160,8 +180,13 @@ public struct OracleRootView: View {
                     if let m = escMonitor { NSEvent.removeMonitor(m); escMonitor = nil }
                 }
             }
-            .onChange(of: section) { _, s in if s != .status { openPanes = []; openPane = nil } }
-            .onAppear { installFitMonitor() }
+            .onChange(of: section) { old, s in
+                if s != .status { openPanes = []; openPane = nil }
+                // every page change is a visit — the sidebar, a widget tap, Pick up's jump to Work — except a back /
+                // forward move itself
+                if travelling { travelling = false } else { history.visit(from: old ?? .status, to: s ?? .status) }
+            }
+            .onAppear { installFitMonitor(); installHistoryMonitor() }
             .onAppear {   // quit with the drawer open: the saved frame still holds the drawer's width — take it back
                 guard drawerGrown > 0 else { return }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { Drawer.grow(by: -drawerGrown, animate: false); drawerGrown = 0 }
@@ -173,7 +198,21 @@ public struct OracleRootView: View {
             }
             #endif
                 .toolbar {
+                    #if os(macOS)
+                    ToolbarItemGroup(placement: .navigation) {
+                        Button { goBack() } label: { Image(systemName: "chevron.left") }.disabled(history.back.isEmpty)
+                            .help("Back — mouse button 4, ⌘[")
+                        Button { goForward() } label: { Image(systemName: "chevron.right") }.disabled(history.forward.isEmpty)
+                            .help("Forward — mouse button 5, ⌘]")
+                    }
+                    #endif
                 }
+                #if os(macOS)
+                .background {   // ⌘[ ⌘]: back and forward, as in the hub
+                    Button("") { goBack() }.keyboardShortcut("[", modifiers: .command).opacity(0).allowsHitTesting(false)
+                    Button("") { goForward() }.keyboardShortcut("]", modifiers: .command).opacity(0).allowsHitTesting(false)
+                }
+                #endif
         }
         .tint(c.color)
         #if os(macOS)
