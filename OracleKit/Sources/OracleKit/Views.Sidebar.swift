@@ -205,11 +205,12 @@ struct WorkTree: View {
             VStack(alignment: .leading, spacing: 1) {
                 HStack(spacing: 5) {
                     Text(dot.0).font(.caption).foregroundStyle(dot.1)
-                    Text(w.slug).font(.callout.weight(open ? .semibold : .regular)).lineLimit(1).truncationMode(.tail)
+                    // branch on top, like herdr's sidebar: a /herdr-rename (git branch -m) shows here at once, the folder never moves
+                    Text(w.branch.isEmpty ? w.folder : w.branch).font(.callout.weight(open ? .semibold : .regular)).lineLimit(1).truncationMode(.tail)
                     if let n = w.issue { Text("#\(n)").font(.caption2.monospacedDigit()).foregroundStyle(.secondary) }
                     Spacer(minLength: 0)
                 }
-                Text(pane.map { "\(w.branch) · \(WorkFormat.pane($0, home: home))" } ?? w.branch)
+                Text(pane.map { "\(w.folder) · \(WorkFormat.pane($0, home: home))" } ?? w.folder)
                     .font(.caption.monospaced()).foregroundStyle(.tertiary).lineLimit(1).truncationMode(.middle)
                     .padding(.leading, cont.isEmpty ? 0 : 0)
             }
