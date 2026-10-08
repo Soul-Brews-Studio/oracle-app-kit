@@ -18,7 +18,7 @@ struct HubSidebar: View {
                 }
                 Text("ARRA Oracles").font(.custom("Avenir Next", size: 20).weight(.semibold)).tracking(-0.4).lineLimit(1)
                 Spacer(minLength: 4)
-                SidebarIconButton(symbol: "arrow.clockwise", help: "Refresh") { Task { await store.refresh() } }
+                SidebarIconButton(symbol: "arrow.clockwise", help: "Refresh") { Task { await store.refresh(remotes: true) } }
             }
             .padding(.horizontal, 18).frame(height: 70)
             NavRow(symbol: "square.grid.2x2", title: "All oracles", badge: "\(store.oracles.count)",

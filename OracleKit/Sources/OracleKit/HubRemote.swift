@@ -191,6 +191,45 @@ public enum RemoteParse {
         remotePath + sessions.map { "echo @@session \($0); herdr --session \($0) agent list 2>/dev/null" }.joined(separator: "; ")
     }
 
+    /// Stops sessions one by one, each followed by its exit status (#100). Only ever built from safe session names.
+    public static func stopCommand(sessions: [String]) -> String {
+        remotePath + sessions.map { "echo @@stop \($0); herdr session stop \($0) >/dev/null 2>&1; echo rc=$?" }.joined(separator: "; ")
+    }
+
+    /// What `stopCommand` printed → the sessions that did not stop (a missing answer counts as not stopped).
+    public static func stopFailures(_ out: String, asked: [String]) -> [String] {
+        var ok: Set<String> = [], current: String?
+        for line in out.split(separator: "\n") {
+            if line.hasPrefix("@@stop ") { current = String(line.dropFirst(7)) }
+            else if line == "rc=0", let s = current { ok.insert(s); current = nil }
+        }
+        return asked.filter { !ok.contains($0) }
+    }
+
+    /// One `herdr agent list` answer → agents herdr resumes on reopen (count per kind: they hold an `agent_session`)
+    /// and the ones that come back as a plain shell; nil when it is not an agent list.
+    public static func resume(agentList json: String) -> (resumes: [String: Int], lost: [String])? {
+        guard let d = try? JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any],
+              let agents = (d["result"] as? [String: Any])?["agents"] as? [[String: Any]] else { return nil }
+        var resumes: [String: Int] = [:], lost: [String] = []
+        for a in agents {
+            let kind = a["agent"] as? String ?? "agent"
+            if (a["agent_session"] as? [String: Any])?["value"] is String { resumes[kind, default: 0] += 1 }
+            else { lost.append("\(a["name"] as? String ?? a["pane_id"] as? String ?? "?") (\(kind))") }
+        }
+        return (resumes, lost)
+    }
+
+    /// What `agentsCommand` printed → `resume(agentList:)` per session.
+    public static func resume(_ out: String) -> [String: (resumes: [String: Int], lost: [String])] {
+        var all: [String: (resumes: [String: Int], lost: [String])] = [:], current: String?
+        for line in out.split(separator: "\n") {
+            if line.hasPrefix("@@session ") { current = String(line.dropFirst(10)); continue }
+            if let s = current, line.hasPrefix("{"), let r = resume(agentList: String(line)) { all[s] = r; current = nil }
+        }
+        return all
+    }
+
     /// What `listCommand` printed → herdr's version and the machine's sessions (name, running); nil without herdr.
     public static func machine(_ out: String) -> (version: String?, sessions: [(name: String, running: Bool)])? {
         let version = out.split(separator: "\n").first { $0.hasPrefix("herdr ") }.map { String($0.dropFirst(6)) }

@@ -236,11 +236,18 @@ private struct LocalMachineCard: View {
     }
 }
 
-/// A remote machine (all its ssh logins); a click opens a session in WezTerm, the way Nat types it.
+/// A remote machine (all its ssh logins); a click opens a session in WezTerm, the way Nat types it. Its sessions stop
+/// from here too, one or all, after the same resume check as a local Stop (#100).
 private struct MachineCard: View {
     @ObservedObject var store: HubStore
     let host: String
     let sessions: [RemoteSession]
+    @State private var pendingStop: [RemoteSession] = []
+    @State private var confirmStop = false
+    @State private var checked = false                       // the resume check came back (resume nil then = ssh failed)
+    @State private var resume: [String: ResumeCheck]?
+    @State private var stopping = false
+    @State private var stopError: String?
     var body: some View {
         let targets = Array(Set(sessions.map(\.target))).sorted()
         let users = Array(Set(sessions.compactMap(\.user))).sorted()
@@ -248,10 +255,12 @@ private struct MachineCard: View {
         let agents = running.reduce(0) { $0 + (store.remoteState[$1.id]?.agents ?? 0) }
         let versions = Set(targets.compactMap { store.remoteMachines[$0]?.version }).sorted()
         let problem = targets.compactMap { store.remoteMachines[$0]?.problem }.first
+        let probed = targets.compactMap { store.remoteMachines[$0]?.checked }.min()   // the card's oldest answer (#98)
         MachineShell(icon: "server.rack", title: host, users: users.joined(separator: " · "),
                      line: (versions.isEmpty ? "herdr ?" : "herdr " + versions.joined(separator: ", "))
-                        + " · \(running.count) of \(sessions.count) running · \(agents) agent\(agents == 1 ? "" : "s")",
-                     problem: problem) {
+                        + " · \(running.count) of \(sessions.count) running · \(agents) agent\(agents == 1 ? "" : "s")"
+                        + (stopping ? " · stopping…" : probed.map { " · \($0.formatted(date: .omitted, time: .shortened))" } ?? ""),
+                     problem: stopError ?? problem) {
             ForEach(sessions) { r in
                 let st = store.remoteState[r.id]
                 SessionLine(name: r.session, detail: users.count > 1 ? (r.user ?? "") : "",
@@ -262,12 +271,54 @@ private struct MachineCard: View {
                     .contextMenu {
                         Button("Open in WezTerm") { store.openRemote(r) }
                         Button("Copy \(r.command)") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(r.command, forType: .string) }
+                        if st?.running == true {
+                            Divider()
+                            Button("Stop \(r.session)…", role: .destructive) { ask([r]) }.disabled(stopping)
+                        }
                     }
             }
         }
         .contextMenu {
+            if !running.isEmpty {
+                Button("Stop all \(running.count) on \(host)…", role: .destructive) { ask(running) }.disabled(stopping)
+            }
             Button("Forget \(host) (the hub's list; saved herdr machines stay)", role: .destructive) { store.forgetMachine(host: host) }
         }
+        .confirmationDialog(pendingStop.count == 1 ? "Stop \(pendingStop[0].session) on \(host)?" : "Stop \(pendingStop.count) sessions on \(host)?",
+                            isPresented: $confirmStop, titleVisibility: .visible) {
+            Button(pendingStop.count == 1 ? "Stop \(pendingStop[0].session)" : "Stop all \(pendingStop.count)", role: .destructive) {
+                let list = pendingStop
+                stopping = true; stopError = nil
+                Task { stopError = await store.stopRemote(list); stopping = false }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(stopWarning)
+        }
+    }
+
+    private func ask(_ list: [RemoteSession]) {
+        pendingStop = list; checked = false; resume = nil; confirmStop = true
+        Task { resume = await store.remoteResume(list); checked = true }
+    }
+
+    /// What stopping ends, and what reopening brings back, read over ssh like a local Stop's.
+    private var stopWarning: String {
+        let agents = pendingStop.reduce(0) { $0 + (store.remoteState[$1.id]?.agents ?? 0) }
+        var t = "herdr session stop on \(host): " + pendingStop.map(\.session).joined(separator: ", ")
+            + ". Every pane ends, \(agents) agent\(agents == 1 ? "" : "s") included."
+        guard checked else { return t + "\nChecking over ssh which agents will resume…" }
+        guard let r = resume else { return t + "\nCould not read the agents over ssh: reopening may bring them back as plain shells." }
+        var back: [String: Int] = [:], lost: [String] = []
+        for s in pendingStop { if let c = r[s.id] { c.resumes.forEach { back[$0.key, default: 0] += $0.value }; lost += c.lost } }
+        let resumes = back.sorted { $0.key < $1.key }.map { "\($0.value) \($0.key)" }.joined(separator: ", ")
+        t += "\nReopen resumes " + (resumes.isEmpty ? "no agents" : resumes) + " where they were."
+        if !lost.isEmpty { t += "\nNo saved session, back as a plain shell: " + lost.joined(separator: ", ") + "." }
+        if resumes.isEmpty, !lost.isEmpty, let target = pendingStop.first?.target {
+            // a machine without herdr's agent integration records no agent_session at all (white, 2026-10-08)
+            t += "\n\(host) records no agent sessions. Install herdr's integration there first:\n  ssh \(target) '~/.local/bin/herdr integration install claude'"
+        }
+        return t
     }
 }
 #endif

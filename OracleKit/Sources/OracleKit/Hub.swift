@@ -25,6 +25,7 @@ public final class HubStore: ObservableObject {
     @Published public private(set) var unknownTraces: [String: String] = [:]
     private var lastRemoteProbe = Date.distantPast
     private var probing = false
+    private var probeAgain = false   // asked for while a probe ran: it runs once more when that one ends (#98)
     @Published public private(set) var spaces: [HubSpace] = []
     @Published public private(set) var oracles: [HubOracle] = []
     @Published public private(set) var apps: [String: URL] = [:]
@@ -46,7 +47,8 @@ public final class HubStore: ObservableObject {
         }
     }
 
-    public func refresh() async {
+    /// `remotes: true` (the ↻ button, a stop) re-probes the remote machines now instead of waiting out the 45 s gate (#98).
+    public func refresh(remotes force: Bool = false) async {
         #if os(macOS)
         async let table = Shell.run("herdr", ["session", "list", "--json"])
         async let ls = Shell.run("maw", ["herdr", "ls", "--json"], timeout: 15)
@@ -67,6 +69,7 @@ public final class HubStore: ObservableObject {
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
         problems = issues
         lastRefresh = Date()
+        if force { lastRemoteProbe = .distantPast }
         await refreshRemotes()
         #endif
     }
@@ -130,8 +133,13 @@ public final class HubStore: ObservableObject {
 
     /// Each machine once, all at once: `herdr session list` over ssh, then the agents of its running sessions.
     public func probeRemotes() async {
-        guard !probing else { return }
-        probing = true; defer { probing = false }
+        guard !probing else { probeAgain = true; return }
+        probing = true
+        defer {
+            probing = false
+            if probeAgain { probeAgain = false; Task { await probeRemotes() } }
+        }
+        lastRemoteProbe = Date()
         let targets = Array(Set(knownRemotes.filter(\.isSafe).map(\.target)))
         let ssh = ["-o", "BatchMode=yes", "-o", "ConnectTimeout=6"]
         await withTaskGroup(of: (String, RemoteMachineState, [String: RemoteState]).self) { g in
@@ -305,16 +313,8 @@ public final class HubStore: ObservableObject {
     /// and relaunches that agent resumed on reopen — claude and codex alike; a pane whose agent never reported
     /// a session id comes back as a bare shell. Read live from `herdr --session S agent list`.
     public func resumeCheck(_ name: String) async -> (resumes: [String: Int], lost: [String])? {
-        guard let out = await Shell.run("herdr", ["--session", name, "agent", "list"]),
-              let d = try? JSONSerialization.jsonObject(with: Data(out.utf8)) as? [String: Any],
-              let agents = (d["result"] as? [String: Any])?["agents"] as? [[String: Any]] else { return nil }
-        var resumes: [String: Int] = [:], lost: [String] = []
-        for a in agents {
-            let kind = a["agent"] as? String ?? "agent"
-            if (a["agent_session"] as? [String: Any])?["value"] is String { resumes[kind, default: 0] += 1 }
-            else { lost.append("\(a["name"] as? String ?? a["pane_id"] as? String ?? "?") (\(kind))") }
-        }
-        return (resumes, lost)
+        guard let out = await Shell.run("herdr", ["--session", name, "agent", "list"]) else { return nil }
+        return RemoteParse.resume(agentList: out)   // the same reading as a remote session's (#100)
     }
 
     /// Stop a whole session: its server and every pane in it end. herdr resumes each recorded agent on reopen

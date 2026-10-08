@@ -334,7 +334,7 @@ struct HubMenu: View {
         }
         Divider()
         Button("Open ARRA Oracles") { openWindow(id: "main"); NSApp.activate(ignoringOtherApps: true) }
-        Button("Refresh") { Task { await store.refresh() } }
+        Button("Refresh") { Task { await store.refresh(remotes: true) } }
         Divider()
         Button("Hide from menu bar") { menuBar = false }
         Button("Quit ARRA Oracles") { NSApp.terminate(nil) }
