@@ -176,8 +176,8 @@ struct RemoteSection: View {
             if store.remotes.isEmpty {
                 Text("No saved herdr machines yet: +, or herdr machine add").font(.system(size: 11)).foregroundStyle(.tertiary).padding(.horizontal, 14)
             }
-            // one group per machine (Nat: "if we have many machines, group, show machine"): its users, how many of
-            // its sessions run, then every session — the ones attached or remembered, and all that run there
+            // one group per login, named as the Network page's cards name it ("nm@white", Nat: "why the left not
+            // nm@white"): how many of its sessions run, then every session — the ones attached or remembered
             ForEach(RemoteParse.groups(store.remotes, running: { store.remoteState[$0.id]?.running == true }), id: \.key) { g in
                 machineHeader(g.key, g.host, g.sessions)
                 if !folded.contains(g.key) {
@@ -193,7 +193,6 @@ struct RemoteSection: View {
 
     @ViewBuilder private func machineHeader(_ key: String, _ host: String, _ sessions: [RemoteSession]) -> some View {
         let running = sessions.filter { store.remoteState[$0.id]?.running == true }.count
-        let users = Array(Set(sessions.compactMap(\.user))).sorted()
         let problems = Set(sessions.map(\.target)).compactMap { store.remoteMachines[$0]?.problem }
         let herdr = Set(sessions.map(\.target)).compactMap { t in store.remoteMachines[t]?.version.map { (RemoteSession(target: t, session: "x").user ?? t) + " " + $0 } }.sorted()
         Button {
@@ -204,15 +203,14 @@ struct RemoteSection: View {
                 Image(systemName: folded.contains(key) ? "chevron.right" : "chevron.down")
                     .font(.system(size: 9, weight: .semibold)).foregroundStyle(.tertiary).frame(width: 10)
                 Image(systemName: "server.rack").font(.system(size: 11)).foregroundStyle(problems.isEmpty ? Color.secondary : Color.orange)
-                Text(host).font(.custom("Avenir Next", size: 14).weight(.semibold)).lineLimit(1)
-                Text(users.joined(separator: " · ")).font(.system(size: 10.5)).foregroundStyle(.tertiary).lineLimit(1)
+                Text(key).font(.custom("Avenir Next", size: 14).weight(.semibold)).lineLimit(1).truncationMode(.middle)
                 Spacer(minLength: 4)
                 Text("\(running)").font(.system(size: 12).monospacedDigit()).foregroundStyle(.secondary)
             }
             .padding(.horizontal, 14).padding(.vertical, 6).contentShape(Rectangle())
         }
         .buttonStyle(.plain).handCursor()
-        .help(([host + " — \(running) of \(sessions.count) sessions running"] + herdr.map { "herdr " + $0 } + problems).joined(separator: "\n"))
+        .help(([key + " on " + host + " — \(running) of \(sessions.count) sessions running"] + herdr.map { "herdr " + $0 } + problems).joined(separator: "\n"))
         .contextMenu {
             ForEach(sessions) { r in
                 Button("Remove saved machine \(r.label ?? r.session) (herdr machine remove)") { Task { _ = await store.removeMachine(r) } }
