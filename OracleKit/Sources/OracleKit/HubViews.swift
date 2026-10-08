@@ -260,6 +260,8 @@ struct RemoteSection: View {
     @State private var target = ""
     @State private var session = ""
     @State private var addError: String?
+    @AppStorage("hub.remoteFolded") private var foldedList = ""   // machines folded shut, comma-separated
+    private var folded: Set<String> { Set(foldedList.split(separator: ",").map(String.init)) }
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack {
@@ -273,7 +275,18 @@ struct RemoteSection: View {
             if store.remotes.isEmpty, store.unknownTraces.isEmpty {
                 Text("None yet: attach with herdr --remote, or +").font(.system(size: 11)).foregroundStyle(.tertiary).padding(.horizontal, 14)
             }
-            ForEach(store.remotes) { r in RemoteRow(remote: r, state: store.remoteState[r.id], attached: store.attachedRemotes.contains(r.id), store: store) }
+            // one group per machine (Nat: "if we have many machines, group, show machine"): its users, how many of
+            // its sessions run, then every session — the ones attached or remembered, and all that run there
+            ForEach(RemoteParse.groups(store.remotes, running: { store.remoteState[$0.id]?.running == true }), id: \.host) { g in
+                machineHeader(g.host, g.sessions)
+                if !folded.contains(g.host) {
+                    ForEach(g.sessions) { r in
+                        RemoteRow(remote: r, state: store.remoteState[r.id], attached: store.attachedRemotes.contains(r.id), store: store,
+                                  subtitle: r.label ?? r.user ?? "")
+                            .padding(.leading, 14)
+                    }
+                }
+            }
             ForEach(store.unknownTraces.sorted(by: { $0.key < $1.key }), id: \.key) { name, prefix in
                 Button { session = name; target = ""; addError = nil; adding = true } label: {
                     HStack(spacing: 10) {
@@ -291,10 +304,38 @@ struct RemoteSection: View {
         }
     }
 
+    @ViewBuilder private func machineHeader(_ host: String, _ sessions: [RemoteSession]) -> some View {
+        let running = sessions.filter { store.remoteState[$0.id]?.running == true }.count
+        let users = Array(Set(sessions.compactMap(\.user))).sorted()
+        let problems = Set(sessions.map(\.target)).compactMap { store.remoteMachines[$0]?.problem }
+        let herdr = Set(sessions.map(\.target)).compactMap { t in store.remoteMachines[t]?.version.map { (RemoteSession(target: t, session: "x").user ?? t) + " " + $0 } }.sorted()
+        Button {
+            var f = folded; if f.contains(host) { f.remove(host) } else { f.insert(host) }
+            foldedList = f.sorted().joined(separator: ",")
+        } label: {
+            HStack(spacing: 7) {
+                Image(systemName: folded.contains(host) ? "chevron.right" : "chevron.down")
+                    .font(.system(size: 9, weight: .semibold)).foregroundStyle(.tertiary).frame(width: 10)
+                Image(systemName: "server.rack").font(.system(size: 11)).foregroundStyle(problems.isEmpty ? Color.secondary : Color.orange)
+                Text(host).font(.custom("Avenir Next", size: 14).weight(.semibold)).lineLimit(1)
+                Text(users.joined(separator: " · ")).font(.system(size: 10.5)).foregroundStyle(.tertiary).lineLimit(1)
+                Spacer(minLength: 4)
+                Text("\(running)").font(.system(size: 12).monospacedDigit()).foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 14).padding(.vertical, 6).contentShape(Rectangle())
+        }
+        .buttonStyle(.plain).handCursor()
+        .help(([host + " — \(running) of \(sessions.count) sessions running"] + herdr.map { "herdr " + $0 } + problems).joined(separator: "\n"))
+        .contextMenu {
+            Button("Forget \(host) (the hub's list; saved herdr machines stay)", role: .destructive) { store.forgetMachine(host: host) }
+        }
+    }
+
     private var form: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Add a remote session").font(.headline)
-            Text("As you would type it: herdr --remote <target> --session <name>").font(.caption).foregroundStyle(.secondary)
+            Text("As you would type it: herdr --remote <target> --session <name>. Every session running on the machine shows up under it.")
+                .font(.caption).foregroundStyle(.secondary).frame(width: 300, alignment: .leading).fixedSize(horizontal: false, vertical: true)
             TextField("target — user@host", text: $target).textFieldStyle(.roundedBorder).frame(width: 300)
             TextField("session — default", text: $session).textFieldStyle(.roundedBorder).frame(width: 300)
             if let e = addError { Text(e).font(.caption).foregroundStyle(.orange) }
@@ -318,6 +359,7 @@ struct RemoteRow: View {
     let state: RemoteState?
     let attached: Bool
     @ObservedObject var store: HubStore
+    var subtitle: String? = nil
     @State private var hover = false
     var body: some View {
         Button { store.openRemote(remote) } label: {
@@ -325,7 +367,8 @@ struct RemoteRow: View {
                 Circle().fill(dot).frame(width: 7, height: 7)
                 VStack(alignment: .leading, spacing: 0) {
                     Text(remote.session).font(.custom("Avenir Next", size: 14)).lineLimit(1)
-                    Text(remote.label ?? remote.shortTarget).font(.system(size: 10.5)).foregroundStyle(.tertiary).lineLimit(1)
+                    let sub = subtitle ?? remote.label ?? remote.shortTarget
+                    if !sub.isEmpty { Text(sub).font(.system(size: 10.5)).foregroundStyle(.tertiary).lineLimit(1) }
                 }
                 Spacer(minLength: 4)
                 if attached { Image(systemName: "link").font(.system(size: 10)).foregroundStyle(.secondary).help("This Mac is attached to it now") }

@@ -85,3 +85,49 @@ final class RemoteSessionTests: XCTestCase {
         XCTAssertEqual(m.first?.label, "Build")
     }
 }
+
+/// Remote sessions grouped by machine (Nat: "if we have many machines, group, show machine").
+final class RemoteMachineTests: XCTestCase {
+    func testAMachineIsItsHostAndItsUser() {
+        let r = RemoteSession(target: "phd-oracle@black.follow-rankine.ts.net", session: "phd")
+        XCTAssertEqual(r.host, "black"); XCTAssertEqual(r.user, "phd-oracle")
+        XCTAssertEqual(RemoteSession(target: "white.local", session: "x").host, "white")
+        XCTAssertNil(RemoteSession(target: "white", session: "x").user)
+    }
+
+    func testAMachineListsItsSessions() {
+        let m = RemoteParse.machine("""
+        herdr 0.9.1
+        {"sessions":[{"default":true,"name":"default","running":true},{"name":"homekeeper","running":false},{"name":"infra-team","running":true}]}
+        herdr-rc=0
+        """)
+        XCTAssertEqual(m?.version, "0.9.1")
+        XCTAssertEqual(m?.sessions.map(\.name), ["default", "homekeeper", "infra-team"])
+        XCTAssertEqual(m?.sessions.map(\.running), [true, false, true])
+        XCTAssertNil(RemoteParse.machine("herdr-rc=127"), "no herdr there")
+    }
+
+    func testTheAgentsOfEachSession() {
+        let a = RemoteParse.agents("""
+        @@session default
+        {"result":{"agents":[{"agent_status":"working"},{"agent_status":"idle"}]}}
+        @@session infra-team
+        {"result":{"agents":[{"agent_status":"done"}]}}
+        """, version: "0.9.1")
+        XCTAssertEqual(a["default"]?.agents, 2); XCTAssertEqual(a["default"]?.working, 1)
+        XCTAssertEqual(a["infra-team"]?.needsYou, 1); XCTAssertEqual(a["infra-team"]?.version, "0.9.1")
+        XCTAssertEqual(RemoteParse.agentsCommand(sessions: ["default", "infra-team"]).components(separatedBy: "@@session").count, 3)
+    }
+
+    func testGroupsAreMachinesWithRunningSessionsFirst() {
+        let rs = [RemoteSession(target: "nat@white.follow-rankine.ts.net", session: "infra-teamexit"),
+                  RemoteSession(target: "phd-oracle@black.follow-rankine.ts.net", session: "phd"),
+                  RemoteSession(target: "nat@white.follow-rankine.ts.net", session: "default"),
+                  RemoteSession(target: "nm@white.local", session: "default")]
+        let off: Set<String> = ["nat@white.follow-rankine.ts.net|default"]
+        let g = RemoteParse.groups(rs, running: { !off.contains($0.id) })
+        XCTAssertEqual(g.map(\.host), ["black", "white"])
+        XCTAssertEqual(g[1].sessions.map(\.session), ["default", "infra-teamexit", "default"])
+        XCTAssertEqual(g[1].sessions.last?.target, "nat@white.follow-rankine.ts.net", "the stopped one last")
+    }
+}
