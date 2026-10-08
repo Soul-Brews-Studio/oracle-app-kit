@@ -455,9 +455,10 @@ struct SessionSpaces: View {
             }
         }
         .onDisappear { closeDrawer() }
-        .task {   // -hubOpenSpace <label> (tests): open that space's drawer once the spaces are known
+        .task {   // -hubOpenSpace <label> (tests): open that space's drawer once the spaces are known; -hubFull YES: full screen
             guard let want = UserDefaults.standard.string(forKey: "hubOpenSpace") else { return }
-            for _ in 0..<100 { if let sp = store.spaces.first(where: { $0.session == session && $0.label == want }) { openDrawer(sp); return }
+            for _ in 0..<100 { if let sp = store.spaces.first(where: { $0.session == session && $0.label == want }) {
+                                   openDrawer(sp); if UserDefaults.standard.bool(forKey: "hubFull") { full = true }; return }
                                try? await Task.sleep(for: .milliseconds(200)) }
         }
     }
@@ -470,6 +471,7 @@ struct SessionSpaces: View {
             let dx = CGFloat(drawerWidth) + 1; grown += dx
             DispatchQueue.main.async { Drawer.grow(by: dx) }
             esc = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { e in
+                if LiveTerminal.typing { return e }   // esc is the agent's while typing (⌘⎋ stops typing)
                 if e.keyCode == 53, open != nil, full { withAnimation(.easeOut(duration: 0.15)) { full = false }; return nil }   // full screen first
                 if e.keyCode == 53, open != nil { closeDrawer(); return nil }
                 return e
@@ -523,6 +525,7 @@ struct SessionSpaces: View {
     private func installKeys() {
         guard keys == nil else { return }
         keys = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { e in
+            if LiveTerminal.typing { return e }   // the keys belong to the pane being typed into
             let mods = e.modifierFlags.intersection(.deviceIndependentFlagsMask)
             let typing = NSApp.keyWindow?.firstResponder is NSTextView   // a field already has the keys
             if mods == .command, e.charactersIgnoringModifiers == "f" { filterFocused = true; return nil }
@@ -549,6 +552,9 @@ struct SessionSpaces: View {
             case "o": if let r = row() { openDrawer(r) }
             case "s": if let r = row() { store.showInHerdr(r) }
             case "f": if open != nil { withAnimation(.easeOut(duration: 0.15)) { full.toggle() } }
+            case "i": if open != nil {   // type into the pane: full screen first, so the pane is sized to the page
+                          if !full { withAnimation(.easeOut(duration: 0.15)) { full = true } }
+                          NotificationCenter.default.post(name: LiveTerminal.focusNotification, object: nil) }
             case "x": if let id = cursor { if marks.contains(id) { marks.remove(id) } else { marks.insert(id) } }
             case "#": if !marks.isEmpty { batchAgents = nil; confirmBatch = true
                           Task { var a: [String: [ClosedAgent]] = [:]
@@ -866,6 +872,7 @@ struct SpaceDrawer: View {
     @State private var panes: [Pane] = []
     @State private var pick: String?
     @State private var problem: String?
+    @AppStorage(LiveTerminal.enabledKey) private var live = true   // ☑ Ghostty, live · ☐ the pane's text, read every second
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -874,7 +881,12 @@ struct SpaceDrawer: View {
                 Text(space.label).font(.callout.weight(.semibold)).foregroundStyle(accent).lineLimit(1)
                 Text(space.session + " · " + space.spaceId).font(.caption.monospaced()).foregroundStyle(.secondary)
                 Spacer(minLength: 6)
-                Text(full ? "esc back" : "f full · esc").font(.caption.monospaced()).foregroundStyle(.tertiary)
+                Text(full ? (live && LiveTerminal.make != nil ? "i type · esc back" : "esc back") : "f full · esc")
+                    .font(.caption.monospaced()).foregroundStyle(.tertiary)
+                if LiveTerminal.make != nil {
+                    Toggle("Live", isOn: $live).toggleStyle(.checkbox).font(.caption).handCursor()
+                        .help("Ticked: the pane itself, live (herdr's stream in Ghostty); full screen sizes the pane to the page and takes your keys. Unticked: its text, read every second, with history.")
+                }
                 if let toggleFull {
                     Button(action: toggleFull) {
                         Image(systemName: full ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right").font(.callout.weight(.semibold))
@@ -906,8 +918,14 @@ struct SpaceDrawer: View {
                 }
             }
             Divider()
-            if let pick { PaneScreen(place: space.session + ":" + pick).id(pick) }
-            else {
+            if let pick {
+                if live, let make = LiveTerminal.make {
+                    // Ghostty, fed by herdr's stream (as Heeler attaches): observe in the drawer, control in full screen
+                    make(LiveTerminal.Spec(session: space.session, pane: pick, control: full)).id(pick)
+                } else {
+                    PaneScreen(place: space.session + ":" + pick).id(pick)
+                }
+            } else {
                 Text(problem ?? "reading the panes…").font(.callout).foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
@@ -930,7 +948,8 @@ struct SpaceDrawer: View {
         }
         let rank: (Pane) -> Int = { p in p.agent == nil ? 3 : p.status == "working" ? 0 : p.status == "blocked" || p.status == "done" ? 1 : 2 }
         panes.sort { rank($0) != rank($1) ? rank($0) < rank($1) : ($0.focused && !$1.focused) }
-        pick = panes.first?.id
+        let want = UserDefaults.standard.string(forKey: "hubOpenPane")   // -hubOpenPane <pane id> (tests)
+        pick = panes.first { $0.id == want }?.id ?? panes.first?.id
         if panes.isEmpty { problem = "no panes in this space" }
     }
 }
