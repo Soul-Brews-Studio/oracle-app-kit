@@ -24,7 +24,8 @@ public struct OracleRootView: View {
     @State private var openPane: String?      // the ACTIVE pane in the drawer (message box + esc go to it)
     @State private var openPanes: [String] = []   // every pane in the drawer, stacked, at most 3 (Nat: "open 2nd and 3rd pane")
     @State private var escMonitor: Any?
-    @State private var fitMonitor: Any?   // double-click the title bar, or the empty space beside the page: fit ↔ back
+    @State private var fitMonitor: Any?
+    @State private var drawerFull = false  // the drawer over the whole page (⤢), esc comes back (Nat: "how to full screen")   // double-click the title bar, or the empty space beside the page: fit ↔ back
     @AppStorage("oracle.drawerWidth") private var drawerWidth: Double = 560   // what opening the drawer adds to the window, when the screen has room
     /// Work's width while the drawer is open: the drawer takes the rest (Nat, 2026-10-08: "when expand … the middle
     /// can narrow"). Dragging the drawer's edge moves it; remembered.
@@ -94,22 +95,32 @@ public struct OracleRootView: View {
         } detail: {
             GeometryReader { geo in
             HStack(spacing: 0) {
+                #if os(macOS)
+                let full = drawerFull && !openPanes.isEmpty && section == .status
+                #else
+                let full = false
+                #endif
+                if !full {
                 detail
                     .frame(minWidth: 420, maxWidth: .infinity, maxHeight: .infinity)   // Work always fills its column
                     #if os(macOS)
                     .safeAreaInset(edge: .bottom) { HeyComposer(store: store, text: $heyText, focus: openPane) }
                     #endif
+                }
                 #if os(macOS)
                 // the 3rd column exists only while a pane is open (Nat: 3 columns all the time was "too nested").
-                // Work narrows to `workNarrow` and the drawer takes the rest of the window
+                // Work narrows to `workNarrow` and the drawer takes the rest of the window — or all of it, full screen
                 if !openPanes.isEmpty, section == .status {
-                    let room = Self.drawerRoom(total: geo.size.width, work: workNarrow)
-                    DrawerHandle(width: Binding(get: { Double(room) },
-                                                set: { workNarrow = max(420, Double(geo.size.width) - $0 - Double(DrawerHandle.width)) }))
+                    let room = full ? geo.size.width : Self.drawerRoom(total: geo.size.width, work: workNarrow)
+                    if !full {
+                        DrawerHandle(width: Binding(get: { Double(room) },
+                                                    set: { workNarrow = max(420, Double(geo.size.width) - $0 - Double(DrawerHandle.width)) }))
+                    }
                     VStack(spacing: 0) {
                         ForEach(openPanes, id: \.self) { place in
                             TerminalColumn(store: store, place: place, active: place == openPane,
-                                           activate: { openPane = place }, close: { closePane(place) })
+                                           activate: { openPane = place }, close: { closePane(place) },
+                                           full: full, toggleFull: { withAnimation(.easeOut(duration: 0.15)) { drawerFull.toggle() } })
                             if place != openPanes.last { Divider() }
                         }
                     }
@@ -137,11 +148,13 @@ public struct OracleRootView: View {
                     let dx = drawerWidth + DrawerHandle.width; Drawer.grow(by: dx); drawerGrown += dx
                     escMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { e in   // esc closes the ACTIVE pane
                         if LiveTerminal.typing { return e }   // …unless you are typing into a pane: then esc is the agent's
+                        if e.keyCode == 53, drawerFull { withAnimation(.easeOut(duration: 0.15)) { drawerFull = false }; return nil }   // full screen first
                         if e.keyCode == 53, openPane != nil { openPane = nil; return nil }
                         return e
                     }
                 }
                 if !wasEmpty, isEmpty {
+                    drawerFull = false
                     Drawer.grow(by: -drawerGrown); drawerGrown = 0   // give back exactly what it took
                     if let m = escMonitor { NSEvent.removeMonitor(m); escMonitor = nil }
                 }
@@ -1364,6 +1377,8 @@ struct TerminalColumn: View {
     var active = true
     var activate: () -> Void = {}
     let close: () -> Void
+    var full = false
+    var toggleFull: (() -> Void)? = nil
     @AppStorage(LiveTerminal.enabledKey) private var live = true   // ☑ the pane live (when the app links a terminal) · ☐ its text
     var body: some View {
         let act = store.activity.first { $0.place == place }
@@ -1380,6 +1395,16 @@ struct TerminalColumn: View {
                 if LiveTerminal.make != nil {
                     Toggle("Live", isOn: $live).toggleStyle(.checkbox).font(.caption).handCursor()
                         .help("Ticked: the pane itself, live; click it (or Type) to type into it, ⌘⎋ gives it back. Unticked: its text, read every second.")
+                }
+                Button { store.openInWezTerm(place: place) } label: { Label("WezTerm", systemImage: "macwindow.on.rectangle") }
+                    .buttonStyle(.borderless).font(.caption.weight(.medium)).labelStyle(.titleAndIcon).handCursor()
+                    .help("Open this pane in its WezTerm window, focused and in front (the drawer lets go of it first)")
+                if let toggleFull {
+                    Button(action: toggleFull) {
+                        Image(systemName: full ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right").font(.callout.weight(.semibold))
+                    }
+                    .buttonStyle(.plain).foregroundStyle(.secondary).handCursor()
+                    .help(full ? "Back to the page (esc)" : "Full screen: the pane over the whole page (esc comes back)")
                 }
                 if let item = store.work.first(where: { $0.panes.contains { $0.place == place } }) {
                     Button("bring here") { store.bringToMain(item); close() }.buttonStyle(.borderless).font(.caption.weight(.medium)).handCursor()

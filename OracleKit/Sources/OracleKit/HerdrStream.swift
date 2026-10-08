@@ -262,6 +262,9 @@ public enum LiveTerminal {
     /// Posted to give the shown live terminal the keyboard (the hub's `i`): it takes it once its control stream
     /// has drawn, so keys typed in between are not lost to the page's shortcuts.
     public static let focusNotification = Notification.Name("co.laris.oracle.liveTerminal.focus")
+    /// Posted (object: "<session>:<pane>") to make the live terminal of that pane let go: it stops typing and gives the
+    /// pane back its own size, before WezTerm shows it (Nat: "open in wezterm and active").
+    public static let releaseNotification = Notification.Name("co.laris.oracle.liveTerminal.release")
     /// Whether the drawers draw live terminals; off, they read the pane's text every second (with its history).
     public static let enabledKey = "hub.liveTerminal"
 }

@@ -431,6 +431,9 @@ struct LivePaneView: View {
         .onChange(of: spec) { _, s in pane.begin(s) }
         .onDisappear { pane.end() }
         .onReceive(NotificationCenter.default.publisher(for: LiveTerminal.focusNotification)) { _ in pane.wantTyping() }
+        .onReceive(NotificationCenter.default.publisher(for: LiveTerminal.releaseNotification)) { n in
+            if (n.object as? String) == (spec.session.map { $0 + ":" } ?? "") + spec.pane { pane.stopTyping() }
+        }
         .background(StopTypingKey(active: pane.typing) { focused = false; pane.stopTyping() })
     }
 
