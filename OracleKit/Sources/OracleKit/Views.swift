@@ -233,8 +233,9 @@ public struct OracleRootView: View {
         #else
         case .status: WorkView(store: store, openPane: $openPane)
         case .inbox: InboxList(store: store)
-        case .prs: GHList(kind: .prs, items: store.prs, work: store.work, accent: c.color) { heyText = Self.brief($0, pr: true) }
-        case .issues: GHList(kind: .issues, items: store.issues, work: store.work, accent: c.color) { heyText = Self.brief($0, pr: false) }
+        case .prs: GHList(kind: .prs, items: store.prs, work: store.work, accent: c.color, onSend: { heyText = Self.brief($0, pr: true) })
+        case .issues: GHList(kind: .issues, items: store.issues, work: store.work, accent: c.color,
+                             onSend: { heyText = Self.brief($0, pr: false) }, onCompose: { heyText = $0 })
         #endif
         case .memory:
             #if os(macOS)
@@ -947,6 +948,19 @@ struct InboxList: View {
     }
 }
 
+/// /herdr-ticket's one-shot mode as the Issues page offers it: the text each action puts in the message box, read and
+/// sent by the human like "Send to agent…". The skill parses these words — change both together.
+enum PickUp {
+    struct Command: Equatable { let label: String; let text: String }
+    /// Pick up an issue no worktree names yet; once one does, continue its session headless or reopen it in full.
+    static func commands(issue n: Int, inWorktree: Bool) -> [Command] {
+        inWorktree
+            ? [Command(label: "Continue one-shot…", text: "/herdr-ticket --continue \(n) "),
+               Command(label: "Open full session", text: "/herdr-ticket --open \(n)")]
+            : [Command(label: "Pick up (one-shot)", text: "/herdr-ticket \(n) --oneshot")]
+    }
+}
+
 /// Pull requests and issues, after ARRA Chat's "Pick up a thread.": one big line, a segmented filter, one card
 /// per item — a status dot, the title, who and when, and which /herdr-wt worktree it belongs to.
 struct GHList: View {
@@ -960,6 +974,8 @@ struct GHList: View {
     var problems: [String] = []
     var answered: Date? = .distantPast
     var onSend: ((GHItem) -> Void)? = nil
+    /// Fills the message box with a /herdr-ticket one-shot command (issues only; the phone has no message box).
+    var onCompose: ((String) -> Void)? = nil
     @State private var filter = 0
     var body: some View {
         let groups = self.groups
@@ -980,7 +996,9 @@ struct GHList: View {
                 .pickerStyle(.segmented).labelsHidden().fixedSize()
                 #endif
                 VStack(spacing: 8) {
-                    ForEach(rows) { it in GHCard(item: it, status: status(it), detail: detail(it), onSend: onSend.map { f in { f(it) } }) }
+                    ForEach(rows) { it in
+                        GHCard(item: it, status: status(it), detail: detail(it), onSend: onSend.map { f in { f(it) } }, picks: picks(it))
+                    }
                 }
             }
             .padding(28)
@@ -1018,6 +1036,12 @@ struct GHList: View {
         case .issues: return tree(it) != nil ? ("in a worktree", .green) : ("no worktree yet", accent)
         }
     }
+    private func picks(_ it: GHItem) -> [GHCard.Pick] {
+        guard kind == .issues, let compose = onCompose else { return [] }
+        return PickUp.commands(issue: it.number, inWorktree: tree(it) != nil).map { c in
+            GHCard.Pick(label: c.label, command: c.text) { compose(c.text) }
+        }
+    }
     private func detail(_ it: GHItem) -> String {
         var parts = [it.author]
         if let d = it.updatedAt { parts.append(d.formatted(.relative(presentation: .named))) }
@@ -1032,6 +1056,9 @@ struct GHCard: View {
     let status: (label: String, color: Color)
     let detail: String
     var onSend: (() -> Void)? = nil
+    /// One-shot actions (PickUp): all of them in the context menu, the first as a pill while the pointer is over the card.
+    var picks: [Pick] = []
+    struct Pick { let label: String; let command: String; let run: () -> Void }
     @State private var hover = false
     var body: some View {
         Button { if let u = item.url { WorkFormat.open(u) } } label: {
@@ -1045,7 +1072,17 @@ struct GHCard: View {
                     Text(detail).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
                 }
                 Spacer(minLength: 8)
-                Text(status.label).font(.caption).foregroundStyle(.secondary)
+                if hover, let p = picks.first {
+                    // a gesture, not a nested Button: the whole card is already a Button (it opens GitHub)
+                    Text(p.label).font(.caption.weight(.semibold)).foregroundStyle(status.color)
+                        .padding(.horizontal, 9).padding(.vertical, 3)
+                        .background(Capsule().fill(status.color.opacity(0.16)))
+                        .contentShape(Capsule())
+                        .highPriorityGesture(TapGesture().onEnded { p.run() })
+                        .help(p.command)
+                } else {
+                    Text(status.label).font(.caption).foregroundStyle(.secondary)
+                }
             }
             .padding(.horizontal, 16).padding(.vertical, 12)
             .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.primary.opacity(hover ? 0.08 : 0.05)))
@@ -1056,6 +1093,8 @@ struct GHCard: View {
         .onHover { hover = $0 }
         .help(item.url?.absoluteString ?? "")
         .contextMenu {
+            ForEach(picks.indices, id: \.self) { i in Button(picks[i].label, action: picks[i].run).handCursor() }
+            if !picks.isEmpty { Divider() }
             if let onSend { Button("Send to agent…", action: onSend).handCursor() }
             if let u = item.url { Button("Open on GitHub") { WorkFormat.open(u) } }
         }
