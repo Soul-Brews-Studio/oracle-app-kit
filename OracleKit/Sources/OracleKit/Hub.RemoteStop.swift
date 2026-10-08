@@ -33,5 +33,21 @@ extension HubStore {
         await refresh(remotes: true)
         return failed.isEmpty ? nil : "Did not stop. Run it in a terminal to see why:\n  " + failed.joined(separator: "\n  ")
     }
+
+    /// Detach this Mac from a remote session: end the local `herdr --remote` client(s) attached to it. The session
+    /// and its agents keep running on the other machine. nil when done, else the command to run.
+    public func detachRemote(_ r: RemoteSession) async -> String? {
+        let ps = await Shell.run("ps", ["-axo", "pid=,args="]) ?? ""
+        let pids = ps.split(separator: "\n").compactMap { line -> Int32? in
+            let t = line.trimmingCharacters(in: .whitespaces)
+            guard let sp = t.firstIndex(of: " "), let pid = Int32(t[..<sp]),
+                  RemoteParse.remote(of: String(t[t.index(after: sp)...]).trimmingCharacters(in: .whitespaces))?.id == r.id else { return nil }
+            return pid
+        }
+        let failed = pids.filter { kill($0, SIGTERM) != 0 }
+        await refresh()
+        if pids.isEmpty { return "No herdr client here is attached to \(r.session) on \(r.host). Check:  ps -axo pid,args | rg 'herdr --remote'" }
+        return failed.isEmpty ? nil : "Could not end the client. Run:  kill " + failed.map(String.init).joined(separator: " ")
+    }
 }
 #endif

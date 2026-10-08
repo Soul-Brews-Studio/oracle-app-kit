@@ -271,6 +271,9 @@ private struct MachineCard: View {
                     .contextMenu {
                         Button("Open in WezTerm") { store.openRemote(r) }
                         Button("Copy \(r.command)") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(r.command, forType: .string) }
+                        if store.attachedRemotes.contains(r.id) {
+                            Button("Detach this Mac (\(r.session) keeps running)") { Task { stopError = await store.detachRemote(r) } }
+                        }
                         if st?.running == true {
                             Divider()
                             Button("Stop \(r.session)…", role: .destructive) { ask([r]) }.disabled(stopping)
