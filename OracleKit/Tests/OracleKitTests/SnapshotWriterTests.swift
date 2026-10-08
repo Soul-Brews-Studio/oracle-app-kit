@@ -73,3 +73,12 @@ final class SnapshotWriterTests: XCTestCase {
         try? FileManager.default.removeItem(at: dir)
     }
 }
+
+/// The oracle app's drawer takes what Work leaves (Nat, 2026-10-08: "when expand … the middle can narrow").
+final class DrawerRoomTests: XCTestCase {
+    func testTheDrawerTakesEverythingButANarrowWork() {
+        XCTAssertEqual(OracleRootView.drawerRoom(total: 2056, work: 480), 1569)
+        XCTAssertEqual(OracleRootView.drawerRoom(total: 2056, work: 300), 2056 - 420 - 7, "Work never narrower than 420")
+        XCTAssertEqual(OracleRootView.drawerRoom(total: 800, work: 480), 360, "the drawer never under 360")
+    }
+}
