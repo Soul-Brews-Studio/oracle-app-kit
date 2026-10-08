@@ -1,7 +1,7 @@
 /// One Core ML call: a bucket length and the request rows it carries (at most
 /// slots / bucket of them). Same grouping as ane_runtime.assign_jobs: rows go to the
 /// smallest bucket that holds them, in request order, chunked by the bucket's batch.
-public struct Job: Equatable {
+public struct Job: Equatable, Sendable {
     public let bucket: Int
     public let rows: [Int]
 }

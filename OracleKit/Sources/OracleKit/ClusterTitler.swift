@@ -56,7 +56,7 @@ enum ClusterTitler {
         for attempt in 0..<3 {
             do {
                 let session = LanguageModelSession(model: model, instructions: instructions)
-                let r = try await session.respond(to: prompt, options: GenerationOptions(sampling: .greedy, maximumResponseTokens: 24))
+                let r = try await session.respond(to: prompt, options: GenerationOptions(samplingMode: .greedy, maximumResponseTokens: 24))
                 guard let t = clean(r.content) else { return (nil, "keywords · empty answer", true) }
                 if thai, !isThai(t) { return (nil, "keywords · answer not in Thai", true) }
                 if taken.contains(where: { Self.same($0, t) }) { return (nil, "keywords · same title as its region or a sibling", true) }

@@ -103,7 +103,8 @@ public final class MapLayout: ObservableObject {
         Task.detached(priority: .utility) {
             try? Self.pack(xyz).write(to: urls.0, options: .atomic)
             try? JSONEncoder().encode(ids).write(to: urls.1, options: .atomic)
-            if let meta, let md = try? Self.encoder.encode(meta) { try? md.write(to: urls.2, options: .atomic) }
+            let encoder = JSONEncoder(); encoder.dateEncodingStrategy = .iso8601   // its own: the shared one is main-actor
+            if let meta, let md = try? encoder.encode(meta) { try? md.write(to: urls.2, options: .atomic) }
             knn.withUnsafeBufferPointer { try? Data(buffer: $0).write(to: urls.3, options: .atomic) }
         }
     }

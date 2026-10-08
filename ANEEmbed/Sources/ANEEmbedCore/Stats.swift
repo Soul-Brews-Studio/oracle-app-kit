@@ -2,7 +2,8 @@ import Foundation
 
 /// Counters the menu bar and /health read: totals, a texts/s window, what is running
 /// right now (requests in flight, workers busy) and the last few requests.
-public final class Stats {
+/// Shared by every worker: all its state is behind `lock`.
+public final class Stats: @unchecked Sendable {
     public struct RequestLog: Codable, Identifiable {
         public var id: Int
         public var at: Date

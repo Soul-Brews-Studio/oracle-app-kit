@@ -110,7 +110,7 @@ final class BundledANE: LocalEmbedding, @unchecked Sendable {
         let base = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("ARRA Oracles/ANEModel", isDirectory: true)
         let dir = base.appendingPathComponent(identity.replacingOccurrences(of: ":", with: "_"), isDirectory: true)
-        let log = { (kind: HubLog.Kind, text: String) in Task { @MainActor in HubLog.shared.add(kind, text) } }
+        let log = { (kind: HubLog.Kind, text: String) in _ = Task { @MainActor in HubLog.shared.add(kind, text) } }
         if let a = try? Assets(root: dir), a.manifest.vector_space_identity == identity,
            a.manifest.buckets.allSatisfy({ fm.fileExists(atPath: dir.appendingPathComponent("compiled/\($0).mlmodelc").path) }) {
             return dir

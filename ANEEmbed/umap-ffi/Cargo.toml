@@ -20,6 +20,11 @@ wgpu = "24"
 bytemuck = { version = "1", features = ["derive"] }
 getrandom = "0.4"
 
+# The GPU paths were removed here, but the code still tests `feature = "gpu"`: say that value is known (never
+# enabled), instead of 34 "unexpected cfg condition value" warnings on every build.
+[workspace.lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(feature, values("gpu"))'] }
+
 [workspace.lints.clippy]
 all = { level = "warn", priority = -1 }
 
