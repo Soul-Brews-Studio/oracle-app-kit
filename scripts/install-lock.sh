@@ -1,4 +1,4 @@
-# install-lock.sh — sourced. One installer of /Applications/{ARRA Oracles,Neo,Pulse,Nexus,…}.app at a time.
+# install-lock.sh — sourced. One installer of /Applications/{ARRA Oracles,Neo Oracle,Pulse Oracle,…}.app at a time.
 # Two agents installing at once clobbered each other (2026-10-07). mkdir is atomic; the holder's pid, who, branch and
 # start time are written inside. The lock is per macOS user ($TMPDIR): every agent of that user shares it.
 #   lock_take "<command to retry>"  → 0 = held by us; 1 = someone alive holds it (prints who + the wait command)

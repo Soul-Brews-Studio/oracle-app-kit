@@ -301,7 +301,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: co.laris.oracle.$KEY
-        PRODUCT_NAME: $N
+        PRODUCT_NAME: $N Oracle
         INFOPLIST_KEY_CFBundleDisplayName: $N Oracle
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: "1,2"
@@ -314,7 +314,7 @@ targets:
     info:
       path: Apps/$N/Info.plist
       properties:
-        CFBundleName: $N
+        CFBundleName: $N Oracle
         CFBundleDisplayName: $N Oracle
         CFBundleShortVersionString: \$(MARKETING_VERSION)
         CFBundleVersion: \$(CURRENT_PROJECT_VERSION)
