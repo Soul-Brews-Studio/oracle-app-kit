@@ -14,13 +14,14 @@ public struct OracleRootView: View {
     #if os(iOS)
     @State private var section: Section? = ["work": Section.status, "inbox": .inbox, "prs": .prs, "issues": .issues, "memory": .memory, "map": .map, "trace": .trace, "settings": .settings][UserDefaults.standard.string(forKey: "oracleSection") ?? ""] ?? .status   // -oracleSection work|inbox|prs|issues|memory|map|trace|settings
     #else
-    @State private var section: Section? = ["memory": Section.memory, "map": .map, "trace": .trace, "settings": .settings][UserDefaults.standard.string(forKey: "oracleSection") ?? ""] ?? .status   // -oracleSection memory|map|trace|settings
+    @State private var section: Section? = ["memory": Section.memory, "map": .map, "trace": .trace, "settings": .settings, "prs": .prs, "issues": .issues][UserDefaults.standard.string(forKey: "oracleSection") ?? ""] ?? .status   // -oracleSection memory|map|trace|settings|prs|issues
     #endif
     @State private var dropTargeted = false
     @State private var inboxHot = false
     @State private var issueHot = false
     @State private var draft: IssueDraft?
     @State private var heyText = ""
+    @State private var picking: [Int: PickUp.Progress] = [:]   // Issues cards whose Pick up is running or failed
     @State private var openPane: String?      // the ACTIVE pane in the drawer (message box + esc go to it)
     @State private var openPanes: [String] = []   // every pane in the drawer, stacked, at most 3 (Nat: "open 2nd and 3rd pane")
     @State private var escMonitor: Any?
@@ -222,6 +223,30 @@ public struct OracleRootView: View {
         (pr ? "Review PR #\(it.number): " : "Pick up issue #\(it.number): ") + it.title + (it.url.map { " — " + $0.absoluteString } ?? "")
     }
 
+    #if os(macOS)
+    /// Pick up (or open) an issue's agent: the script makes the worktree, its space and the agent; then Work shows it
+    /// with the agent's pane open in the drawer, where the message box talks to it.
+    private func pickUp(_ it: GHItem, _ action: PickUp.Action) {
+        guard picking[it.number] != .running else { return }
+        picking[it.number] = .running
+        let session = WorkFormat.homeSession(store.activity)
+        Task { @MainActor in
+            switch await PickUp.run(action, issue: it.number, repo: c.localPath, session: session) {
+            case .started(let place):     // the script says which herdr server the agent is on: trust that, not a guess
+                picking[it.number] = nil
+                await store.refresh()
+                section = .status
+                openPane = place
+            case .existing:
+                picking[it.number] = nil
+                await store.refresh()
+            case .failed(let why):
+                picking[it.number] = .failed(why)
+            }
+        }
+    }
+    #endif
+
     @ViewBuilder private var detail: some View {
         switch section ?? .status {
         #if os(iOS)
@@ -233,8 +258,9 @@ public struct OracleRootView: View {
         #else
         case .status: WorkView(store: store, openPane: $openPane)
         case .inbox: InboxList(store: store)
-        case .prs: GHList(kind: .prs, items: store.prs, work: store.work, accent: c.color) { heyText = Self.brief($0, pr: true) }
-        case .issues: GHList(kind: .issues, items: store.issues, work: store.work, accent: c.color) { heyText = Self.brief($0, pr: false) }
+        case .prs: GHList(kind: .prs, items: store.prs, work: store.work, accent: c.color, onSend: { heyText = Self.brief($0, pr: true) })
+        case .issues: GHList(kind: .issues, items: store.issues, work: store.work, accent: c.color,
+                             onSend: { heyText = Self.brief($0, pr: false) }, onPick: { pickUp($0, $1) }, picking: picking)
         #endif
         case .memory:
             #if os(macOS)
@@ -947,6 +973,65 @@ struct InboxList: View {
     }
 }
 
+/// Picking up an issue on the Issues page. The app runs /herdr-ticket's script itself — no agent in between, no
+/// message to send — so seconds after the click the worktree (named from the issue), its herdr space and a STATEFUL
+/// claude working the issue exist, and the drawer shows that claude. The one-shot is the option. (Nat, 2026-10-08:
+/// "click pickup it feel broken … one shot is an option, start with stateful")
+enum PickUp {
+    enum Action: Equatable { case agent, oneshot, open }
+    struct Item: Equatable { let label: String; let action: Action }
+    /// No worktree names the issue: Pick up (an interactive agent), or as a one-shot. Once one does: open its session.
+    static func actions(inWorktree: Bool) -> [Item] {
+        inWorktree ? [Item(label: "Open session", action: .open)]
+                   : [Item(label: "Pick up", action: .agent), Item(label: "Pick up as a one-shot", action: .oneshot)]
+    }
+    static var script: String { NSHomeDirectory() + "/.claude/skills/herdr-ticket/ticket.sh" }
+    /// What a click runs, minus `bash <script>`: also the tooltip, so the human can run it by hand.
+    static func command(_ action: Action, issue n: Int) -> String {
+        switch action {
+        case .agent: return "ticket.sh pick \(n)"
+        case .oneshot: return "ticket.sh pick \(n) --oneshot"
+        case .open: return "ticket.sh open \(n)"
+        }
+    }
+    /// `session` = the herdr server the oracle's panes live on; the script must not trust an inherited socket instead.
+    static func arguments(_ action: Action, issue n: Int, repo: String, session: String = "") -> [String] {
+        [script] + command(action, issue: n).split(separator: " ").dropFirst().map(String.init) + ["--repo", repo]
+            + (session.isEmpty ? [] : ["--session", session]) + ["--json"]
+    }
+    /// The script's one JSON line: where the agent is (`herdr` session + pane → a drawer place), a worktree that already
+    /// exists without a live agent, or why not + the fix.
+    enum Outcome: Equatable { case started(place: String), existing, failed(String) }
+    static func outcome(status: Int32, json: String) -> Outcome {
+        let d = (try? JSONSerialization.jsonObject(with: Data(json.utf8))) as? [String: Any] ?? [:]
+        if status == 0, d["ok"] as? Bool == true {
+            if let pane = d["pane"] as? String, !pane.isEmpty {
+                let herdr = d["herdr"] as? String ?? ""
+                return .started(place: herdr.isEmpty ? pane : "\(herdr):\(pane)")
+            }
+            if d["existing"] as? Bool == true { return .existing }
+        }
+        let why = d["error"] as? String ?? "ticket.sh exited \(status) without saying why"
+        return .failed(([why] + (d["fix"] as? [String] ?? [])).joined(separator: "\n"))
+    }
+    enum Progress: Equatable { case running, failed(String) }
+    #if os(macOS)
+    /// `session` is the herdr server the oracle's panes live on (HERDR_SESSION for every herdr call the script makes).
+    static func run(_ action: Action, issue n: Int, repo: String, session: String) async -> Outcome {
+        guard FileManager.default.fileExists(atPath: script) else {
+            return .failed("the /herdr-ticket skill is not installed on this Mac\nnpx skills@latest add nat-build-with-oracle/skills")
+        }
+        guard let r = await Shell.capture("bash", arguments(action, issue: n, repo: repo, session: session), timeout: 120) else {
+            return .failed("bash would not start\nbash \(script) pick \(n) --repo \(repo)")
+        }
+        let o = outcome(status: r.status, json: r.out)
+        // an issue that already has a worktree but no live agent: open its session instead
+        if o == .existing, action != .open { return await run(.open, issue: n, repo: repo, session: session) }
+        return o
+    }
+    #endif
+}
+
 /// Pull requests and issues, after ARRA Chat's "Pick up a thread.": one big line, a segmented filter, one card
 /// per item — a status dot, the title, who and when, and which /herdr-wt worktree it belongs to.
 struct GHList: View {
@@ -960,6 +1045,9 @@ struct GHList: View {
     var problems: [String] = []
     var answered: Date? = .distantPast
     var onSend: ((GHItem) -> Void)? = nil
+    /// Runs a PickUp action for an issue (Mac only: the phone runs no scripts); `picking` marks cards starting or failed.
+    var onPick: ((GHItem, PickUp.Action) -> Void)? = nil
+    var picking: [Int: PickUp.Progress] = [:]
     @State private var filter = 0
     var body: some View {
         let groups = self.groups
@@ -980,7 +1068,10 @@ struct GHList: View {
                 .pickerStyle(.segmented).labelsHidden().fixedSize()
                 #endif
                 VStack(spacing: 8) {
-                    ForEach(rows) { it in GHCard(item: it, status: status(it), detail: detail(it), onSend: onSend.map { f in { f(it) } }) }
+                    ForEach(rows) { it in
+                        GHCard(item: it, status: status(it), detail: detail(it), onSend: onSend.map { f in { f(it) } }, picks: picks(it),
+                               busy: picking[it.number] == .running, failure: failure(it))
+                    }
                 }
             }
             .padding(28)
@@ -1015,8 +1106,23 @@ struct GHList: View {
     private func status(_ it: GHItem) -> (label: String, color: Color) {
         switch kind {
         case .prs: return it.isDraft ? ("draft", Color.secondary.opacity(0.6)) : ("open", .green)
-        case .issues: return tree(it) != nil ? ("in a worktree", .green) : ("no worktree yet", accent)
+        case .issues:
+            switch picking[it.number] {
+            case .running: return ("starting…", accent)
+            case .failed: return ("couldn't start", .red)
+            case nil: return tree(it) != nil ? ("in a worktree", .green) : ("no worktree yet", accent)
+            }
         }
+    }
+    private func picks(_ it: GHItem) -> [GHCard.Pick] {
+        guard kind == .issues, let pick = onPick, picking[it.number] != .running else { return [] }
+        return PickUp.actions(inWorktree: tree(it) != nil).map { a in
+            GHCard.Pick(label: a.label, command: PickUp.command(a.action, issue: it.number)) { pick(it, a.action) }
+        }
+    }
+    private func failure(_ it: GHItem) -> String? {
+        if case .failed(let why) = picking[it.number] { return why }
+        return nil
     }
     private func detail(_ it: GHItem) -> String {
         var parts = [it.author]
@@ -1032,7 +1138,13 @@ struct GHCard: View {
     let status: (label: String, color: Color)
     let detail: String
     var onSend: (() -> Void)? = nil
-    @State private var hover = false
+    /// PickUp actions: all of them in the context menu, the first as a pill while the pointer is over the card.
+    var picks: [Pick] = []
+    struct Pick { let label: String; let command: String; let run: () -> Void }
+    /// A pick is running for this card (a spinner instead of the status), or the last one failed (why + the fix).
+    var busy = false
+    var failure: String? = nil
+    @State var hover = false   // not private: GHCardRenderTests draws the hover pill
     var body: some View {
         Button { if let u = item.url { WorkFormat.open(u) } } label: {
             HStack(spacing: 12) {
@@ -1045,7 +1157,24 @@ struct GHCard: View {
                     Text(detail).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
                 }
                 Spacer(minLength: 8)
-                Text(status.label).font(.caption).foregroundStyle(.secondary)
+                if busy {
+                    HStack(spacing: 6) {
+                        ProgressView().controlSize(.small)
+                        Text(status.label).font(.caption.weight(.semibold)).foregroundStyle(status.color)
+                    }
+                } else if hover, let p = picks.first {
+                    // a gesture, not a nested Button: the whole card is already a Button (it opens GitHub)
+                    Text(p.label).font(.caption.weight(.semibold)).foregroundStyle(status.color)
+                        .padding(.horizontal, 9).padding(.vertical, 3)
+                        .background(Capsule().fill(status.color.opacity(0.16)))
+                        .contentShape(Capsule())
+                        .highPriorityGesture(TapGesture().onEnded { p.run() })
+                        .help(p.command)
+                } else if let failure {
+                    Text(status.label).font(.caption.weight(.semibold)).foregroundStyle(status.color).help(failure)
+                } else {
+                    Text(status.label).font(.caption).foregroundStyle(.secondary)
+                }
             }
             .padding(.horizontal, 16).padding(.vertical, 12)
             .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.primary.opacity(hover ? 0.08 : 0.05)))
@@ -1056,6 +1185,9 @@ struct GHCard: View {
         .onHover { hover = $0 }
         .help(item.url?.absoluteString ?? "")
         .contextMenu {
+            ForEach(picks.indices, id: \.self) { i in Button(picks[i].label, action: picks[i].run).handCursor() }
+            if let failure { Button("Copy why it couldn't start") { WorkFormat.copy(failure) } }
+            if !picks.isEmpty || failure != nil { Divider() }
             if let onSend { Button("Send to agent…", action: onSend).handCursor() }
             if let u = item.url { Button("Open on GitHub") { WorkFormat.open(u) } }
         }
