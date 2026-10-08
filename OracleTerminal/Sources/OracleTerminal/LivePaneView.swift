@@ -10,7 +10,10 @@ let liveLog = Logger(subsystem: "co.laris.oracle.live", category: "fit")
 
 public enum OracleTerminal {
     /// The hub's drawers draw herdr panes with Ghostty from now on (`LiveTerminal.make`).
+    /// Called from the app's init, before its model load can start: Ghostty starts here and keeps an environ that
+    /// Core ML cannot free under it (#95).
     @MainActor public static func install() {
+        GhosttyEnvironment.start()
         LiveTerminal.make = { spec in AnyView(LivePaneView(spec: spec)) }
     }
 }
@@ -75,6 +78,7 @@ final class StreamBox: @unchecked Sendable {
             resize: { vp in box.resize(vp) },
             suppressesPixelOnlyResizes: true)
         self.session = session
+        GhosttyEnvironment.start()   // a no-op after install(); an app that skipped it still gets the detached environ
         state = TerminalViewState(controller: TerminalController(theme: TerminalTheme(light: Self.colors, dark: Self.colors),
                                                                 terminalConfiguration: Self.config(font: 13)))
         state.configuration = TerminalSurfaceOptions(backend: .inMemory(session), resizeThrottleMilliseconds: 60)
