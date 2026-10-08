@@ -53,6 +53,16 @@ extension HubStore {
         return "\(r.session) did not answer within 10 s — run:  \(cmd)"
     }
 
+    /// Show one of a remote session's workspaces: focus it there (`herdr workspace focus <id>`), then open or raise this
+    /// Mac's WezTerm window on the session. nil when done, else the command to run.
+    public func showRemoteWorkspace(_ r: RemoteSession, _ workspace: String) async -> String? {
+        guard !workspace.isEmpty, workspace.allSatisfy({ $0.isLetter || $0.isNumber }) else { return nil }
+        let out = await Self.remoteHerdr(r, ["workspace", "focus", workspace], viaSSH: remoteState[r.id]?.viaSSH == true)
+        openRemote(r)
+        return out?.status == 0 ? nil
+            : "herdr could not focus \(workspace) — run:  herdr --machine \(r.label ?? r.profileId ?? r.host) workspace focus \(workspace)"
+    }
+
     /// Detach this Mac from a remote session: end the local `herdr --remote` client(s) attached to it. The session
     /// and its agents keep running on the other machine. nil when done, else the command to run.
     public func detachRemote(_ r: RemoteSession) async -> String? {

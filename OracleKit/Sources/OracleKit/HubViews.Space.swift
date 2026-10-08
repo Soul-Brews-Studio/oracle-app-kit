@@ -79,6 +79,10 @@ struct SpaceLine: View {
             .fill(selected ? HubStyle.accent.opacity(0.16) : marked ? HubStyle.accent.opacity(0.08) : hover ? Color.primary.opacity(0.05) : Color.clear))
         .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).strokeBorder(cursor ? HubStyle.accent.opacity(0.7) : .clear, lineWidth: 1.5))
         .onHover { h in hover = h; if onOpen != nil { if h { NSCursor.pointingHand.push() } else { NSCursor.pop() } } }
+        // rest on the row: its pane's screen, read from this Mac's herdr (Nat: "hover show tty? preview")
+        .peekOnHover(space.label, workspace: space.spaceId, run: { [s = space.session] args in
+            await Shell.run("herdr", ["--session", s] + args, timeout: 4)
+        })
         .help(onOpen == nil ? "" : "Click to see its panes live (esc closes)")
     }
 
