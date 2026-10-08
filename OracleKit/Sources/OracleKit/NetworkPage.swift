@@ -11,6 +11,7 @@ struct NetworkPage: View {
     @Binding var pick: HubPick
     @State private var target = ""
     @State private var session = ""
+    @State private var label = ""
     @State private var addError: String?
 
     var body: some View {
@@ -40,24 +41,25 @@ struct NetworkPage: View {
                         ForEach(groups, id: \.host) { g in MachineCard(store: store, host: g.host, sessions: g.sessions) }
                     }
                 }
-                if !store.unknownTraces.isEmpty {
+                if !store.unsavedAttached.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
-                        WorkFormat.header("TRACES", store.unknownTraces.count, note: "this Mac attached to these, from a target no ssh host here explains")
-                        ForEach(store.unknownTraces.sorted(by: { $0.key < $1.key }), id: \.key) { name, prefix in
+                        WorkFormat.header("ATTACHED, NOT SAVED", store.unsavedAttached.count,
+                                          note: "this Mac has a herdr --remote window on these; save one to list its machine")
+                        ForEach(store.unsavedAttached) { r in
                             HStack(spacing: 10) {
-                                Text(name).font(.callout.weight(.medium))
-                                Text("target starts " + prefix + "…").font(.caption.monospaced()).foregroundStyle(.secondary)
+                                Text(r.session).font(.callout.weight(.medium))
+                                Text(r.target).font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(1)
                                 Spacer()
-                                Button("add its target") { session = name; target = "" }.buttonStyle(.link).handCursor()
+                                Button("save as herdr machine") { target = r.target; session = r.session; label = r.host }
+                                    .buttonStyle(.link).handCursor()
                             }
                         }
                     }
                 }
                 addForm
-                Text("Each machine is asked over ssh, without a prompt (BatchMode), at most every 45 s: herdr session list, then "
-                     + "the agents of each running session. A session shows here when this Mac attached to it (herdr --remote), "
-                     + "when it is a saved herdr machine, when it runs on a machine you added, or from what an attach left in "
-                     + "~/.config/herdr/sessions.")
+                Text("Machines are herdr's saved machines (herdr machine list), one per remote session. Each is asked with "
+                     + "herdr --machine <id> status server and agent list, at most every 45 s, or now with refresh. The link "
+                     + "icon marks a herdr --remote window open on this Mac.")
                     .font(.caption).foregroundStyle(.tertiary).fixedSize(horizontal: false, vertical: true)
             }
             .padding(28)
@@ -68,21 +70,22 @@ struct NetworkPage: View {
         .task { await store.probeRemotes() }   // fresh when the page opens
     }
 
+    /// Saving is herdr's own `herdr machine add`, in a WezTerm window: it may ask before it installs or starts herdr
+    /// on the other machine, which the hub never answers for you.
     private var addForm: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text("ADD").font(.caption.weight(.semibold)).tracking(1.4)
-                Text("a machine, as you would type herdr --remote <target> --session <name>").font(.caption)
+                Text("SAVE A MACHINE").font(.caption.weight(.semibold)).tracking(1.4)
+                Text("herdr machine add <target> --label <name> --remote-session <session>, in a WezTerm window").font(.caption)
             }
             .foregroundStyle(.secondary)
             HStack(spacing: 8) {
-                TextField("target — user@host", text: $target).textFieldStyle(.roundedBorder).frame(maxWidth: 320)
-                TextField("session — default", text: $session).textFieldStyle(.roundedBorder).frame(maxWidth: 200)
-                Button("Add") {
-                    Task {
-                        addError = await store.addRemote(target: target, session: session.isEmpty ? "default" : session)
-                        if addError == nil { target = ""; session = "" }
-                    }
+                TextField("target — user@host", text: $target).textFieldStyle(.roundedBorder).frame(maxWidth: 300)
+                TextField("session — default", text: $session).textFieldStyle(.roundedBorder).frame(maxWidth: 160)
+                TextField("label — the host", text: $label).textFieldStyle(.roundedBorder).frame(maxWidth: 160)
+                Button("Save in herdr…") {
+                    addError = store.saveMachine(target: target, session: session.isEmpty ? "default" : session, label: label)
+                    if addError == nil { target = ""; session = ""; label = "" }
                 }
                 .buttonStyle(.borderedProminent).disabled(target.trimmingCharacters(in: .whitespaces).isEmpty).handCursor()
             }
@@ -256,7 +259,8 @@ private struct MachineCard: View {
         let versions = Set(targets.compactMap { store.remoteMachines[$0]?.version }).sorted()
         let problem = targets.compactMap { store.remoteMachines[$0]?.problem }.first
         let probed = targets.compactMap { store.remoteMachines[$0]?.checked }.min()   // the card's oldest answer (#98)
-        MachineShell(icon: "server.rack", title: host, users: users.joined(separator: " · "),
+        let labels = Array(Set(sessions.compactMap(\.label))).sorted()
+        MachineShell(icon: "server.rack", title: host, users: (["herdr machine"] + (labels == [host] ? [] : labels) + users).joined(separator: " · "),
                      line: (versions.isEmpty ? "herdr ?" : "herdr " + versions.joined(separator: ", "))
                         + " · \(running.count) of \(sessions.count) running · \(agents) agent\(agents == 1 ? "" : "s")"
                         + (stopping ? " · stopping…" : probed.map { " · \($0.formatted(date: .omitted, time: .shortened))" } ?? ""),
@@ -285,7 +289,11 @@ private struct MachineCard: View {
             if !running.isEmpty {
                 Button("Stop all \(running.count) on \(host)…", role: .destructive) { ask(running) }.disabled(stopping)
             }
-            Button("Forget \(host) (the hub's list; saved herdr machines stay)", role: .destructive) { store.forgetMachine(host: host) }
+            ForEach(sessions) { r in
+                Button("Remove saved machine \(r.label ?? r.session) (herdr machine remove; \(r.session) keeps running)") {
+                    Task { stopError = await store.removeMachine(r) }
+                }
+            }
         }
         .confirmationDialog(pendingStop.count == 1 ? "Stop \(pendingStop[0].session) on \(host)?" : "Stop \(pendingStop.count) sessions on \(host)?",
                             isPresented: $confirmStop, titleVisibility: .visible) {

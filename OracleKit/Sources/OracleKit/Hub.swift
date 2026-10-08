@@ -16,13 +16,10 @@ public final class HubStore: ObservableObject {
     /// each machine (ssh target) the hub knows: its herdr and every session on it (Nat: "if we have many machines,
     /// group, show machine")
     @Published public private(set) var remoteMachines: [String: RemoteMachineState] = [:]
-    private var knownRemotes: [RemoteSession] = []   // remembered, saved machines, attached now: what the probe asks
-    /// remotes with a `herdr --remote` client running on this Mac now
+    /// remotes with a `herdr --remote` client running on this Mac now (the link icon, Detach)
     @Published public private(set) var attachedRemotes: Set<String> = []
-    /// local session folders that are only a remote client's trace → the remote that left it
-    @Published public private(set) var remoteTraces: [String: RemoteSession] = [:]
-    /// …and the traces no known target explains: session name → the target's first 8 characters, as herdr kept them
-    @Published public private(set) var unknownTraces: [String: String] = [:]
+    /// …and the ones of those that are no saved herdr machine: listed with the command that saves them
+    @Published public private(set) var unsavedAttached: [RemoteSession] = []
     private var lastRemoteProbe = Date.distantPast
     private var probing = false
     private var probeAgain = false   // asked for while a probe ran: it runs once more when that one ends (#98)
@@ -75,63 +72,28 @@ public final class HubStore: ObservableObject {
     }
 
     /// The local sessions, without the folders that are only a remote client's trace.
-    public var localSessions: [HubSession] { sessions.filter { remoteTraces[$0.name] == nil && unknownTraces[$0.name] == nil } }
+    public var localSessions: [HubSession] { sessions.filter { s in s.dir.map { !Self.isRemoteTrace(dir: $0) } ?? true } }
 
     #if os(macOS)
-    /// Remote sessions: attached from here now (the process table carries `herdr --remote <target> --session <s>`),
-    /// saved as herdr machines, remembered, and read back from the traces a remote attach leaves in
-    /// ~/.config/herdr/sessions (`RemoteParse.socketHash`). Probed over ssh in the background, at most every 45 s.
+    /// Remote machines are herdr's saved machines (`herdr machine list --json`), nothing else: herdr's server API has no
+    /// machine concept, and its client keeps them in a catalog, one profile per remote session (read in herdr 0.9.1:
+    /// src/client/endpoint/catalog.rs, src/cli/target.rs). The process table only says which of them this Mac has a
+    /// `herdr --remote` window on now. Probed with `herdr --machine <id>` in the background, at most every 45 s.
     func refreshRemotes() async {
         async let ps = Shell.run("ps", ["-axo", "args="])
         async let machineList = Shell.run("herdr", ["machine", "list", "--json"])
         let (psOut, machineOut) = await (ps, machineList)
         let live = Set((psOut ?? "").split(separator: "\n").compactMap { RemoteParse.remote(of: String($0)) })
-        let machines = machineOut.map { RemoteParse.machines(Data($0.utf8)) } ?? []
-        var remembered = RemoteRegistry.load()
-        var changed = false
-        for r in live where !remembered.contains(where: { $0.id == r.id }) { remembered.append(r); changed = true }
-        let traces: [(name: String, trace: (prefix: String, hash: String))] = sessions.compactMap { s in
-            guard !s.running, !s.isDefault, let dir = s.dir, Self.isRemoteTrace(dir: dir),
-                  let log = Self.tail(dir + "/herdr-client.log"), let t = RemoteParse.trace(clientLog: log) else { return nil }
-            return (s.name, t)
-        }
-        var matched: [String: RemoteSession] = [:]
-        let sshConfig = traces.isEmpty ? "" : ((try? String(contentsOfFile: NSHomeDirectory() + "/.ssh/config", encoding: .utf8)) ?? "")
-        for _ in 0..<3 {   // a trace found teaches its domain, which can explain the next one
-            var learned = false
-            for (name, t) in traces where matched[name] == nil {
-                let known = remembered + machines
-                if let r = known.first(where: { $0.session == name && RemoteParse.left(t, $0) }) { matched[name] = r; continue }
-                let found = RemoteParse.candidates(sshConfig: sshConfig, knownTargets: known.map(\.target))
-                    .lazy.map { RemoteSession(target: $0, session: name) }.first { RemoteParse.left(t, $0) }
-                if let r = found { matched[name] = r; remembered.append(r); changed = true; learned = true }
-            }
-            if !learned { break }
-        }
-        if changed { RemoteRegistry.save(remembered) }
-        var all = machines
-        for r in remembered where !all.contains(where: { $0.id == r.id }) { all.append(r) }
-        knownRemotes = all
-        remotes = withDiscovered(all)
+        remotes = machineOut.map { RemoteParse.machines(Data($0.utf8)) } ?? []
         attachedRemotes = Set(live.map(\.id))
-        remoteTraces = matched
-        unknownTraces = Dictionary(uniqueKeysWithValues: traces.filter { matched[$0.name] == nil }.map { ($0.name, $0.trace.prefix) })
-        if Date().timeIntervalSince(lastRemoteProbe) > 45 { lastRemoteProbe = Date(); Task { await probeRemotes() } }
+        let saved = Set(remotes.map(\.id))
+        unsavedAttached = live.filter { !saved.contains($0.id) }.sorted { $0.id < $1.id }
+        // a machine not asked yet (just loaded, just saved) is asked now, whatever the 45 s gate says
+        let unasked = remotes.contains { remoteState[$0.id] == nil }
+        if unasked || Date().timeIntervalSince(lastRemoteProbe) > 45 { lastRemoteProbe = Date(); Task { await probeRemotes() } }
     }
 
-    /// The known remotes plus every session running on their machines that the hub did not know of yet.
-    private func withDiscovered(_ known: [RemoteSession]) -> [RemoteSession] {
-        var all = known
-        for (target, m) in remoteMachines {
-            for (name, running) in m.sessions where running {
-                let r = RemoteSession(target: target, session: name)
-                if r.isSafe, !all.contains(where: { $0.id == r.id }) { all.append(r) }
-            }
-        }
-        return all
-    }
-
-    /// Each machine once, all at once: `herdr session list` over ssh, then the agents of its running sessions.
+    /// Every saved machine at once: `herdr --machine <id> status server` (running, version) and `agent list` (agents).
     public func probeRemotes() async {
         guard !probing else { probeAgain = true; return }
         probing = true
@@ -139,36 +101,40 @@ public final class HubStore: ObservableObject {
             probing = false
             if probeAgain { probeAgain = false; Task { await probeRemotes() } }
         }
-        lastRemoteProbe = Date()
-        let targets = Array(Set(knownRemotes.filter(\.isSafe).map(\.target)))
-        let ssh = ["-o", "BatchMode=yes", "-o", "ConnectTimeout=6"]
-        await withTaskGroup(of: (String, RemoteMachineState, [String: RemoteState]).self) { g in
-            for target in targets {
-                g.addTask {
-                    guard let out = await Shell.run("ssh", ssh + [target, RemoteParse.listCommand()], timeout: 20) else {
-                        return (target, RemoteMachineState(problem: "ssh \(target) did not answer without a prompt — try it in a terminal:\n  ssh \(target)"), [:])
-                    }
-                    guard let m = RemoteParse.machine(out) else {
-                        return (target, RemoteMachineState(problem: "no herdr on \(target)'s PATH (~/.local/bin, /opt/homebrew/bin, /usr/local/bin)"), [:])
-                    }
-                    let running = m.sessions.filter { $0.running && RemoteSession(target: target, session: $0.name).isSafe }.map(\.name)
-                    var states: [String: RemoteState] = [:]
-                    if !running.isEmpty, let a = await Shell.run("ssh", ssh + [target, RemoteParse.agentsCommand(sessions: running)], timeout: 25) {
-                        states = RemoteParse.agents(a, version: m.version)
-                    }
-                    for s in m.sessions where !s.running { states[s.name] = RemoteState(running: false, version: m.version) }
-                    return (target, RemoteMachineState(version: m.version, sessions: Dictionary(m.sessions.map { ($0.name, $0.running) }, uniquingKeysWith: { a, _ in a })), states)
-                }
+        let profiles = remotes.filter { $0.profileId != nil }
+        if !profiles.isEmpty { lastRemoteProbe = Date() }   // asking nobody (the list not loaded yet) is no probe
+        await withTaskGroup(of: (RemoteSession, RemoteState).self) { g in
+            for r in profiles {
+                g.addTask { (r, await Self.probe(r)) }
             }
-            for await (target, machine, states) in g {
-                remoteMachines[target] = machine
-                for (name, st) in states { remoteState[RemoteSession(target: target, session: name).id] = st }
-                if let p = machine.problem {
-                    for r in knownRemotes where r.target == target { remoteState[r.id] = RemoteState(running: false, problem: p) }
-                }
+            for await (r, st) in g {
+                remoteState[r.id] = st
+                var m = remoteMachines[r.target] ?? RemoteMachineState()
+                if let v = st.version { m.version = v }
+                m.sessions[r.session] = st.running
+                m.problem = st.problem
+                m.checked = st.checked
+                remoteMachines[r.target] = m
             }
         }
-        remotes = withDiscovered(knownRemotes)
+    }
+
+    /// One saved machine: its server's status, then its agents. A problem ends with the command to run.
+    nonisolated static func probe(_ r: RemoteSession) async -> RemoteState {
+        guard let id = r.profileId else { return RemoteState(running: false) }
+        async let status = Shell.capture("herdr", ["--machine", id, "status", "server"], timeout: 20)
+        async let agents = Shell.run("herdr", ["--machine", id, "agent", "list"], timeout: 20)
+        let (s, a) = await (status, agents)
+        let version = s.flatMap { RemoteParse.statusField("version", in: $0.out) }
+        let running = s.map { $0.status == 0 && RemoteParse.statusField("status", in: $0.out) == "running" } ?? false
+        guard running else {
+            let why = s.map { RemoteParse.statusField("status", in: $0.out) ?? "no answer" } ?? "herdr is missing here"
+            return RemoteState(running: false, version: version,
+                               problem: why == "stopped" ? nil : "\(r.label ?? r.host): \(why) — run:  herdr --machine \(r.label ?? id) status server")
+        }
+        var st = a.map { RemoteParse.probe($0) } ?? RemoteState(running: true)
+        st.running = true; st.version = version
+        return st
     }
 
     /// A folder herdr lists as a session but that only a remote client wrote: a client log, no session.json or server log.
@@ -192,32 +158,24 @@ public final class HubStore: ObservableObject {
         Task.detached { await WezTerm.show(remote: r) }
     }
 
-    /// Remember a remote by hand (Add remote…); nil when added, else why not.
-    public func addRemote(target: String, session: String) async -> String? {
+    /// Save a machine the way herdr does: `herdr machine add` in a WezTerm window, because it may ask before it
+    /// installs or starts herdr there. nil when the window opened, else why not.
+    public func saveMachine(target: String, session: String, label: String) -> String? {
         let r = RemoteSession(target: target.trimmingCharacters(in: .whitespaces), session: session.trimmingCharacters(in: .whitespaces))
-        guard r.isSafe else { return "a target is user@host (letters, digits, . _ - @ :), a session a plain name" }
-        var list = RemoteRegistry.load()
-        if !list.contains(where: { $0.id == r.id }) { list.append(r); RemoteRegistry.save(list) }
-        lastRemoteProbe = .distantPast
-        await refreshRemotes()
+        let name = label.trimmingCharacters(in: .whitespaces).isEmpty ? r.host : label.trimmingCharacters(in: .whitespaces)
+        guard r.isSafe, RemoteSession(target: r.target, session: name.replacingOccurrences(of: " ", with: "-")).isSafe else {
+            return "a target is user@host (letters, digits, . _ - @ :), a session and a label plain names"
+        }
+        Task.detached { await WezTerm.run(["machine", "add", r.target, "--label", name, "--remote-session", r.session]) }
         return nil
     }
 
-    /// Forget one the hub remembered (a saved herdr machine stays: `herdr machine remove <id>`).
-    public func forgetRemote(_ r: RemoteSession) {
-        RemoteRegistry.save(RemoteRegistry.load().filter { $0.id != r.id })
-        knownRemotes.removeAll { $0.id == r.id && $0.label == nil }
-        remotes = withDiscovered(knownRemotes)
-    }
-
-    /// Forget a whole machine the hub remembered (its saved herdr machines stay: `herdr machine remove <id>`).
-    public func forgetMachine(host: String) {
-        RemoteRegistry.save(RemoteRegistry.load().filter { $0.host != host })
-        knownRemotes.removeAll { $0.host == host && $0.label == nil }
-        for t in remoteMachines.keys where RemoteSession(target: t, session: "x").host == host && !knownRemotes.contains(where: { $0.target == t }) {
-            remoteMachines[t] = nil
-        }
-        remotes = withDiscovered(knownRemotes)
+    /// Forget a saved machine: `herdr machine remove <id>`. Its sessions keep running there.
+    public func removeMachine(_ r: RemoteSession) async -> String? {
+        guard let id = r.profileId else { return nil }
+        let out = await Shell.run("herdr", ["machine", "remove", id])
+        await refresh(remotes: true)
+        return out != nil ? nil : "herdr could not remove it — run:  herdr machine remove \(id)"
     }
     #endif
 
