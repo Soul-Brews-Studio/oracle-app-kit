@@ -28,10 +28,15 @@ if (( ! ASIS )); then
   sleep ${WAIT:-12}
 fi
 pgrep -fl "$APP.app/Contents/MacOS" | rg -q " /Applications/" || print -r -- "! $APP is not running from /Applications:  pgrep -fl '$APP.app/Contents/MacOS'"
+# the window by its process id, not its owner name: macOS reports the DISPLAY name there ("Maeon Oracle" for the Maeon
+# executable, #77), and display names change; the executable path does not
+PIDS=$(pgrep -f "/Applications/$APP.app/Contents/MacOS/$APP( |\$)" | tr '\n' ',')
+[[ -z $PIDS ]] && PIDS=$(pgrep -f "/$APP.app/Contents/MacOS/$APP( |\$)" | tr '\n' ',')   # running from a worktree build
 W=$(swift -e 'import CoreGraphics
+let pids = Set("'"$PIDS"'".split(separator: ",").compactMap { Int($0) })
 let l = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as! [[String: Any]]
 var best = 0, id = 0
-for w in l where (w[kCGWindowOwnerName as String] as? String) == "'"$APP"'" && (w[kCGWindowLayer as String] as? Int) == 0 {
+for w in l where pids.contains((w[kCGWindowOwnerPID as String] as? Int) ?? -1) && (w[kCGWindowLayer as String] as? Int) == 0 {
   let b = w[kCGWindowBounds as String] as! [String: Any]; let a = (b["Width"] as! Int) * (b["Height"] as! Int)
   if a > best { best = a; id = w[kCGWindowNumber as String] as! Int } }
 print(id)' 2>/dev/null)
