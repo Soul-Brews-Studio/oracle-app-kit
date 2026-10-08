@@ -85,10 +85,21 @@ final class StreamBox: @unchecked Sendable {
             .sink { [weak self] _ in self?.end() }   // a quitting hub gives a controlled pane back its size
             .store(in: &bag)
         state.$isFocused.sink { [weak self] _ in
+            // read now, inside the event that moved the focus: a click INSIDE the pane (the click on a Work row that
+            // opened the drawer is a mouse-down too, but elsewhere)
+            let byClick = MainActor.assumeIsolated { () -> Bool in   // TerminalViewState publishes on the main thread
+                guard let me = self, let e = NSApp.currentEvent, [.leftMouseDown, .rightMouseDown, .otherMouseDown].contains(e.type),
+                      let v = me.state.attachedPlatformView, e.window === v.window else { return false }
+                return v.bounds.contains(v.convert(e.locationInWindow, from: nil))
+            }
             DispatchQueue.main.async {   // after the published value has landed
                 guard let self else { return }
-                // a click into a pane that observes until you type: that is the request (Nat: "can not typing?")
-                if self.state.isFocused, let s = self.spec, s.typeToControl, !s.control, !self.heldElsewhere { self.wantTyping() }
+                // a CLICK into a pane that observes until you type is the request (Nat: "can not typing?"); the focus
+                // AppKit hands a newly shown view by itself is not, and is given back (a new drawer took control and
+                // "typed" with nobody at the keys — measured in Maeon)
+                if self.state.isFocused, let s = self.spec, s.typeToControl, !s.control, !self.heldElsewhere {
+                    if byClick { self.wantTyping() } else { self.resignKeyboard() }
+                }
                 self.updateTyping()
             }
         }.store(in: &bag)
