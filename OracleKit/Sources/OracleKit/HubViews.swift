@@ -5,7 +5,7 @@ import AppKit
 // MARK: - Oracles (the landing app) — sidebar: all herdr sessions · detail: every oracle as a card
 // Same look as the oracle apps: ARRA-style sidebar, cards like the Work view.
 
-enum HubPick: Hashable { case all, search, trace, map, settings, session(String) }
+enum HubPick: Hashable { case all, search, trace, map, screens, settings, session(String) }
 
 enum HubStyle {
     static let accent = Color(hex: "#9b8cff")
@@ -35,7 +35,7 @@ struct HubRootView: View {
     @ObservedObject var store: HubStore
     @Binding var menuBar: Bool
     @State private var pick: HubPick = UserDefaults.standard.string(forKey: "hubSession").map { HubPick.session($0) }   // -hubSession <name> (tests)
-        ?? ["search": HubPick.search, "trace": .trace, "map": .map, "settings": .settings][UserDefaults.standard.string(forKey: "hubPage") ?? ""] ?? .all   // -hubPage search|trace|map|settings
+        ?? ["search": HubPick.search, "trace": .trace, "map": .map, "screens": .screens, "settings": .settings][UserDefaults.standard.string(forKey: "hubPage") ?? ""] ?? .all   // -hubPage search|trace|map|settings
     @ObservedObject private var index = GHIndex.shared
     @State private var focusTick = 0
     // Pages visited, like a browser's (Nat: Discord's mouse 4 / 5): back and forward, and the move in flight so
@@ -58,6 +58,7 @@ struct HubRootView: View {
             case .search: IndexSearchView(store: store, index: index, focusTick: focusTick)
             case .trace: TraceView(name: "ARRA Oracles", accent: HubStyle.accent)
             case .map: FleetMapPage(accent: HubStyle.accent)
+            case .screens: ScreensPage(store: store, accent: HubStyle.accent)
             case .settings: SettingsView(title: "ARRA Oracles", accent: HubStyle.accent, indexes: [index, FleetMap.shared.index]) { pick = .trace }
             case .session(let name): SessionSpaces(store: store, session: name)
             }
@@ -140,6 +141,9 @@ struct HubSidebar: View {
             NavRow(symbol: "circle.hexagongrid", title: "Map", badge: nil, on: pick == .map, accent: HubStyle.accent, sub: true) { pick = .map }
                 .padding(.horizontal, 12)
                 .help("Every oracle's memory in one space — a query to any oracle lights it up")
+            NavRow(symbol: "display", title: "Screens", badge: nil, on: pick == .screens, accent: HubStyle.accent, sub: true) { pick = .screens }
+                .padding(.horizontal, 12)
+                .help("Your displays as macOS arranges them: where the hub is, and each herdr session's window")
             NavRow(symbol: "gearshape", title: "Settings", badge: nil, on: pick == .settings, accent: HubStyle.accent) { pick = .settings }
                 .padding(.horizontal, 12)
             Text("Sessions").font(.custom("Avenir Next", size: 13).weight(.medium)).foregroundStyle(.secondary)
