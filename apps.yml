@@ -13,3 +13,5 @@ include:
     relativePaths: false
   - path: Apps/Pulse/app.yml
     relativePaths: false
+  - path: Apps/Transcriber/app.yml
+    relativePaths: false
