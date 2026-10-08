@@ -54,6 +54,6 @@ else
   print -r -- "    swift -e 'import CoreGraphics; print(CGPreflightScreenCaptureAccess())'   # false → open 'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture'"
   rc=1
 fi
-L="$HOME/Library/Logs/ARRA Oracles/$APP.log"; [[ $APP == "ARRA Oracles" ]] && L="$HOME/Library/Logs/ARRA Oracles/embed.log"   # the hub logs to embed.log
+L="$HOME/Library/Logs/ARRA Oracles/${APP% Oracle}.log"; [[ $APP == "ARRA Oracles" ]] && L="$HOME/Library/Logs/ARRA Oracles/embed.log"   # the hub logs to embed.log
 [ -f "$L" ] && tail -5 "$L"
 exit $rc

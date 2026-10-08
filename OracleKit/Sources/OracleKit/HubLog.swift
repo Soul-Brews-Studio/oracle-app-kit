@@ -19,11 +19,17 @@ public final class HubLog: ObservableObject {
     private var next = 0
     private let keep = 2_000   // a verbose scan logs a line per transcript
 
+    /// The name an app's log and trace files are keyed by: the bundle name without the " Oracle" that #90 added
+    /// ("Pulse Oracle" → "Pulse"), so the files keep the names the hub map, check.sh and the history already use.
+    public nonisolated static func logStem(_ bundleName: String) -> String {
+        bundleName.hasSuffix(" Oracle") ? String(bundleName.dropLast(" Oracle".count)) : bundleName
+    }
+
     public static let file: URL = {
         let dir = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("Logs/ARRA Oracles", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        let app = Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String ?? "app"
+        let app = logStem(Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String ?? "app")
         return dir.appendingPathComponent(app == "ARRA Oracles" ? "embed.log" : "\(app).log")   // one file per app: Pulse.log, Neo.log…
     }()
 
