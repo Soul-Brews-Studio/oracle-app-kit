@@ -130,7 +130,7 @@ public final class HubStore: ObservableObject {
         guard running else {
             let why = s.map { RemoteParse.statusField("status", in: $0.out) ?? "no answer" } ?? "herdr is missing here"
             return RemoteState(running: false, version: version,
-                               problem: why == "stopped" ? nil : "\(r.label ?? r.host): \(why) — run:  herdr --machine \(r.label ?? id) status server")
+                               problem: why == "stopped" ? nil : "\(r.label ?? r.host): \(why) (its herdr may be older than 0.9.1, which --machine needs) — run:  herdr --machine \(r.label ?? id) status server")
         }
         var st = a.map { RemoteParse.probe($0) } ?? RemoteState(running: true)
         st.running = true; st.version = version
