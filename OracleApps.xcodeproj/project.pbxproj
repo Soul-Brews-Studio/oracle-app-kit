@@ -26,29 +26,37 @@
 		005680E97630FA53D636B870 /* MaeonWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = C72AAC7252E69FA1E9768382 /* MaeonWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		024D75BDE17B9DC54ACB3340 /* ANEEmbedCore in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = 57446418B6171CBD1DB652B2 /* ANEEmbedCore */; };
 		025889D96BA689F33FB964F7 /* OracleTerminal in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = 4407B8E41239A984FDFAFE71 /* OracleTerminal */; };
+		02B5293ADA898D25AA332E43 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B73E46A6A0FCAB56C42BD854 /* ShareViewController.swift */; };
 		05DAAADEDF82BFF4F279342B /* MapLayoutEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 976327A7B1A9B72817DDDF05 /* MapLayoutEngine.swift */; };
+		091BEE0D68A43B394B3E9332 /* BundledANE.swift in Sources */ = {isa = PBXBuildFile; fileRef = 334B42F2652061E9832A4410 /* BundledANE.swift */; };
 		0B250C1843C4CAF984D3C87F /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = BF28BFF93E30F2016054C7FC /* OracleKit */; };
 		0CE7AD6783E511A241CCE8B9 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9747F85F8B3132BD641525AE /* Assets.xcassets */; };
 		0D487E50736045C5885122E0 /* OracleTerminal in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = 09F179C93C148ACF8E9B84EE /* OracleTerminal */; };
 		0E2BA2D4130B1BF12FFE5AAA /* NexusShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 35FAA94347FA173BC06C86F8 /* NexusShare.appex */; platformFilters = (macos, ); settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		1148DEEEBB89E368A9D864BA /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 468221B2146BCBCC791C3B0B /* SwiftUI.framework */; };
 		1219A0F40327E57A5C962C60 /* NexusConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = E596680FCB92D58641782D23 /* NexusConfig.swift */; };
 		135BC6904B6A6EF518DD7C74 /* NeoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA7B638D3B556C915C153B1E /* NeoApp.swift */; };
 		14121225B4A0A4700D2B624A /* MaeonApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD9F8A6B8EE09EC9A7C4D28B /* MaeonApp.swift */; };
 		172E589132DADC7B3DD19523 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB009D7260C21CFEE11FBF5D /* ShareViewController.swift */; };
 		183930EB9CC6C46A392574DD /* NeoShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 47078A7D50C0767AD1B9544E /* NeoShare.appex */; platformFilters = (macos, ); settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		1EE4557C4D5606CCE8356D5F /* TranscriberConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A5BE6E4F22C177237B52D8F /* TranscriberConfig.swift */; };
 		22E9384588A9A57AB8C2E107 /* AthenaConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C34FED5257B206064C6E7E7 /* AthenaConfig.swift */; };
 		2314A1BB992922AD62B2E477 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E220E57022CA2B7EB0FD203 /* WidgetKit.framework */; };
 		248DBC4D211229CA18D7B079 /* BundledANE.swift in Sources */ = {isa = PBXBuildFile; fileRef = 334B42F2652061E9832A4410 /* BundledANE.swift */; };
 		2668904C7E52D602BD0C6ABF /* NexusConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = E596680FCB92D58641782D23 /* NexusConfig.swift */; };
+		28DB35411068C9183ACED520 /* ANEEmbedCore in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = 0685DCF1BE1B74274BB725CB /* ANEEmbedCore */; };
 		2B9BC0A1DF0BE48BE8AFCF81 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97CF4DEE1C0D84FB0133816A /* Assets.xcassets */; };
+		2E2A3EFDEA38B59223B05B4A /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E220E57022CA2B7EB0FD203 /* WidgetKit.framework */; };
 		306ABC4093492BD88187F36E /* spike-neo-48950.png in Resources */ = {isa = PBXBuildFile; fileRef = D88FC1580C3824256A7117F8 /* spike-neo-48950.png */; };
 		31D75B942510C4C57DD17DD1 /* MaeonShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 995C2678DB4A126191A4CEF9 /* MaeonShare.appex */; platformFilters = (macos, ); settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		3AE4FE4DDBDBE412943503A5 /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = A7E848DEEF3A01116202F366 /* OracleKit */; };
 		3B644CA804D8F0783F6696AA /* PulseConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = B137A3369CF3DC8269C32453 /* PulseConfig.swift */; };
 		3B76FA783180274DC3FF3684 /* PulseWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = BE742AC8F1D736B0152CD64B /* PulseWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		3EAC39F660472701B2B3CAAC /* HubApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FC24FF95F7988B14813C430 /* HubApp.swift */; };
 		3EFB8AEDDAED1A932569D114 /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = 23ABEEFE4BA02B813A7CA3F1 /* OracleKit */; };
 		42B51E73231E485B620DEC4A /* ANEEmbedCore in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = EBAFD44694925F4775C0B472 /* ANEEmbedCore */; };
 		4387BBE40422DB71ED417AD6 /* OracleTerminal in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = AC85A8D0AA1BC9FC240E5E03 /* OracleTerminal */; };
+		447D750B744983651DEC4FA9 /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = 6F3E35C1A01AE7E2074B65F6 /* OracleKit */; };
 		44941594C719B322FEC6A5EF /* MapLayoutUMAP in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = EE05C73489675AE8A0BFB668 /* MapLayoutUMAP */; };
 		4771993584B814FF8A661A42 /* NexusApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C7F01FD47329725FDFEFBF7 /* NexusApp.swift */; };
 		483A0F32E5BDEF7F5C4ADEE9 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E220E57022CA2B7EB0FD203 /* WidgetKit.framework */; };
@@ -63,15 +71,19 @@
 		5BB05E053370D69F3D537F60 /* MapSpikeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F81A043C03E0EBA50048E1B1 /* MapSpikeApp.swift */; };
 		5E54C0E19BDB1A0B83C0D6AD /* BundledANE.swift in Sources */ = {isa = PBXBuildFile; fileRef = 334B42F2652061E9832A4410 /* BundledANE.swift */; };
 		5F73AFB86D0CF89FD12B49E0 /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = 9EB334B6C1B129FB8DF7D118 /* OracleKit */; };
+		609698B8CB23B72509474FBB /* TranscriberWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51211FE71CFD59589F587DAB /* TranscriberWidget.swift */; };
 		612E3254682DE613B7315041 /* MapSpikeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5211C7221AC8D5AC6F908583 /* MapSpikeView.swift */; };
+		61F465509385C951525595A3 /* TranscriberWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 8B246EA4CF69BB730784F4D5 /* TranscriberWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		6216DDE618254E1911648B59 /* OracleTerminal in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = AF0B7F4EDBBF9441135C9C7F /* OracleTerminal */; };
 		6ACD97A55E30D1EB01D2493D /* NeoConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C722827C1DFF0CDB6F2F247 /* NeoConfig.swift */; };
+		6B37C065DC1D115D6AFE4F20 /* MapLayoutUMAP in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = 12C69A46D8E089AAF9E79DE8 /* MapLayoutUMAP */; };
 		6C5441D9506C4227FB534A28 /* MapLayoutUMAP in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = 77079D500348CB3CDEBE6BE6 /* MapLayoutUMAP */; };
 		6E1E55DE03EE6C092E7ED1E6 /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = 4B4657CD7678E1CEC26E7C94 /* OracleKit */; };
 		6F8DA303E4A8482015835CB7 /* NexusWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = B55D288BD45D60C57EC1FD16 /* NexusWidget.swift */; };
 		72386EC7DD3161606709A77E /* MapLayoutEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 976327A7B1A9B72817DDDF05 /* MapLayoutEngine.swift */; };
 		7391585B9AFA310F221169CD /* MaeonConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13D18AF5648F5F829736B758 /* MaeonConfig.swift */; };
 		73E22A1958C820F3D01B8701 /* AthenaApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5272A6BAC2792D93DFD2BDF8 /* AthenaApp.swift */; };
+		75089C0F395B1B7315F0153F /* TranscriberApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 979870D249A91A4A8564B3BA /* TranscriberApp.swift */; };
 		774010703A7D32F8774770EC /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = DF2EE418027BEF38CB54B90C /* OracleKit */; };
 		78946F22CF1780C0946CF7AF /* AthenaConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C34FED5257B206064C6E7E7 /* AthenaConfig.swift */; };
 		7A04E56E49B8F712203B424D /* MaeonConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13D18AF5648F5F829736B758 /* MaeonConfig.swift */; };
@@ -98,6 +110,7 @@
 		98C25B7301DD0170F482898B /* NeoWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD99D3EB0C88FD1452416FB0 /* NeoWidget.swift */; };
 		99080C841CF90F9DFACA1DF6 /* NexusExtras.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F0767639C078D6E55BCEA0E /* NexusExtras.swift */; };
 		99B36662B6D563E46A5C408C /* ANEEmbedCore in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = 21D63CA5B3750EA5A9C21B76 /* ANEEmbedCore */; };
+		9AF68FCFE35510303BFD403E /* TranscriberConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A5BE6E4F22C177237B52D8F /* TranscriberConfig.swift */; };
 		9CEBE978812ECEDA4FD56FF1 /* MapLayoutEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 976327A7B1A9B72817DDDF05 /* MapLayoutEngine.swift */; };
 		9D882FA86DFB4F8F73ED7CB6 /* PulseExtras.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F13410DB812353A44FCE45E /* PulseExtras.swift */; };
 		A008A67DBBD278DCF0CBD7BC /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E220E57022CA2B7EB0FD203 /* WidgetKit.framework */; };
@@ -106,10 +119,14 @@
 		A92220ACB1EEA09648D09C9F /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = D8034BE3BE3303D05E137A02 /* OracleKit */; };
 		AA2DD123CEF605C9E6C787A3 /* NeoWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 5EDFE877D27D8F8E8ECC5030 /* NeoWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		AA516104F3FF540DCB538557 /* ANEEmbedCore in Frameworks */ = {isa = PBXBuildFile; productRef = E21624C123AE7BFF0CA6252F /* ANEEmbedCore */; };
+		AD100AE0B627E845224A7B75 /* TranscriberShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 38D751FC3FD0C9EAF8F65E0C /* TranscriberShare.appex */; platformFilters = (macos, ); settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		AE05EF8BE30A73E01BB3C48B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B0F1BA54F31418614A0A138E /* Assets.xcassets */; };
+		AE5EC90D98A29046A4294CD9 /* MapLayoutEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 976327A7B1A9B72817DDDF05 /* MapLayoutEngine.swift */; };
 		B0233F4583F0D53D569DE5DF /* OracleTerminal in Frameworks */ = {isa = PBXBuildFile; productRef = C2E19590487A24ABC285AFA0 /* OracleTerminal */; };
 		B06309C44C8E11A1C90E9075 /* AthenaConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C34FED5257B206064C6E7E7 /* AthenaConfig.swift */; };
 		BAE759336198B049B1ECA39A /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D886FFA13B5C28908F463CE /* ShareViewController.swift */; };
 		BD95A60EDF666B29F5538E29 /* ANEEmbedCore in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = BEE0829B4ADE75163F6AD679 /* ANEEmbedCore */; };
+		BEF9C39C5183FF0DDE1E5B9A /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = 12875A8A89852BD63EB31173 /* OracleKit */; };
 		BFBDC167CC330C830EDC0901 /* AthenaWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EDEF2C3DE3B2B9562C67750 /* AthenaWidget.swift */; };
 		C4E0BD8D0B45870B893A2D5D /* NeoConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C722827C1DFF0CDB6F2F247 /* NeoConfig.swift */; };
 		CB52FD3207090899D335932E /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = 8DEDED171F7646D90602ED90 /* OracleKit */; };
@@ -122,7 +139,9 @@
 		D663B860B510852E1D758CEA /* MapLayoutUMAP in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = 5323E2879BF88EFEE7550670 /* MapLayoutUMAP */; };
 		D768A2765421CF790B524344 /* AthenaShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = FE8FD0D33704B406B0097DE9 /* AthenaShare.appex */; platformFilters = (macos, ); settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		D838E66684EAB34DB1B0B356 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 03555D2BE97613AFC8E9C4D2 /* Assets.xcassets */; };
+		DBA6217111BBE2361E890C39 /* OracleTerminal in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = DBB54121CF1147C97DE97E08 /* OracleTerminal */; };
 		DC4D7AA2897574B907380863 /* MapLayoutEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 976327A7B1A9B72817DDDF05 /* MapLayoutEngine.swift */; };
+		DC731DC43E687CE88F0053B8 /* TranscriberExtras.swift in Sources */ = {isa = PBXBuildFile; fileRef = D55D651400F5067BBEE3378D /* TranscriberExtras.swift */; };
 		DF81AAE88BAF2C34DC049621 /* BundledANE.swift in Sources */ = {isa = PBXBuildFile; fileRef = 334B42F2652061E9832A4410 /* BundledANE.swift */; };
 		E0835DAA39191350E3DB951A /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 468221B2146BCBCC791C3B0B /* SwiftUI.framework */; };
 		E1DAE08F0390A9AE8DCCA5BA /* MapLayoutUMAP in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = D39A71B81546A041AFC23AFF /* MapLayoutUMAP */; };
@@ -133,6 +152,7 @@
 		E742B9D4AF1468C14735954D /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = FECEC892500CEA279D83D81D /* OracleKit */; };
 		E8A3A16D817D60163122763D /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = AEBF2F4341D4B8211B87EB8D /* OracleKit */; };
 		EDC954BB53A1938A2913FFC4 /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = 84774326CBC858F01F5A8C1F /* OracleKit */; };
+		F6F011408161109B7E916D6F /* TranscriberConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A5BE6E4F22C177237B52D8F /* TranscriberConfig.swift */; };
 		F8228D81F465A09EA1BA458B /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = 77D9A445400656D39EA0578E /* OracleKit */; };
 		FB7E1F6409E13460011CD592 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EE06677EE264FE2ED681B102 /* Assets.xcassets */; };
 		FCFE5F0CAD1AC3A8FF57074C /* MaeonWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE215F3804E5F6BF4721FAAB /* MaeonWidget.swift */; };
@@ -197,6 +217,13 @@
 			remoteGlobalIDString = 66AE9A2BF807D63B4AF62FDE;
 			remoteInfo = CalVer;
 		};
+		4EECE32F15494CE9EB03563F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 430DB4AF39A44099EA106CF8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 66AE9A2BF807D63B4AF62FDE;
+			remoteInfo = CalVer;
+		};
 		51E950D72C89696E226BB4C2 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 430DB4AF39A44099EA106CF8 /* Project object */;
@@ -224,6 +251,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 3AAAA6C923E3C0CA18F05066;
 			remoteInfo = AthenaWidget;
+		};
+		8C88DC7F4437DDDE74E0A89C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 430DB4AF39A44099EA106CF8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 66AE9A2BF807D63B4AF62FDE;
+			remoteInfo = CalVer;
 		};
 		8F4283E480C2088B00B0CD11 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -259,6 +293,20 @@
 			proxyType = 1;
 			remoteGlobalIDString = 66AE9A2BF807D63B4AF62FDE;
 			remoteInfo = CalVer;
+		};
+		A10E1891D2BF86F89B11CBAC /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 430DB4AF39A44099EA106CF8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = ED4AF18E08D1A7432616E22E;
+			remoteInfo = TranscriberShare;
+		};
+		A67E2E2CD1BBF137CF09B7E1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 430DB4AF39A44099EA106CF8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 361CB91B1BBFC24DECB03F52;
+			remoteInfo = TranscriberWidget;
 		};
 		B0B27E3F1DA82C2E399B4336 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -296,6 +344,13 @@
 			remoteInfo = CalVer;
 		};
 		E5856E917F08802B543CC398 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 430DB4AF39A44099EA106CF8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 66AE9A2BF807D63B4AF62FDE;
+			remoteInfo = CalVer;
+		};
+		E8E798BDF7429228587D301A /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 430DB4AF39A44099EA106CF8 /* Project object */;
 			proxyType = 1;
@@ -362,6 +417,18 @@
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		909BE614C6735AF392A4B699 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				61F465509385C951525595A3 /* TranscriberWidget.appex in Embed Foundation Extensions */,
+				AD100AE0B627E845224A7B75 /* TranscriberShare.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		EC6A6C8CD5C1AB2578CEB968 /* Embed Foundation Extensions */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -399,9 +466,11 @@
 		2C7F01FD47329725FDFEFBF7 /* NexusApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusApp.swift; sourceTree = "<group>"; };
 		2D3F5324A8D6E125BC55322C /* AthenaExtras.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AthenaExtras.swift; sourceTree = "<group>"; };
 		2F0767639C078D6E55BCEA0E /* NexusExtras.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusExtras.swift; sourceTree = "<group>"; };
+		2F9435995D0B258D270E2BB0 /* Transcriber.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Transcriber.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		334B42F2652061E9832A4410 /* BundledANE.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BundledANE.swift; sourceTree = "<group>"; };
 		33D307D5CF34490C5E34FD95 /* Neo.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Neo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		35FAA94347FA173BC06C86F8 /* NexusShare.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = NexusShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		38D751FC3FD0C9EAF8F65E0C /* TranscriberShare.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = TranscriberShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		3D0E66039AC6C174A076DB9F /* Oracles.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Oracles.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		464E48710AE91C739C8B1105 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		468221B2146BCBCC791C3B0B /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
@@ -409,6 +478,7 @@
 		47B42332B0DAAFA803D2CCBF /* Maeon.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Maeon.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		48E214A497E9D1CA5974B0D8 /* MapSpike.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MapSpike.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		4C722827C1DFF0CDB6F2F247 /* NeoConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NeoConfig.swift; sourceTree = "<group>"; };
+		51211FE71CFD59589F587DAB /* TranscriberWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriberWidget.swift; sourceTree = "<group>"; };
 		5211C7221AC8D5AC6F908583 /* MapSpikeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapSpikeView.swift; sourceTree = "<group>"; };
 		5272A6BAC2792D93DFD2BDF8 /* AthenaApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AthenaApp.swift; sourceTree = "<group>"; };
 		5AEE109FB99598734E3D1A78 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -418,6 +488,7 @@
 		81315A196BFF69192EF075E3 /* OracleTerminal */ = {isa = PBXFileReference; lastKnownFileType = folder; name = OracleTerminal; path = OracleTerminal; sourceTree = SOURCE_ROOT; };
 		83F5B866C705325F7C2918CF /* NexusWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = NexusWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		85CC7A862B4A57539A3EC547 /* NeoExtras.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NeoExtras.swift; sourceTree = "<group>"; };
+		8B246EA4CF69BB730784F4D5 /* TranscriberWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = TranscriberWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		8B808BF656870F447CB17688 /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		907F6BD4CB49E2095191A779 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		90BF0F508DBC77E53A7F9A0F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -425,13 +496,17 @@
 		935A69762DBD19A005AFE22F /* PulseWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PulseWidget.swift; sourceTree = "<group>"; };
 		9747F85F8B3132BD641525AE /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		976327A7B1A9B72817DDDF05 /* MapLayoutEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapLayoutEngine.swift; sourceTree = "<group>"; };
+		979870D249A91A4A8564B3BA /* TranscriberApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriberApp.swift; sourceTree = "<group>"; };
 		97CF4DEE1C0D84FB0133816A /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		995C2678DB4A126191A4CEF9 /* MaeonShare.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = MaeonShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		9A5BE6E4F22C177237B52D8F /* TranscriberConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriberConfig.swift; sourceTree = "<group>"; };
 		9C0A19BBEABB401B04EC5439 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		AB9292953362D8EFB6FE8DE2 /* ANEEmbed */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ANEEmbed; path = ANEEmbed; sourceTree = SOURCE_ROOT; };
+		B0F1BA54F31418614A0A138E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B137A3369CF3DC8269C32453 /* PulseConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PulseConfig.swift; sourceTree = "<group>"; };
 		B530CFD74615840D1FD21D61 /* Pulse.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Pulse.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B55D288BD45D60C57EC1FD16 /* NexusWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusWidget.swift; sourceTree = "<group>"; };
+		B73E46A6A0FCAB56C42BD854 /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		B7C941E4DEF8A26B4C94E87F /* PulseShare.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = PulseShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		BA2FD26FF1ECFF685AC4AC64 /* AthenaWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = AthenaWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		BD99D3EB0C88FD1452416FB0 /* NeoWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NeoWidget.swift; sourceTree = "<group>"; };
@@ -441,6 +516,7 @@
 		C72AAC7252E69FA1E9768382 /* MaeonWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = MaeonWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		D4532687283B94E464FAF092 /* Nexus.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Nexus.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D50650618F48B7DD78BB3C0D /* MaeonExtras.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MaeonExtras.swift; sourceTree = "<group>"; };
+		D55D651400F5067BBEE3378D /* TranscriberExtras.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriberExtras.swift; sourceTree = "<group>"; };
 		D88FC1580C3824256A7117F8 /* spike-neo-48950.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "spike-neo-48950.png"; sourceTree = "<group>"; };
 		DB009D7260C21CFEE11FBF5D /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		E596680FCB92D58641782D23 /* NexusConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusConfig.swift; sourceTree = "<group>"; };
@@ -504,6 +580,16 @@
 				42B51E73231E485B620DEC4A /* ANEEmbedCore in Frameworks */,
 				44941594C719B322FEC6A5EF /* MapLayoutUMAP in Frameworks */,
 				0D487E50736045C5885122E0 /* OracleTerminal in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7562B6BCDD2853D3A5F4AD95 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BEF9C39C5183FF0DDE1E5B9A /* OracleKit in Frameworks */,
+				2E2A3EFDEA38B59223B05B4A /* WidgetKit.framework in Frameworks */,
+				1148DEEEBB89E368A9D864BA /* SwiftUI.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -602,6 +688,17 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		E95650916A3715CB463F5E3F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				447D750B744983651DEC4FA9 /* OracleKit in Frameworks */,
+				28DB35411068C9183ACED520 /* ANEEmbedCore in Frameworks */,
+				6B37C065DC1D115D6AFE4F20 /* MapLayoutUMAP in Frameworks */,
+				DBA6217111BBE2361E890C39 /* OracleTerminal in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		EBC875A5A30813481BAABA83 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -609,6 +706,14 @@
 				A92220ACB1EEA09648D09C9F /* OracleKit in Frameworks */,
 				A008A67DBBD278DCF0CBD7BC /* WidgetKit.framework in Frameworks */,
 				D60C5A99551B4457FF12EE32 /* SwiftUI.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EEC3549DB3DF72D61EEC478B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3AE4FE4DDBDBE412943503A5 /* OracleKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -632,6 +737,15 @@
 			);
 			name = Share;
 			path = Apps/Neo/Share;
+			sourceTree = "<group>";
+		};
+		041206E176FC4E9F020F0315 /* Share */ = {
+			isa = PBXGroup;
+			children = (
+				B73E46A6A0FCAB56C42BD854 /* ShareViewController.swift */,
+			);
+			name = Share;
+			path = Apps/Transcriber/Share;
 			sourceTree = "<group>";
 		};
 		072B09D458817296196F9E72 /* Frameworks */ = {
@@ -704,12 +818,15 @@
 				0384E88409B511A572982525 /* Share */,
 				421FFC4696589BF6E57ED056 /* Share */,
 				B7FDE188B3D70C12B2C9C7C7 /* Share */,
+				041206E176FC4E9F020F0315 /* Share */,
 				2F52D47C54D9F3881D771C25 /* Shared */,
+				F9B54FFD30209BA09396671F /* Transcriber */,
 				F838466B268DCCACEA2010A0 /* Widget */,
 				FFE632A0E473818E54EAD582 /* Widget */,
 				01EF82A534256DBDA533DB95 /* Widget */,
 				952511CBCE103687209081B9 /* Widget */,
 				5BEC7930B6CACEF7F96D9FAB /* Widget */,
+				B81711212103BACFA757629C /* Widget */,
 				072B09D458817296196F9E72 /* Frameworks */,
 				4B3911DA704ADFCF590622F2 /* Products */,
 			);
@@ -756,6 +873,9 @@
 				B530CFD74615840D1FD21D61 /* Pulse.app */,
 				B7C941E4DEF8A26B4C94E87F /* PulseShare.appex */,
 				BE742AC8F1D736B0152CD64B /* PulseWidget.appex */,
+				2F9435995D0B258D270E2BB0 /* Transcriber.app */,
+				38D751FC3FD0C9EAF8F65E0C /* TranscriberShare.appex */,
+				8B246EA4CF69BB730784F4D5 /* TranscriberWidget.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -841,6 +961,15 @@
 			path = Apps/Pulse/Share;
 			sourceTree = "<group>";
 		};
+		B81711212103BACFA757629C /* Widget */ = {
+			isa = PBXGroup;
+			children = (
+				51211FE71CFD59589F587DAB /* TranscriberWidget.swift */,
+			);
+			name = Widget;
+			path = Apps/Transcriber/Widget;
+			sourceTree = "<group>";
+		};
 		D256F4A12E1319C895AD7DDC /* Maeon */ = {
 			isa = PBXGroup;
 			children = (
@@ -860,6 +989,18 @@
 			);
 			name = Widget;
 			path = Apps/Athena/Widget;
+			sourceTree = "<group>";
+		};
+		F9B54FFD30209BA09396671F /* Transcriber */ = {
+			isa = PBXGroup;
+			children = (
+				B0F1BA54F31418614A0A138E /* Assets.xcassets */,
+				979870D249A91A4A8564B3BA /* TranscriberApp.swift */,
+				9A5BE6E4F22C177237B52D8F /* TranscriberConfig.swift */,
+				D55D651400F5067BBEE3378D /* TranscriberExtras.swift */,
+			);
+			name = Transcriber;
+			path = Apps/Transcriber;
 			sourceTree = "<group>";
 		};
 		FFE632A0E473818E54EAD582 /* Widget */ = {
@@ -996,6 +1137,56 @@
 			productName = Maeon;
 			productReference = 47B42332B0DAAFA803D2CCBF /* Maeon.app */;
 			productType = "com.apple.product-type.application";
+		};
+		35DFCCAF757B8AEEE5C8F008 /* Transcriber */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0B2F2FF96EDCD02180D06730 /* Build configuration list for PBXNativeTarget "Transcriber" */;
+			buildPhases = (
+				10B92A7F8994831F56C2C2D6 /* Build the tokenizer + UMAP (Rust) */,
+				B12ECF4D338C79D86E547C18 /* Sources */,
+				C511596166D1BDBB918FAEFA /* Resources */,
+				E95650916A3715CB463F5E3F /* Frameworks */,
+				909BE614C6735AF392A4B699 /* Embed Foundation Extensions */,
+				4377B1F0C5BD633D3B657459 /* Stamp CalVer */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				76D0F197F7A896B81691C58E /* PBXTargetDependency */,
+				3FBD9AAECF2098241056052E /* PBXTargetDependency */,
+				EE38957B0895BFAA64A4AF60 /* PBXTargetDependency */,
+			);
+			name = Transcriber;
+			packageProductDependencies = (
+				6F3E35C1A01AE7E2074B65F6 /* OracleKit */,
+				0685DCF1BE1B74274BB725CB /* ANEEmbedCore */,
+				12C69A46D8E089AAF9E79DE8 /* MapLayoutUMAP */,
+				DBB54121CF1147C97DE97E08 /* OracleTerminal */,
+			);
+			productName = Transcriber;
+			productReference = 2F9435995D0B258D270E2BB0 /* Transcriber.app */;
+			productType = "com.apple.product-type.application";
+		};
+		361CB91B1BBFC24DECB03F52 /* TranscriberWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0B1799094508E7864052F14C /* Build configuration list for PBXNativeTarget "TranscriberWidget" */;
+			buildPhases = (
+				A20CDC7D50D43536A471168E /* Sources */,
+				7562B6BCDD2853D3A5F4AD95 /* Frameworks */,
+				6FEEBE9065612F4C40CB3C62 /* Stamp CalVer */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				C8E2C4BC97286B9F512E19A5 /* PBXTargetDependency */,
+			);
+			name = TranscriberWidget;
+			packageProductDependencies = (
+				12875A8A89852BD63EB31173 /* OracleKit */,
+			);
+			productName = TranscriberWidget;
+			productReference = 8B246EA4CF69BB730784F4D5 /* TranscriberWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 		3AAAA6C923E3C0CA18F05066 /* AthenaWidget */ = {
 			isa = PBXNativeTarget;
@@ -1248,6 +1439,27 @@
 			productReference = B530CFD74615840D1FD21D61 /* Pulse.app */;
 			productType = "com.apple.product-type.application";
 		};
+		ED4AF18E08D1A7432616E22E /* TranscriberShare */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B8676F464229CEF6D4B76121 /* Build configuration list for PBXNativeTarget "TranscriberShare" */;
+			buildPhases = (
+				64C2D35C1CBCC1787BA8E7AC /* Sources */,
+				EEC3549DB3DF72D61EEC478B /* Frameworks */,
+				6F70865BA3AA632EF5192045 /* Stamp CalVer */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				DDDCD098A667F9887A8112E7 /* PBXTargetDependency */,
+			);
+			name = TranscriberShare;
+			packageProductDependencies = (
+				A7E848DEEF3A01116202F366 /* OracleKit */,
+			);
+			productName = TranscriberShare;
+			productReference = 38D751FC3FD0C9EAF8F65E0C /* TranscriberShare.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		F4C43E59E3D089F341776040 /* Neo */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 41A40E1DD68DBC6E94C53362 /* Build configuration list for PBXNativeTarget "Neo" */;
@@ -1306,6 +1518,14 @@
 						DevelopmentTeam = 6K28WEXX78;
 						ProvisioningStyle = Automatic;
 					};
+					35DFCCAF757B8AEEE5C8F008 = {
+						DevelopmentTeam = 6K28WEXX78;
+						ProvisioningStyle = Automatic;
+					};
+					361CB91B1BBFC24DECB03F52 = {
+						DevelopmentTeam = 6K28WEXX78;
+						ProvisioningStyle = Automatic;
+					};
 					3AAAA6C923E3C0CA18F05066 = {
 						DevelopmentTeam = 6K28WEXX78;
 						ProvisioningStyle = Automatic;
@@ -1354,6 +1574,10 @@
 						DevelopmentTeam = 6K28WEXX78;
 						ProvisioningStyle = Automatic;
 					};
+					ED4AF18E08D1A7432616E22E = {
+						DevelopmentTeam = 6K28WEXX78;
+						ProvisioningStyle = Automatic;
+					};
 					F4C43E59E3D089F341776040 = {
 						DevelopmentTeam = 6K28WEXX78;
 						ProvisioningStyle = Automatic;
@@ -1397,6 +1621,9 @@
 				EA29C873AC2286317DA38636 /* Pulse */,
 				DA9655DA8312A36373D2632A /* PulseShare */,
 				19EE540E3E022009C36A99F1 /* PulseWidget */,
+				35DFCCAF757B8AEEE5C8F008 /* Transcriber */,
+				ED4AF18E08D1A7432616E22E /* TranscriberShare */,
+				361CB91B1BBFC24DECB03F52 /* TranscriberWidget */,
 			);
 		};
 /* End PBXProject section */
@@ -1464,6 +1691,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				2B9BC0A1DF0BE48BE8AFCF81 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C511596166D1BDBB918FAEFA /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AE05EF8BE30A73E01BB3C48B /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1544,6 +1779,25 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "sh \"$SRCROOT/scripts/calver-stamp.sh\"";
+		};
+		10B92A7F8994831F56C2C2D6 /* Build the tokenizer + UMAP (Rust) */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Build the tokenizer + UMAP (Rust)";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "[ \"$PLATFORM_NAME\" = macosx ] || exit 0\nexport PATH=\"/opt/homebrew/opt/rustup/bin:$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH\"\nif ! command -v cargo >/dev/null; then\n  echo \"error: cargo not found: the Memory page's embedder builds its tokenizer with Rust. Install it, then build again:\"\n  echo \"error:   brew install rustup && /opt/homebrew/opt/rustup/bin/rustup default stable\"\n  exit 1\nfi\ncd \"$SRCROOT/ANEEmbed/tokenizer-ffi\" && cargo build --release --locked\n";
 		};
 		1983416334F26A798A2ED93F /* Stamp CalVer */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -1702,6 +1956,26 @@
 			shellPath = /bin/sh;
 			shellScript = "sh \"$SRCROOT/scripts/calver-stamp.sh\"";
 		};
+		4377B1F0C5BD633D3B657459 /* Stamp CalVer */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)",
+			);
+			name = "Stamp CalVer";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "sh \"$SRCROOT/scripts/calver-stamp.sh\"";
+		};
 		5EA82B4743A1E08665524A0E /* Stamp CalVer */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -1723,6 +1997,46 @@
 			shellScript = "sh \"$SRCROOT/scripts/calver-stamp.sh\"";
 		};
 		6D729AC6E4C14E5438A64CA3 /* Stamp CalVer */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)",
+			);
+			name = "Stamp CalVer";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "sh \"$SRCROOT/scripts/calver-stamp.sh\"";
+		};
+		6F70865BA3AA632EF5192045 /* Stamp CalVer */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)",
+			);
+			name = "Stamp CalVer";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "sh \"$SRCROOT/scripts/calver-stamp.sh\"";
+		};
+		6FEEBE9065612F4C40CB3C62 /* Stamp CalVer */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -2039,6 +2353,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		64C2D35C1CBCC1787BA8E7AC /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				02B5293ADA898D25AA332E43 /* ShareViewController.swift in Sources */,
+				1EE4557C4D5606CCE8356D5F /* TranscriberConfig.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		7356134D71C52FE23363F7E4 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -2072,12 +2395,33 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A20CDC7D50D43536A471168E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9AF68FCFE35510303BFD403E /* TranscriberConfig.swift in Sources */,
+				609698B8CB23B72509474FBB /* TranscriberWidget.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		A38285BC096149E7D6C6985D /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				78946F22CF1780C0946CF7AF /* AthenaConfig.swift in Sources */,
 				172E589132DADC7B3DD19523 /* ShareViewController.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B12ECF4D338C79D86E547C18 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				091BEE0D68A43B394B3E9332 /* BundledANE.swift in Sources */,
+				AE5EC90D98A29046A4294CD9 /* MapLayoutEngine.swift in Sources */,
+				75089C0F395B1B7315F0153F /* TranscriberApp.swift in Sources */,
+				F6F011408161109B7E916D6F /* TranscriberConfig.swift in Sources */,
+				DC731DC43E687CE88F0053B8 /* TranscriberExtras.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2174,6 +2518,11 @@
 			target = 9870F2797CB9A0EB16358814 /* MaeonShare */;
 			targetProxy = 974CC8EFC25EBDFD35F8E46F /* PBXContainerItemProxy */;
 		};
+		3FBD9AAECF2098241056052E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 361CB91B1BBFC24DECB03F52 /* TranscriberWidget */;
+			targetProxy = A67E2E2CD1BBF137CF09B7E1 /* PBXContainerItemProxy */;
+		};
 		44F34CBB47421F978E675D25 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			platformFilters = (
@@ -2212,6 +2561,11 @@
 			target = 66AE9A2BF807D63B4AF62FDE /* CalVer */;
 			targetProxy = E5856E917F08802B543CC398 /* PBXContainerItemProxy */;
 		};
+		76D0F197F7A896B81691C58E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 66AE9A2BF807D63B4AF62FDE /* CalVer */;
+			targetProxy = 8C88DC7F4437DDDE74E0A89C /* PBXContainerItemProxy */;
+		};
 		80A5FDB5B667808DA2659745 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 66AE9A2BF807D63B4AF62FDE /* CalVer */;
@@ -2242,10 +2596,20 @@
 			target = 66AE9A2BF807D63B4AF62FDE /* CalVer */;
 			targetProxy = FEB6389F25835D3E9640CFCB /* PBXContainerItemProxy */;
 		};
+		C8E2C4BC97286B9F512E19A5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 66AE9A2BF807D63B4AF62FDE /* CalVer */;
+			targetProxy = 4EECE32F15494CE9EB03563F /* PBXContainerItemProxy */;
+		};
 		D0FB6E827D62071E3FB724A7 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 66AE9A2BF807D63B4AF62FDE /* CalVer */;
 			targetProxy = BC25A9A29888E7A1D86146E4 /* PBXContainerItemProxy */;
+		};
+		DDDCD098A667F9887A8112E7 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 66AE9A2BF807D63B4AF62FDE /* CalVer */;
+			targetProxy = E8E798BDF7429228587D301A /* PBXContainerItemProxy */;
 		};
 		E1FDB5BDB2BCE4322735477A /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -2259,6 +2623,14 @@
 			isa = PBXTargetDependency;
 			target = 66AE9A2BF807D63B4AF62FDE /* CalVer */;
 			targetProxy = B0B27E3F1DA82C2E399B4336 /* PBXContainerItemProxy */;
+		};
+		EE38957B0895BFAA64A4AF60 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			platformFilters = (
+				macos,
+			);
+			target = ED4AF18E08D1A7432616E22E /* TranscriberShare */;
+			targetProxy = A10E1891D2BF86F89B11CBAC /* PBXContainerItemProxy */;
 		};
 		F3C6DC3D6000C37E8A55B85D /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -2305,6 +2677,30 @@
 			};
 			name = Debug;
 		};
+		07C5837FD9F471F96DDE089D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Apps/Transcriber/Widget/TranscriberWidget.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphone*]" = "Apps/Transcriber/Widget/TranscriberWidget-iOS.entitlements";
+				ENABLE_APP_SANDBOX = YES;
+				INFOPLIST_FILE = Apps/Transcriber/Widget/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = co.laris.oracle.transcriber.widget;
+				PRODUCT_NAME = TranscriberWidget;
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		07F9CD8CF473A4D397574F5C /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -2328,6 +2724,30 @@
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
+		};
+		1463619FC97592D9C15A0ED8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Apps/Transcriber/Widget/TranscriberWidget.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphone*]" = "Apps/Transcriber/Widget/TranscriberWidget-iOS.entitlements";
+				ENABLE_APP_SANDBOX = YES;
+				INFOPLIST_FILE = Apps/Transcriber/Widget/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = co.laris.oracle.transcriber.widget;
+				PRODUCT_NAME = TranscriberWidget;
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
 		};
 		180119904F20F85C908FDB80 /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -2460,6 +2880,29 @@
 			};
 			name = Debug;
 		};
+		2A188A43ED56F3C08A380E5A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Apps/Transcriber/Share/TranscriberShare.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_APP_SANDBOX = YES;
+				INFOPLIST_FILE = Apps/Transcriber/Share/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = co.laris.oracle.transcriber.share;
+				PRODUCT_NAME = TranscriberShare;
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = macosx;
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				TARGETED_DEVICE_FAMILY = "";
+			};
+			name = Release;
+		};
 		2B0F3BF9C703BEE2541CBF4E /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -2557,6 +3000,29 @@
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		517356382F4CC9B2BADE21CE /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Apps/Transcriber/Share/TranscriberShare.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_APP_SANDBOX = YES;
+				INFOPLIST_FILE = Apps/Transcriber/Share/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = co.laris.oracle.transcriber.share;
+				PRODUCT_NAME = TranscriberShare;
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = macosx;
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				TARGETED_DEVICE_FAMILY = "";
 			};
 			name = Debug;
 		};
@@ -2734,6 +3200,35 @@
 				PRODUCT_NAME = PulseWidget;
 				SDKROOT = auto;
 				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		6D7154E62D468A1603765E9C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				"ARCHS[sdk=macosx*]" = arm64;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Apps/Transcriber/Transcriber.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphone*]" = "Apps/Transcriber/Transcriber-iOS.entitlements";
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				INFOPLIST_FILE = Apps/Transcriber/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Transcriber Oracle";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = co.laris.oracle.transcriber;
+				PRODUCT_NAME = "Transcriber Oracle";
+				SDKROOT = auto;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
@@ -3045,6 +3540,35 @@
 			};
 			name = Release;
 		};
+		B0D7F579265B145EC0204D5B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				"ARCHS[sdk=macosx*]" = arm64;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Apps/Transcriber/Transcriber.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphone*]" = "Apps/Transcriber/Transcriber-iOS.entitlements";
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				INFOPLIST_FILE = Apps/Transcriber/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Transcriber Oracle";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = co.laris.oracle.transcriber;
+				PRODUCT_NAME = "Transcriber Oracle";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
 		B2AFF76EC9FCB164B26F35B4 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -3273,6 +3797,24 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		0B1799094508E7864052F14C /* Build configuration list for PBXNativeTarget "TranscriberWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1463619FC97592D9C15A0ED8 /* Debug */,
+				07C5837FD9F471F96DDE089D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		0B2F2FF96EDCD02180D06730 /* Build configuration list for PBXNativeTarget "Transcriber" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B0D7F579265B145EC0204D5B /* Debug */,
+				6D7154E62D468A1603765E9C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		1D5C20B4F62886A3D1941FDE /* Build configuration list for PBXNativeTarget "MaeonShare" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -3417,6 +3959,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
+		B8676F464229CEF6D4B76121 /* Build configuration list for PBXNativeTarget "TranscriberShare" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				517356382F4CC9B2BADE21CE /* Debug */,
+				2A188A43ED56F3C08A380E5A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		BDC08FDCE6440C95B1B73EEE /* Build configuration list for PBXNativeTarget "PulseShare" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -3462,9 +4013,21 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		0685DCF1BE1B74274BB725CB /* ANEEmbedCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ANEEmbedCore;
+		};
 		09F179C93C148ACF8E9B84EE /* OracleTerminal */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = OracleTerminal;
+		};
+		12875A8A89852BD63EB31173 /* OracleKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = OracleKit;
+		};
+		12C69A46D8E089AAF9E79DE8 /* MapLayoutUMAP */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = MapLayoutUMAP;
 		};
 		1A760CF2A55F6C237D98F152 /* ANEEmbedCore */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -3506,6 +4069,10 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = ANEEmbedCore;
 		};
+		6F3E35C1A01AE7E2074B65F6 /* OracleKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = OracleKit;
+		};
 		77079D500348CB3CDEBE6BE6 /* MapLayoutUMAP */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = MapLayoutUMAP;
@@ -3523,6 +4090,10 @@
 			productName = OracleKit;
 		};
 		9EB334B6C1B129FB8DF7D118 /* OracleKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = OracleKit;
+		};
+		A7E848DEEF3A01116202F366 /* OracleKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = OracleKit;
 		};
@@ -3569,6 +4140,10 @@
 		D8034BE3BE3303D05E137A02 /* OracleKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = OracleKit;
+		};
+		DBB54121CF1147C97DE97E08 /* OracleTerminal */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = OracleTerminal;
 		};
 		DF2EE418027BEF38CB54B90C /* OracleKit */ = {
 			isa = XCSwiftPackageProductDependency;
