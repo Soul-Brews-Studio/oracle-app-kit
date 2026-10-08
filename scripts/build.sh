@@ -56,7 +56,7 @@ for s in $built; do
   if (( was )); then   # -600 while the old copy is still quitting: retry
     # without this pane's HERDR_*: `open` hands the caller's environment to the app, and an app holding a pane's
     # HERDR_SOCKET_PATH / HERDR_PANE_ID acts on that pane's herdr server (seen 2026-10-08)
-    up=0; for i in 1 2 3; do env ${(@)${(k)parameters[(I)HERDR_*]}/#/-u } open "/Applications/$app.app" 2>/dev/null && { up=1; break; }; sleep 2; done
+    up=0; for i in 1 2 3; do ( unset -m 'HERDR_*' 'CLAUDE_CODE_*' CLAUDECODE; open "/Applications/$app.app" ) 2>/dev/null && { up=1; break; }; sleep 2; done
     (( up )) || { print -r -- "✗ $app $v: installed, but it did not start (open failed 3 times):  open '/Applications/$app.app'"; rc=1; continue; }
   fi
   echo "$app $v $( (( was )) && echo relaunched || echo installed)"
