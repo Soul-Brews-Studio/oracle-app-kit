@@ -175,8 +175,7 @@ struct SidebarIconButton: View {
 /// `activity`, so a worktree with only a shell had nothing to open).
 @MainActor func panesOf(_ w: WorkItem, store: OracleStore) -> [String] {
     let agents = w.panes.sorted { WorkFormat.rank($0.status) < WorkFormat.rank($1.status) }.map(\.place)
-    let shells = store.spaces.filter { $0.checkout == w.path || $0.panes.contains { $0.cwd == w.path || $0.cwd.hasPrefix(w.path + "/") } }
-        .flatMap(\.panes).map(\.place).filter { !agents.contains($0) }
+    let shells = WorkParse.shells(of: w, work: store.work, spaces: store.spaces).map(\.place)   // the deepest owner (#88)
     return agents + shells
 }
 

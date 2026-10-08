@@ -261,6 +261,21 @@ public enum WorkParse {
         }
         return items.sorted(by: order)
     }
+    /// The plain shells a work item owns. A pane with no agent belongs to the DEEPEST work item whose path holds its
+    /// cwd — the rule `items` uses for agent panes; a shell cd'd elsewhere stays with its space's checkout. The Mac's
+    /// `panesOf` and the phone's `shells(of:)` both read this (#88): their old `cwd.hasPrefix(item.path + "/")` handed
+    /// the main checkout every pane under <main>/wt/…, other worktrees' agents included, as "shell" rows.
+    public static func shells(of item: WorkItem, work: [WorkItem], spaces: [HerdrSpace]) -> [HerdrPaneBox] {
+        let paths = work.map(\.path)
+        func owner(_ cwd: String) -> String? { paths.filter { cwd == $0 || cwd.hasPrefix($0 + "/") }.max { $0.count < $1.count } }
+        let agents = Set(work.flatMap(\.panes).map(\.place))
+        return spaces.flatMap { s in
+            s.panes.filter { p in
+                p.agent == nil && !agents.contains(p.place)
+                    && (owner(p.cwd) ?? s.checkout.flatMap { paths.contains($0) ? $0 : nil }) == item.path
+            }
+        }
+    }
     /// An open issue no worktree names yet — where /herdr-wt starts (issue first, then the tree).
     public struct NextIssue: Identifiable, Hashable, Sendable {
         public let issue: GHItem
