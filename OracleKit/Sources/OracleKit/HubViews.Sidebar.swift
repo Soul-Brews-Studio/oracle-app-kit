@@ -178,9 +178,9 @@ struct RemoteSection: View {
             }
             // one group per machine (Nat: "if we have many machines, group, show machine"): its users, how many of
             // its sessions run, then every session — the ones attached or remembered, and all that run there
-            ForEach(RemoteParse.groups(store.remotes, running: { store.remoteState[$0.id]?.running == true }), id: \.host) { g in
-                machineHeader(g.host, g.sessions)
-                if !folded.contains(g.host) {
+            ForEach(RemoteParse.groups(store.remotes, running: { store.remoteState[$0.id]?.running == true }), id: \.key) { g in
+                machineHeader(g.key, g.host, g.sessions)
+                if !folded.contains(g.key) {
                     ForEach(g.sessions) { r in
                         RemoteRow(remote: r, state: store.remoteState[r.id], attached: store.attachedRemotes.contains(r.id), store: store,
                                   subtitle: r.label ?? r.user ?? "")
@@ -191,17 +191,17 @@ struct RemoteSection: View {
         }
     }
 
-    @ViewBuilder private func machineHeader(_ host: String, _ sessions: [RemoteSession]) -> some View {
+    @ViewBuilder private func machineHeader(_ key: String, _ host: String, _ sessions: [RemoteSession]) -> some View {
         let running = sessions.filter { store.remoteState[$0.id]?.running == true }.count
         let users = Array(Set(sessions.compactMap(\.user))).sorted()
         let problems = Set(sessions.map(\.target)).compactMap { store.remoteMachines[$0]?.problem }
         let herdr = Set(sessions.map(\.target)).compactMap { t in store.remoteMachines[t]?.version.map { (RemoteSession(target: t, session: "x").user ?? t) + " " + $0 } }.sorted()
         Button {
-            var f = folded; if f.contains(host) { f.remove(host) } else { f.insert(host) }
+            var f = folded; if f.contains(key) { f.remove(key) } else { f.insert(key) }
             foldedList = f.sorted().joined(separator: ",")
         } label: {
             HStack(spacing: 7) {
-                Image(systemName: folded.contains(host) ? "chevron.right" : "chevron.down")
+                Image(systemName: folded.contains(key) ? "chevron.right" : "chevron.down")
                     .font(.system(size: 9, weight: .semibold)).foregroundStyle(.tertiary).frame(width: 10)
                 Image(systemName: "server.rack").font(.system(size: 11)).foregroundStyle(problems.isEmpty ? Color.secondary : Color.orange)
                 Text(host).font(.custom("Avenir Next", size: 14).weight(.semibold)).lineLimit(1)

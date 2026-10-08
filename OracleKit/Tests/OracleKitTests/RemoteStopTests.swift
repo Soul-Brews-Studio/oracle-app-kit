@@ -18,6 +18,15 @@ final class RemoteStopTests: XCTestCase {
         XCTAssertEqual(m.first?.label, "white")
     }
 
+    func testWorkspacesAreReadInHerdrsOrder() {
+        // black's phd session, as `herdr --machine black workspace list` answered on 2026-10-08
+        let json = #"{"id":"cli:workspace:list","result":{"type":"workspace_list","workspaces":[{"workspace_id":"w5","label":"~","agent_status":"unknown","pane_count":1},{"workspace_id":"w8","label":"dustboy-phd-oracle","agent_status":"done","pane_count":1}]}}"#
+        let w = RemoteParse.workspaces(json)
+        XCTAssertEqual(w.map(\.label), ["~", "dustboy-phd-oracle"])
+        XCTAssertEqual(w.map(\.status), ["unknown", "done"])
+        XCTAssertTrue(RemoteParse.workspaces("not json").isEmpty)
+    }
+
     func testResumeSplitsAgentsWithASavedSessionFromPlainShells() {
         // m5 records agent_session through its claude hook; white (no integration) records none (#100)
         let m5 = #"{"result":{"agents":[{"agent":"claude","name":"neo","agent_session":{"source":"herdr:claude","kind":"id","value":"8f3a"}},{"agent":"codex","pane_id":"w2:p1"}]}}"#

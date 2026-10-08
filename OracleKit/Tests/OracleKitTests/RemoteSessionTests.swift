@@ -64,8 +64,9 @@ final class RemoteMachineTests: XCTestCase {
                   RemoteSession(target: "nm@white.local", session: "default")]
         let off: Set<String> = ["nat@white.follow-rankine.ts.net|default"]
         let g = RemoteParse.groups(rs, running: { !off.contains($0.id) })
-        XCTAssertEqual(g.map(\.host), ["black", "white"])
-        XCTAssertEqual(g[1].sessions.map(\.session), ["default", "infra-teamexit", "default"])
-        XCTAssertEqual(g[1].sessions.last?.target, "nat@white.follow-rankine.ts.net", "the stopped one last")
+        // one group per login: nat@white and nm@white are two (Nat: "machine name and user")
+        XCTAssertEqual(g.map(\.key), ["phd-oracle@black", "nat@white", "nm@white"])
+        XCTAssertEqual(g.map(\.user), ["phd-oracle", "nat", "nm"])
+        XCTAssertEqual(g[1].sessions.map(\.session), ["infra-teamexit", "default"], "the stopped one last")
     }
 }

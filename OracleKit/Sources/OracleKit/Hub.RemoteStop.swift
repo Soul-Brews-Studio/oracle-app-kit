@@ -12,8 +12,8 @@ extension HubStore {
     public func remoteResume(_ sessions: [RemoteSession]) async -> [String: ResumeCheck]? {
         var all: [String: ResumeCheck] = [:]
         for r in sessions {
-            guard let id = r.profileId, let out = await Shell.run("herdr", ["--machine", id, "agent", "list"], timeout: 20),
-                  let c = RemoteParse.resume(agentList: out) else { return nil }
+            guard let out = await Self.remoteHerdr(r, ["agent", "list"], viaSSH: remoteState[r.id]?.viaSSH == true), out.status == 0,
+                  let c = RemoteParse.resume(agentList: out.out) else { return nil }
             all[r.id] = c
         }
         return all
@@ -23,9 +23,9 @@ extension HubStore {
     public func stopRemote(_ sessions: [RemoteSession]) async -> String? {
         var failed: [String] = []
         for r in sessions {
-            guard let id = r.profileId else { continue }
-            if await Shell.run("herdr", ["--machine", id, "server", "stop"], timeout: 30) == nil {
-                failed.append("herdr --machine \(r.label ?? id) server stop")
+            let ssh = remoteState[r.id]?.viaSSH == true
+            if await Self.remoteHerdr(r, ["server", "stop"], viaSSH: ssh, timeout: 30)?.status != 0 {
+                failed.append(ssh ? "ssh \(r.target) 'herdr --session \(r.session) server stop'" : "herdr --machine \(r.label ?? r.profileId ?? r.host) server stop")
             }
         }
         await refresh(remotes: true)
@@ -36,14 +36,14 @@ extension HubStore {
     /// in the background (`herdr --session <s> server`) over ssh, then wait for `--machine <id> status server`.
     public func startRemote(_ r: RemoteSession) async -> String? {
         let cmd = "ssh \(r.target) 'PATH=$HOME/.local/bin:$PATH; nohup herdr --session \(r.session) server >/dev/null 2>&1 &'"
-        guard r.isSafe, let id = r.profileId else { return nil }
+        guard r.isSafe, r.profileId != nil else { return nil }
         let start = "export PATH=$HOME/.local/bin:$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH; "
             + "nohup herdr --session \(r.session) server >/dev/null 2>&1 </dev/null & echo started"
         guard await Shell.run("ssh", ["-o", "BatchMode=yes", "-o", "ConnectTimeout=6", r.target, start], timeout: 20) != nil else {
             return "ssh did not answer without a prompt — run:  \(cmd)"
         }
         for _ in 0..<10 {
-            if let s = await Shell.capture("herdr", ["--machine", id, "status", "server"], timeout: 15), s.status == 0,
+            if let s = await Self.remoteHerdr(r, ["status", "server"], viaSSH: remoteState[r.id]?.viaSSH == true, timeout: 15), s.status == 0,
                RemoteParse.statusField("status", in: s.out) == "running" {
                 await refresh(remotes: true); return nil
             }

@@ -13,9 +13,11 @@ struct NetworkPage: View {
     @State private var session = ""
     @State private var label = ""
     @State private var addError: String?
+    @State private var showSave = false   // folded until asked for (Nat tried open-by-default, then "back to collapse")
 
     var body: some View {
-        let groups = RemoteParse.groups(store.remotes, running: { store.remoteState[$0.id]?.running == true })
+        // one card per machine; inside it, a section per login (Nat: "machine name and user", nat@white + nm@white)
+        let machines = Dictionary(grouping: store.remotes, by: \.host).sorted { $0.key < $1.key }
         let remoteRunning = store.remotes.filter { store.remoteState[$0.id]?.running == true }
         let localRunning = store.localSessions.filter(\.running)
         let agents = remoteRunning.reduce(0) { $0 + (store.remoteState[$1.id]?.agents ?? 0) }
@@ -29,38 +31,26 @@ struct NetworkPage: View {
                     Text(need > 0 ? "\(need) need you" : "\(localRunning.count + remoteRunning.count) sessions running")
                         .font(.system(size: 40, weight: .bold, design: .rounded))
                         .foregroundStyle(HubStyle.accent)
-                    Text("\(groups.count + 1) machines · this Mac and \(logins) remote login\(logins == 1 ? "" : "s") · "
-                         + "\(localRunning.count + remoteRunning.count) sessions running · \(agents) remote agents"
-                         + (checked.map { " · probed \($0.formatted(date: .omitted, time: .shortened))" } ?? ""))
+                    Text("\(machines.count + 1) machines · \(logins) login\(logins == 1 ? "" : "s") · "
+                         + "\(localRunning.count + remoteRunning.count) sessions running · \(agents) agent\(agents == 1 ? "" : "s")"
+                         + (checked.map { " · probed \($0.formatted(date: .omitted, time: .shortened))" } ?? "")
+                         + " · click a session to open it")
                         .font(.callout).foregroundStyle(.secondary)
                 }
                 VStack(alignment: .leading, spacing: 10) {
-                    WorkFormat.header("MACHINES", groups.count + 1, note: "click a session to open it")
-                    MachineGrid(minWidth: 330, spacing: 14) {
-                        LocalMachineCard(store: store, pick: $pick)
-                        ForEach(groups, id: \.host) { g in MachineCard(store: store, host: g.host, sessions: g.sessions) }
-                    }
-                }
-                if !store.unsavedAttached.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
-                        WorkFormat.header("ATTACHED, NOT SAVED", store.unsavedAttached.count,
-                                          note: "this Mac has a herdr --remote window on these; save one to list its machine")
-                        ForEach(store.unsavedAttached) { r in
-                            HStack(spacing: 10) {
-                                Text(r.session).font(.callout.weight(.medium))
-                                Text(r.target).font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(1)
-                                Spacer()
-                                Button("save as herdr machine") { target = r.target; session = r.session; label = r.host }
-                                    .buttonStyle(.link).handCursor()
+                    // every machine the same: its name, then a box per login on it (Nat: "group white and show box
+                    // nm@white and nat@white and god@white", then "prep for m5 and black … it will same?")
+                    VStack(alignment: .leading, spacing: 14) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            groupHeader(icon: "laptopcomputer", name: Self.localHost, facts: "this Mac")
+                            MachineGrid(minWidth: 330, spacing: 14) {
+                                LocalMachineCard(store: store, pick: $pick, title: NSUserName() + "@" + Self.localHost)
                             }
                         }
+                        ForEach(machines, id: \.key) { m in machineGroup(m.key, m.value) }
                     }
                 }
-                addForm
-                Text("Machines are herdr's saved machines (herdr machine list), one per remote session. Each is asked with "
-                     + "herdr --machine <id> status server and agent list, at most every 45 s, or now with refresh. The link "
-                     + "icon marks a herdr --remote window open on this Mac.")
-                    .font(.caption).foregroundStyle(.tertiary).fixedSize(horizontal: false, vertical: true)
+                saveSection
             }
             .padding(28)
             .frame(maxWidth: 1100, alignment: .leading)
@@ -70,15 +60,74 @@ struct NetworkPage: View {
         .task { await store.probeRemotes() }   // fresh when the page opens
     }
 
-    /// Saving is herdr's own `herdr machine add`, in a WezTerm window: it may ask before it installs or starts herdr
-    /// on the other machine, which the hub never answers for you.
+    static let localHost = ProcessInfo.processInfo.hostName.split(separator: ".").first.map(String.init) ?? "this Mac"
+
+    /// A machine's name line above its login boxes. Totals only when several boxes share it; one box says them itself.
+    private func groupHeader(icon: String, name: String, facts: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Image(systemName: icon).font(.system(size: 13, weight: .semibold)).foregroundStyle(HubStyle.accent)
+            Text(name).font(.custom("Avenir Next", size: 17).weight(.semibold))
+            Text(facts).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+        }
+        .padding(.top, 6)
+    }
+
+    /// A remote machine: its name, then a box per login (user@host), each with its sessions.
+    @ViewBuilder private func machineGroup(_ host: String, _ sessions: [RemoteSession]) -> some View {
+        let logins = RemoteParse.groups(sessions, running: { store.remoteState[$0.id]?.running == true })
+        let running = sessions.filter { store.remoteState[$0.id]?.running == true }
+        let agents = running.reduce(0) { $0 + (store.remoteState[$1.id]?.agents ?? 0) }
+        VStack(alignment: .leading, spacing: 8) {
+            groupHeader(icon: "server.rack", name: host,
+                        facts: logins.count == 1 ? "1 login"
+                            : "\(logins.count) logins · \(running.count) of \(sessions.count) running · \(agents) agent\(agents == 1 ? "" : "s")")
+            MachineGrid(minWidth: 330, spacing: 14) {
+                ForEach(logins, id: \.key) { l in
+                    MachineCard(store: store, host: host, sessions: l.sessions, title: l.key,
+                                subtitle: Array(Set(l.sessions.compactMap(\.label).filter { $0 != host })).sorted().joined(separator: ", "))
+                }
+            }
+        }
+    }
+
+    /// One line until asked for: "Save a machine", and how many open `herdr --remote` windows here are not saved yet.
+    /// Open, it lists those windows (each fills the form) and the form. Saving is herdr's own `herdr machine add`, in a
+    /// WezTerm window: it may ask before it installs or starts herdr on the other machine, which the hub never answers.
+    private var saveSection: some View {
+        let unsaved = store.unsavedAttached
+        return VStack(alignment: .leading, spacing: 10) {
+            Button { withAnimation(.snappy(duration: 0.2)) { showSave.toggle() } } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: showSave ? "chevron.down" : "chevron.right").font(.caption2.bold())
+                    Text("Save a machine").font(.callout.weight(.medium))
+                    if !unsaved.isEmpty {
+                        Text("· \(unsaved.count) open window\(unsaved.count == 1 ? "" : "s") here \(unsaved.count == 1 ? "isn’t" : "aren’t") saved")
+                            .font(.callout).foregroundStyle(.secondary)
+                    }
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain).handCursor()
+            if showSave {
+                ForEach(unsaved) { r in
+                    HStack(spacing: 10) {
+                        Text(r.session).font(.callout.weight(.medium))
+                        Text(r.shortTarget).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                        Spacer()
+                        Button("Fill the form") { target = r.target; session = r.session; label = r.host }
+                            .buttonStyle(.link).handCursor()
+                    }
+                    .padding(.leading, 18)
+                }
+                addForm.padding(.leading, 18)
+                Text("Saved machines are herdr's own (herdr machine list), one per remote session, asked every 45 s or on refresh.")
+                    .font(.caption).foregroundStyle(.tertiary).padding(.leading, 18).fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
     private var addForm: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text("SAVE A MACHINE").font(.caption.weight(.semibold)).tracking(1.4)
-                Text("herdr machine add <target> --label <name> --remote-session <session>, in a WezTerm window").font(.caption)
-            }
-            .foregroundStyle(.secondary)
             HStack(spacing: 8) {
                 TextField("target — user@host", text: $target).textFieldStyle(.roundedBorder).frame(maxWidth: 300)
                 TextField("session — default", text: $session).textFieldStyle(.roundedBorder).frame(maxWidth: 160)
@@ -200,9 +249,12 @@ private struct SessionLine: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain).handCursor()
-        .onHover { hover = $0 }
-            if let controls { controls }
+            // Stop / Restart wait for the pointer; a stopped row keeps Start in view. Space stays reserved: no jump.
+            if let controls {
+                controls.opacity(hover || !running ? 1 : 0).allowsHitTesting(hover || !running)
+            }
         }
+        .onHover { hover = $0 }
     }
 }
 
@@ -210,12 +262,14 @@ private struct SessionLine: View {
 private struct LocalMachineCard: View {
     @ObservedObject var store: HubStore
     @Binding var pick: HubPick
-    @State private var showStopped = false
+    /// its box in the m5 group: "beta@m5"
+    var title: String? = nil
+    @State private var showStopped = false  // folded by default (Nat: "back to … collapse that cool")
     var body: some View {
         let local = store.localSessions.sorted { ($0.running ? 0 : 1, $0.name) < ($1.running ? 0 : 1, $1.name) }
         let running = local.filter(\.running)
         let stopped = local.filter { !$0.running }
-        MachineShell(icon: "laptopcomputer", title: ProcessInfo.processInfo.hostName.split(separator: ".").first.map(String.init) ?? "this Mac", users: "this Mac",
+        MachineShell(icon: title == nil ? "laptopcomputer" : "person.crop.square", title: title ?? NetworkPage.localHost, users: title == nil ? "this Mac" : "",
                      line: "\(running.count) of \(local.count) sessions running · \(store.spaces.count) spaces", problem: nil) {
             ForEach(running) { s in
                 let spaces = store.spaces.filter { $0.session == s.name }
@@ -249,7 +303,11 @@ private struct MachineCard: View {
     @ObservedObject var store: HubStore
     let host: String
     let sessions: [RemoteSession]
+    /// a login's box inside its machine's group: "nm@white", and herdr's name for it ("xiaoer")
+    var title: String? = nil
+    var subtitle: String? = nil
     @State private var pendingStop: [RemoteSession] = []
+    @State private var restartAfter = false                       // the confirmed stop is a Restart: start them again
     @State private var confirmStop = false
     @State private var checked = false                       // the resume check came back (resume nil then = ssh failed)
     @State private var resume: [String: ResumeCheck]?
@@ -261,18 +319,22 @@ private struct MachineCard: View {
         let users = Array(Set(sessions.compactMap(\.user))).sorted()
         let running = sessions.filter { store.remoteState[$0.id]?.running == true }
         let agents = running.reduce(0) { $0 + (store.remoteState[$1.id]?.agents ?? 0) }
-        let versions = Set(targets.compactMap { store.remoteMachines[$0]?.version }).sorted()
         let problem = targets.compactMap { store.remoteMachines[$0]?.problem }.first
-        let probed = targets.compactMap { store.remoteMachines[$0]?.checked }.min()   // the card's oldest answer (#98)
-        let labels = Array(Set(sessions.compactMap(\.label))).sorted()
-        MachineShell(icon: "server.rack", title: host, users: (["herdr machine"] + (labels == [host] ? [] : labels) + users).joined(separator: " · "),
-                     line: (versions.isEmpty ? "herdr ?" : "herdr " + versions.joined(separator: ", "))
-                        + " · \(running.count) of \(sessions.count) running · \(agents) agent\(agents == 1 ? "" : "s")"
-                        + (stopping ? " · stopping…" : probed.map { " · \($0.formatted(date: .omitted, time: .shortened))" } ?? ""),
+        // versions and the probe time live in the help, not the card (distill): the summary line already says "probed"
+        let versions = sessions.map { r in "\(r.shortTarget): herdr \(store.remoteState[r.id]?.version ?? "?")" }
+        MachineShell(icon: title == nil ? "server.rack" : "person.crop.square", title: title ?? host,
+                     users: subtitle ?? users.joined(separator: " · "),
+                     line: "\(running.count) of \(sessions.count) running · \(agents) agent\(agents == 1 ? "" : "s")"
+                        + (stopping ? " · stopping…" : ""),
                      problem: stopError ?? problem) {
-            ForEach(sessions) { r in
+            ForEach(RemoteParse.groups(sessions, running: { store.remoteState[$0.id]?.running == true }), id: \.key) { login in
+            ForEach(login.sessions) { r in
                 let st = store.remoteState[r.id]
-                SessionLine(name: r.session, detail: users.count > 1 ? (r.user ?? "") : "",
+                // whose login, herdr's name for it when it is not the host's, and how it is read
+                // the card names the login; a row adds herdr's name only when this card holds several, and "ssh"
+                let labels = Set(sessions.compactMap(\.label))
+                let detail = [labels.count > 1 && r.label != host ? r.label : nil, st?.viaSSH == true ? "ssh" : nil].compactMap { $0 }
+                SessionLine(name: r.session, detail: detail.joined(separator: " · "),
                             // unreadable is not stopped: "?" and no Start, which would start a second server
                             count: st.map { $0.problem != nil ? "?" : $0.running ? "\($0.agents) agent\($0.agents == 1 ? "" : "s")" : "off" } ?? "…",
                             running: st?.running == true, needsYou: (st?.needsYou ?? 0) > 0,
@@ -287,9 +349,30 @@ private struct MachineCard: View {
                         if store.attachedRemotes.contains(r.id) {
                             Button("Detach this Mac (\(r.session) keeps running)") { Task { stopError = await store.detachRemote(r) } }
                         }
+                        // the row's Stop / Restart pills show on hover; here they are reachable without it
+                        if st?.running == true, st?.problem == nil {
+                            Divider()
+                            Button("Restart \(r.session)…") { ask([r], restart: true) }.disabled(stopping)
+                            Button("Stop \(r.session)…", role: .destructive) { ask([r]) }.disabled(stopping)
+                        }
                     }
+                // its workspaces on one line, as herdr's own sidebar lists them (Nat: "our ui can detect same?")
+                if let ws = st?.workspaces, !ws.isEmpty {
+                    Flow(spacing: 12) {
+                        ForEach(ws) { w in
+                            HStack(spacing: 4) {
+                                if ["working", "blocked", "done"].contains(w.status) { HubGlyph(status: w.status) }
+                                Text(w.label).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                            }
+                            .help("workspace \(w.id) · \(w.status) · \(w.panes) pane\(w.panes == 1 ? "" : "s")")
+                        }
+                    }
+                    .padding(.leading, 24).padding(.trailing, 8).padding(.bottom, 4)
+                }
+            }
             }
         }
+        .help(versions.joined(separator: "\n"))
         .contextMenu { cardMenu(running) }
         // the same menu, visible: right-click alone hid Remove (Nat: "we should have ui to remove herdr machine?")
         .overlay(alignment: .topTrailing) {
@@ -311,12 +394,18 @@ private struct MachineCard: View {
             Text("herdr machine remove \(pendingRemove?.profileId ?? ""): herdr forgets it and the hub stops listing it. "
                  + "\(pendingRemove?.session ?? "The session") keeps running on \(host); save it again with herdr machine add.")
         }
-        .confirmationDialog(pendingStop.count == 1 ? "Stop \(pendingStop[0].session) on \(host)?" : "Stop \(pendingStop.count) sessions on \(host)?",
+        .confirmationDialog((restartAfter ? "Restart " : "Stop ")
+                                + (pendingStop.count == 1 ? "\(pendingStop[0].session) on \(host)?" : "\(pendingStop.count) sessions on \(host)?"),
                             isPresented: $confirmStop, titleVisibility: .visible) {
-            Button(pendingStop.count == 1 ? "Stop \(pendingStop[0].session)" : "Stop all \(pendingStop.count)", role: .destructive) {
-                let list = pendingStop
+            Button((restartAfter ? "Restart" : "Stop") + (pendingStop.count == 1 ? " \(pendingStop[0].session)" : " all \(pendingStop.count)"),
+                   role: .destructive) {
+                let list = pendingStop, again = restartAfter
                 stopping = true; stopError = nil
-                Task { stopError = await store.stopRemote(list); stopping = false }
+                Task {
+                    stopError = await store.stopRemote(list)
+                    if again, stopError == nil { for r in list { if let e = await store.startRemote(r) { stopError = e } } }
+                    stopping = false
+                }
             }
             Button("Cancel", role: .cancel) {}
         } message: {
@@ -334,8 +423,8 @@ private struct MachineCard: View {
         }
     }
 
-    private func ask(_ list: [RemoteSession]) {
-        pendingStop = list; checked = false; resume = nil; confirmStop = true
+    private func ask(_ list: [RemoteSession], restart: Bool = false) {
+        pendingStop = list; restartAfter = restart; checked = false; resume = nil; confirmStop = true
         Task { resume = await store.remoteResume(list); checked = true }
     }
 

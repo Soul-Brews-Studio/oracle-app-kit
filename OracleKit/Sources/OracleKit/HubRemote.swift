@@ -66,6 +66,10 @@ public struct RemoteState: Sendable, Equatable {
     /// why it could not be read, ending with the command that helps
     public var problem: String?
     public var checked = Date()
+    /// its workspaces, as herdr's own sidebar lists them under the machine
+    public var workspaces: [RemoteWorkspace] = []
+    /// read over plain ssh: the machine's herdr predates the `--machine` API bridge (0.9.0)
+    public var viaSSH = false
 
     public init(running: Bool, agents: Int = 0, working: Int = 0, needsYou: Int = 0, version: String? = nil,
                 problem: String? = nil, checked: Date = Date()) {
@@ -74,7 +78,27 @@ public struct RemoteState: Sendable, Equatable {
     }
 }
 
+/// One workspace of a remote session (`herdr workspace list`).
+public struct RemoteWorkspace: Sendable, Equatable, Identifiable {
+    public let id: String
+    public let label: String
+    /// herdr's agent_status: working, blocked, done, idle, unknown
+    public let status: String
+    public let panes: Int
+}
+
 public enum RemoteParse {
+    /// `herdr workspace list` → its workspaces in herdr's order.
+    public static func workspaces(_ json: String) -> [RemoteWorkspace] {
+        guard let d = try? JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any],
+              let list = (d["result"] as? [String: Any])?["workspaces"] as? [[String: Any]] else { return [] }
+        return list.compactMap { w in
+            guard let id = w["workspace_id"] as? String else { return nil }
+            return RemoteWorkspace(id: id, label: w["label"] as? String ?? id, status: w["agent_status"] as? String ?? "unknown",
+                                   panes: w["pane_count"] as? Int ?? 0)
+        }
+    }
+
     /// `herdr --remote <target> [--session <name>]`, herdr by any path → the session it attaches. The bridge herdr
     /// starts on the far side (`herdr --session <s> remote-client-bridge`) and every other command line → nil.
     public static func remote(of args: String) -> RemoteSession? {
@@ -135,18 +159,21 @@ public enum RemoteParse {
 
     /// Machines for the sidebar: every remote session known, grouped by host, the hosts and their sessions in name
     /// order; running sessions first within a host.
-    public static func groups(_ remotes: [RemoteSession], running: (RemoteSession) -> Bool) -> [(host: String, sessions: [RemoteSession])] {
-        let byHost = Dictionary(grouping: remotes) { $0.host }
-        var out: [(host: String, sessions: [RemoteSession])] = []
-        for host in byHost.keys.sorted() {
-            let sorted = (byHost[host] ?? []).sorted { a, b in
+    /// One group per login on a machine — the machine AND the user (Nat: "it should show machine name and user not
+    /// only machine"): nat@white and nm@white (xiaoer) are two groups. Machines in name order, then users.
+    public static func groups(_ remotes: [RemoteSession], running: (RemoteSession) -> Bool)
+        -> [(key: String, host: String, user: String?, sessions: [RemoteSession])] {
+        let byLogin = Dictionary(grouping: remotes) { $0.shortTarget }
+        var out: [(key: String, host: String, user: String?, sessions: [RemoteSession])] = []
+        for (key, list) in byLogin {
+            let sorted = list.sorted { a, b in
                 let ra = running(a) ? 0 : 1, rb = running(b) ? 0 : 1
                 if ra != rb { return ra < rb }
                 if a.session != b.session { return a.session < b.session }
                 return a.target < b.target
             }
-            out.append((host: host, sessions: sorted))
+            out.append((key: key, host: sorted[0].host, user: sorted[0].user, sessions: sorted))
         }
-        return out
+        return out.sorted { ($0.host, $0.user ?? "") < ($1.host, $1.user ?? "") }
     }
 }
