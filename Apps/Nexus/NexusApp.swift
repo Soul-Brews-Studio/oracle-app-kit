@@ -1,5 +1,8 @@
 import SwiftUI
 import OracleKit
+#if os(macOS)
+import OracleTerminal
+#endif
 
 @main
 struct NexusApp: App {
@@ -11,6 +14,7 @@ struct NexusApp: App {
         #if os(macOS)
         BundledANE.installLazily()   // Memory page: EmbeddingGemma 2 in-process, loaded when the page first opens
         MapLayoutEngine.install()   // Map page: UMAP in-process (Apple's Rust crate)
+        OracleTerminal.install()   // the Work drawer draws panes live; Type to control them
         MCPServer.serve(name: "nexus-memory", port: 4793) { GHIndex.history(OracleConfig.nexus.repoSlug) }   // agents search Nexus's memory
         CompanionServer.serve(name: "Nexus", mcpPort: 4793) { GHIndex.history(OracleConfig.nexus.repoSlug) }   // its iPhone/iPad app reads this Mac (Settings → Companion)
         #endif

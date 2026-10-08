@@ -115,7 +115,7 @@ down to parity; Memory, Map, screenshots and iOS need `--deep`, `--shots`, `--io
 | row | how | pass |
 |---|---|---|
 | portal key | bundle id vs the portal's rule (`HubParse.appKey`) | `co.laris.oracle.<key>` == repo minus `-oracle`, lower-cased, `_` `.` → `-` |
-| app wires | `<Name>App.swift` | BundledANE, MapLayoutEngine, `MCPServer.serve(name: "<name>-memory", port: <port>)`, `CompanionServer.serve(name: "<Name>", mcpPort: <port>)` (#46: the iPhone/iPad app; off until Settings → Companion) |
+| app wires | `<Name>App.swift` | BundledANE, MapLayoutEngine, OracleTerminal (the Work drawer's live terminal, Mac only), `MCPServer.serve(name: "<name>-memory", port: <port>)`, `CompanionServer.serve(name: "<Name>", mcpPort: <port>)` (#46: the iPhone/iPad app; off until Settings → Companion) |
 | installed | `/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' /Applications/<Name>.app/Contents/Info.plist` | `co.laris.oracle.<key>`, display name `<Name> Oracle` (CFBundleName and the product name stay `<Name>`: logs and the trace file are named from them) |
 | CalVer | `/usr/libexec/PlistBuddy -c 'Print :ARRACalVer' …/Info.plist` | today, Bangkok time |
 | versions | `CFBundleShortVersionString` + `CFBundleVersion` of the app and each `Contents/PlugIns/*.appex` | the widget and share carry the app's (one stamp per build — the `CalVer` target) |

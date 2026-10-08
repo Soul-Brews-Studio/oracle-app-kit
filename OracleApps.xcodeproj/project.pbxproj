@@ -23,10 +23,12 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		025889D96BA689F33FB964F7 /* OracleTerminal in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = 4407B8E41239A984FDFAFE71 /* OracleTerminal */; };
 		03128D20616EAF13F22BCA8D /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D886FFA13B5C28908F463CE /* ShareViewController.swift */; };
 		05DAAADEDF82BFF4F279342B /* MapLayoutEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 976327A7B1A9B72817DDDF05 /* MapLayoutEngine.swift */; };
 		0B250C1843C4CAF984D3C87F /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = BF28BFF93E30F2016054C7FC /* OracleKit */; };
 		0CE7AD6783E511A241CCE8B9 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9747F85F8B3132BD641525AE /* Assets.xcassets */; };
+		0D487E50736045C5885122E0 /* OracleTerminal in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = 09F179C93C148ACF8E9B84EE /* OracleTerminal */; };
 		0E2BA2D4130B1BF12FFE5AAA /* NexusShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 35FAA94347FA173BC06C86F8 /* NexusShare.appex */; platformFilters = (macos, ); settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		1219A0F40327E57A5C962C60 /* NexusConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = E596680FCB92D58641782D23 /* NexusConfig.swift */; };
 		135BC6904B6A6EF518DD7C74 /* NeoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA7B638D3B556C915C153B1E /* NeoApp.swift */; };
@@ -56,6 +58,7 @@
 		5BB05E053370D69F3D537F60 /* MapSpikeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F81A043C03E0EBA50048E1B1 /* MapSpikeApp.swift */; };
 		5F73AFB86D0CF89FD12B49E0 /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = 9EB334B6C1B129FB8DF7D118 /* OracleKit */; };
 		612E3254682DE613B7315041 /* MapSpikeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5211C7221AC8D5AC6F908583 /* MapSpikeView.swift */; };
+		6216DDE618254E1911648B59 /* OracleTerminal in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = AF0B7F4EDBBF9441135C9C7F /* OracleTerminal */; };
 		6ACD97A55E30D1EB01D2493D /* NeoConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C722827C1DFF0CDB6F2F247 /* NeoConfig.swift */; };
 		6C5441D9506C4227FB534A28 /* MapLayoutUMAP in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = 77079D500348CB3CDEBE6BE6 /* MapLayoutUMAP */; };
 		6E1E55DE03EE6C092E7ED1E6 /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = 4B4657CD7678E1CEC26E7C94 /* OracleKit */; };
@@ -93,6 +96,7 @@
 		BD95A60EDF666B29F5538E29 /* ANEEmbedCore in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = BEE0829B4ADE75163F6AD679 /* ANEEmbedCore */; };
 		BFBDC167CC330C830EDC0901 /* AthenaWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EDEF2C3DE3B2B9562C67750 /* AthenaWidget.swift */; };
 		C4E0BD8D0B45870B893A2D5D /* NeoConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C722827C1DFF0CDB6F2F247 /* NeoConfig.swift */; };
+		CE7A1EFEBD116C874ED5A2C3 /* OracleTerminal in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = F93981FB156A1CEE6CEAF432 /* OracleTerminal */; };
 		CF034138F765942980273B77 /* MapLayoutUMAP in Frameworks */ = {isa = PBXBuildFile; productRef = F02E3571191A5EED9D261FEC /* MapLayoutUMAP */; };
 		CF7B1BE232CD2BB414E927AF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 907F6BD4CB49E2095191A779 /* Assets.xcassets */; };
 		D60C5A99551B4457FF12EE32 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 468221B2146BCBCC791C3B0B /* SwiftUI.framework */; };
@@ -383,6 +387,7 @@
 				548EF9C7581D38F5E84BCD66 /* OracleKit in Frameworks */,
 				4CAB4D5D7656E5C8BDEB427D /* ANEEmbedCore in Frameworks */,
 				6C5441D9506C4227FB534A28 /* MapLayoutUMAP in Frameworks */,
+				025889D96BA689F33FB964F7 /* OracleTerminal in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -393,6 +398,7 @@
 				E8A3A16D817D60163122763D /* OracleKit in Frameworks */,
 				42B51E73231E485B620DEC4A /* ANEEmbedCore in Frameworks */,
 				44941594C719B322FEC6A5EF /* MapLayoutUMAP in Frameworks */,
+				0D487E50736045C5885122E0 /* OracleTerminal in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -403,6 +409,7 @@
 				59B26BEE9BCEFC70F0E9AEAB /* OracleKit in Frameworks */,
 				BD95A60EDF666B29F5538E29 /* ANEEmbedCore in Frameworks */,
 				D663B860B510852E1D758CEA /* MapLayoutUMAP in Frameworks */,
+				CE7A1EFEBD116C874ED5A2C3 /* OracleTerminal in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -486,6 +493,7 @@
 				5F73AFB86D0CF89FD12B49E0 /* OracleKit in Frameworks */,
 				99B36662B6D563E46A5C408C /* ANEEmbedCore in Frameworks */,
 				E1DAE08F0390A9AE8DCCA5BA /* MapLayoutUMAP in Frameworks */,
+				6216DDE618254E1911648B59 /* OracleTerminal in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -770,6 +778,7 @@
 				AEBF2F4341D4B8211B87EB8D /* OracleKit */,
 				EBAFD44694925F4775C0B472 /* ANEEmbedCore */,
 				EE05C73489675AE8A0BFB668 /* MapLayoutUMAP */,
+				09F179C93C148ACF8E9B84EE /* OracleTerminal */,
 			);
 			productName = Athena;
 			productReference = F0619A4B3810A5891443A746 /* Athena.app */;
@@ -949,6 +958,7 @@
 				B0F5F3BACE628CD6D829BFDE /* OracleKit */,
 				BEE0829B4ADE75163F6AD679 /* ANEEmbedCore */,
 				5323E2879BF88EFEE7550670 /* MapLayoutUMAP */,
+				F93981FB156A1CEE6CEAF432 /* OracleTerminal */,
 			);
 			productName = Nexus;
 			productReference = D4532687283B94E464FAF092 /* Nexus.app */;
@@ -1020,6 +1030,7 @@
 				AA25C26D192E25E4550F953D /* OracleKit */,
 				1A760CF2A55F6C237D98F152 /* ANEEmbedCore */,
 				77079D500348CB3CDEBE6BE6 /* MapLayoutUMAP */,
+				4407B8E41239A984FDFAFE71 /* OracleTerminal */,
 			);
 			productName = Pulse;
 			productReference = B530CFD74615840D1FD21D61 /* Pulse.app */;
@@ -1048,6 +1059,7 @@
 				9EB334B6C1B129FB8DF7D118 /* OracleKit */,
 				21D63CA5B3750EA5A9C21B76 /* ANEEmbedCore */,
 				D39A71B81546A041AFC23AFF /* MapLayoutUMAP */,
+				AF0B7F4EDBBF9441135C9C7F /* OracleTerminal */,
 			);
 			productName = Neo;
 			productReference = 33D307D5CF34490C5E34FD95 /* Neo.app */;
@@ -2899,6 +2911,10 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		09F179C93C148ACF8E9B84EE /* OracleTerminal */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = OracleTerminal;
+		};
 		1A760CF2A55F6C237D98F152 /* ANEEmbedCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = ANEEmbedCore;
@@ -2906,6 +2922,10 @@
 		21D63CA5B3750EA5A9C21B76 /* ANEEmbedCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = ANEEmbedCore;
+		};
+		4407B8E41239A984FDFAFE71 /* OracleTerminal */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = OracleTerminal;
 		};
 		4B4657CD7678E1CEC26E7C94 /* OracleKit */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -2946,6 +2966,10 @@
 		AEBF2F4341D4B8211B87EB8D /* OracleKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = OracleKit;
+		};
+		AF0B7F4EDBBF9441135C9C7F /* OracleTerminal */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = OracleTerminal;
 		};
 		B0F5F3BACE628CD6D829BFDE /* OracleKit */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -2990,6 +3014,10 @@
 		F02E3571191A5EED9D261FEC /* MapLayoutUMAP */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = MapLayoutUMAP;
+		};
+		F93981FB156A1CEE6CEAF432 /* OracleTerminal */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = OracleTerminal;
 		};
 		FECEC892500CEA279D83D81D /* OracleKit */ = {
 			isa = XCSwiftPackageProductDependency;

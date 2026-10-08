@@ -160,6 +160,9 @@ SWIFT
 cat > $D/${N}App.swift <<SWIFT
 import SwiftUI
 import OracleKit
+#if os(macOS)
+import OracleTerminal
+#endif
 
 @main
 struct ${N}App: App {
@@ -171,6 +174,7 @@ struct ${N}App: App {
         #if os(macOS)
         BundledANE.installLazily()   // Memory page: EmbeddingGemma 2 in-process, loaded when the page first opens
         MapLayoutEngine.install()   // Map page: UMAP in-process (Apple's Rust crate)
+        OracleTerminal.install()   // the Work drawer draws panes live; Type to control them
         MCPServer.serve(name: "${low}-memory", port: $PORT) { GHIndex.history(OracleConfig.${low}.repoSlug) }   // agents search ${N}'s memory
         CompanionServer.serve(name: "$N", mcpPort: $PORT) { GHIndex.history(OracleConfig.${low}.repoSlug) }   // its iPhone/iPad app reads this Mac (Settings → Companion)
         #endif
@@ -284,6 +288,8 @@ targets:
         destinationFilters: [macOS]
       - package: ANEEmbed
         product: MapLayoutUMAP
+        destinationFilters: [macOS]
+      - package: OracleTerminal         # the Work drawer's live terminal: herdr's stream in Ghostty (Mac only)
         destinationFilters: [macOS]
       - target: ${N}Widget
       - target: ${N}Share
