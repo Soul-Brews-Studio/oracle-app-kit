@@ -183,7 +183,7 @@ struct RemoteSection: View {
                 if !folded.contains(g.key) {
                     ForEach(g.sessions) { r in
                         RemoteRow(remote: r, state: store.remoteState[r.id], attached: store.attachedRemotes.contains(r.id), store: store,
-                                  subtitle: r.label ?? r.user ?? "")
+                                  subtitle: r.label ?? r.user ?? "", onOpen: { pick = .remote(r) })
                             .padding(.leading, 14)
                     }
                 }
@@ -247,9 +247,11 @@ struct RemoteRow: View {
     let attached: Bool
     @ObservedObject var store: HubStore
     var subtitle: String? = nil
+    /// a click opens the session's page in the hub (Nat: "same as local?"); without it, WezTerm as before
+    var onOpen: (() -> Void)? = nil
     @State private var hover = false
     var body: some View {
-        Button { store.openRemote(remote) } label: {
+        Button { if let onOpen { onOpen() } else { store.openRemote(remote) } } label: {
             HStack(spacing: 10) {
                 Circle().fill(dot).frame(width: 7, height: 7)
                 VStack(alignment: .leading, spacing: 0) {

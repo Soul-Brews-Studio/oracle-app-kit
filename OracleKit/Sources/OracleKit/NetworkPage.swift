@@ -84,7 +84,8 @@ struct NetworkPage: View {
             MachineGrid(minWidth: 330, spacing: 14) {
                 ForEach(logins, id: \.key) { l in
                     MachineCard(store: store, host: host, sessions: l.sessions, title: l.key,
-                                subtitle: Array(Set(l.sessions.compactMap(\.label).filter { $0 != host })).sorted().joined(separator: ", "))
+                                subtitle: Array(Set(l.sessions.compactMap(\.label).filter { $0 != host })).sorted().joined(separator: ", "),
+                                onOpen: { pick = .remote($0) })
                 }
             }
         }
@@ -306,6 +307,8 @@ private struct MachineCard: View {
     /// a login's box inside its machine's group: "nm@white", and herdr's name for it ("xiaoer")
     var title: String? = nil
     var subtitle: String? = nil
+    /// a click on a session: its page in the hub (Nat: "same as local?"); WezTerm stays in the right-click menu
+    var onOpen: ((RemoteSession) -> Void)? = nil
     @State private var pendingStop: [RemoteSession] = []
     @State private var restartAfter = false                       // the confirmed stop is a Restart: start them again
     @State private var confirmStop = false
@@ -341,7 +344,7 @@ private struct MachineCard: View {
                             attached: store.attachedRemotes.contains(r.id),
                             controls: st == nil || st?.problem != nil ? nil : AnyView(SessionControls(store: store, ref: .remote(r), running: st?.running == true,
                                                               ends: { "herdr --machine \(r.label ?? r.host) server stop: every pane of \(r.session) ends, \(st?.agents ?? 0) agents included." },
-                                                              compact: true, error: $stopError))) { store.openRemote(r) }
+                                                              compact: true, error: $stopError))) { if let onOpen { onOpen(r) } else { store.openRemote(r) } }
                     .help(r.command)
                     .contextMenu {
                         Button("Open in WezTerm") { store.openRemote(r) }
