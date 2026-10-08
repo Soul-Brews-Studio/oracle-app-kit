@@ -26,7 +26,8 @@ if (( ! ASIS )); then
     print -r -- "    zsh $0 ${(q)APP} ${(q)OUT} --as-is"; exit 75
   fi
   pkill -x "$APP"; for i in {1..50}; do pgrep -x "$APP" >/dev/null || break; sleep 0.2; done
-  for i in 1 2 3; do open "/Applications/$APP.app" --args "$@" 2>/dev/null && break; sleep 2; done   # -600 while quitting
+  # without this pane's HERDR_*, as build.sh relaunches: `open` hands the caller's environment to the app (#97)
+  for i in 1 2 3; do ( unset -m 'HERDR_*' 'CLAUDE_CODE_*' CLAUDECODE; open "/Applications/$APP.app" --args "$@" ) 2>/dev/null && break; sleep 2; done   # -600 while quitting
   sleep ${WAIT:-12}
 fi
 pgrep -fl "$APP.app/Contents/MacOS" | rg -q " /Applications/" || print -r -- "! $APP is not running from /Applications:  pgrep -fl '$APP.app/Contents/MacOS'"
