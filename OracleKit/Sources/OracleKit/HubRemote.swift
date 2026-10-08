@@ -24,6 +24,10 @@ public struct RemoteSession: Codable, Hashable, Identifiable, Sendable {
     /// herdr's arguments for this session: `--remote <target> [--session <name>]`
     public var arguments: [String] { ["--remote", target] + (session == "default" ? [] : ["--session", session]) }
     public var command: String { "herdr " + arguments.joined(separator: " ") }
+    /// "black" from "phd-oracle@black.follow-rankine.ts.net": the machine, as the sidebar groups it
+    public var host: String { (target.split(separator: "@").last.map(String.init) ?? target).split(separator: ".").first.map(String.init) ?? target }
+    /// "phd-oracle" from "phd-oracle@black…"; nil when the target names no user
+    public var user: String? { target.contains("@") ? String(target.split(separator: "@")[0]) : nil }
     /// "phd-oracle@black" from "phd-oracle@black.follow-rankine.ts.net"
     public var shortTarget: String {
         guard let at = target.lastIndex(of: "@") else { return target.split(separator: ".").first.map(String.init) ?? target }
@@ -36,6 +40,19 @@ public struct RemoteSession: Codable, Hashable, Identifiable, Sendable {
         let s = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-")
         return !target.isEmpty && !target.hasPrefix("-") && target.unicodeScalars.allSatisfy(t.contains)
             && !session.isEmpty && !session.hasPrefix("-") && session.unicodeScalars.allSatisfy(s.contains)
+    }
+}
+
+/// What a machine answered (`RemoteParse.listCommand` over ssh): its herdr and every session on it, or why not.
+public struct RemoteMachineState: Sendable, Equatable {
+    public var version: String?
+    /// session name → running
+    public var sessions: [String: Bool] = [:]
+    /// why it could not be read, ending with the command that helps
+    public var problem: String?
+    public var checked = Date()
+    public init(version: String? = nil, sessions: [String: Bool] = [:], problem: String? = nil, checked: Date = Date()) {
+        self.version = version; self.sessions = sessions; self.problem = problem; self.checked = checked
     }
 }
 
@@ -162,10 +179,61 @@ public enum RemoteParse {
                            needsYou: status.filter { $0 == "blocked" || $0 == "done" }.count, version: version, checked: at)
     }
 
-    /// The remote command of a probe. Only ever built for a safe session name (`RemoteSession.isSafe`).
-    public static func probeCommand(session: String) -> String {
-        "export PATH=$HOME/.local/bin:$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH; "
-            + "herdr --version 2>/dev/null | head -1; herdr --session \(session) agent list 2>/dev/null; echo herdr-rc=$?"
+    static let remotePath = "export PATH=$HOME/.local/bin:$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH; "
+
+    /// A machine's first probe: its herdr and every session it has (`herdr session list --json`).
+    public static func listCommand() -> String {
+        remotePath + "herdr --version 2>/dev/null | head -1; herdr session list --json 2>/dev/null; echo herdr-rc=$?"
+    }
+
+    /// The second: the agents of each running session. Only ever built from safe session names.
+    public static func agentsCommand(sessions: [String]) -> String {
+        remotePath + sessions.map { "echo @@session \($0); herdr --session \($0) agent list 2>/dev/null" }.joined(separator: "; ")
+    }
+
+    /// What `listCommand` printed → herdr's version and the machine's sessions (name, running); nil without herdr.
+    public static func machine(_ out: String) -> (version: String?, sessions: [(name: String, running: Bool)])? {
+        let version = out.split(separator: "\n").first { $0.hasPrefix("herdr ") }.map { String($0.dropFirst(6)) }
+        guard let line = out.split(separator: "\n").first(where: { $0.hasPrefix("{") }),
+              let o = try? JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any],
+              let list = o["sessions"] as? [[String: Any]] else {
+            if version == nil { return nil }
+            return (version: version, sessions: [])
+        }
+        var sessions: [(name: String, running: Bool)] = []
+        for s in list { if let n = s["name"] as? String { sessions.append((name: n, running: s["running"] as? Bool ?? false)) } }
+        return (version: version, sessions: sessions)
+    }
+
+    /// What `agentsCommand` printed → each session's state.
+    public static func agents(_ out: String, version: String? = nil, at: Date = Date()) -> [String: RemoteState] {
+        var states: [String: RemoteState] = [:]
+        var current: String?
+        for line in out.split(separator: "\n") {
+            if line.hasPrefix("@@session ") { current = String(line.dropFirst(10)); continue }
+            guard let s = current, line.hasPrefix("{") else { continue }
+            var st = probe(String(line), at: at); st.version = version
+            states[s] = st
+            current = nil
+        }
+        return states
+    }
+
+    /// Machines for the sidebar: every remote session known, grouped by host, the hosts and their sessions in name
+    /// order; running sessions first within a host.
+    public static func groups(_ remotes: [RemoteSession], running: (RemoteSession) -> Bool) -> [(host: String, sessions: [RemoteSession])] {
+        let byHost = Dictionary(grouping: remotes) { $0.host }
+        var out: [(host: String, sessions: [RemoteSession])] = []
+        for host in byHost.keys.sorted() {
+            let sorted = (byHost[host] ?? []).sorted { a, b in
+                let ra = running(a) ? 0 : 1, rb = running(b) ? 0 : 1
+                if ra != rb { return ra < rb }
+                if a.session != b.session { return a.session < b.session }
+                return a.target < b.target
+            }
+            out.append((host: host, sessions: sorted))
+        }
+        return out
     }
 }
 
