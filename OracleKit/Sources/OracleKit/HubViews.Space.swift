@@ -16,6 +16,9 @@ struct SpaceLine: View {
     @State private var confirmClose = false
     @State private var agents: [String: [ClosedAgent]]?
     @State private var closeError: String?
+    @State private var confirmSend: RemoteSession?   // Send asked, not yet confirmed
+    @State private var sending = false
+    @State private var ferry: FerryRun?              // what the last send printed
     var body: some View {
         HStack(spacing: 10) {
             if space.linked { Text("└").font(.callout.monospaced()).foregroundStyle(.tertiary) }
@@ -48,6 +51,24 @@ struct SpaceLine: View {
                 .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
             if app != nil, let r = space.repo {
                 Button("Open app") { store.openApp(HubParse.appKey(forRepo: r)) }.controlSize(.small).handCursor()
+            }
+            // the saved machine whose session has this one's name (m5 laris-co → white's laris-co): fork the agent there
+            if space.agents > 0, space.checkout != nil, let m = store.mirror(of: space.session) {
+                Button(sending ? "Sending…" : "Send to \(m.host)") { confirmSend = m }
+                    .controlSize(.small).tint(HubStyle.accent).disabled(sending).handCursor()
+                    .help("Fork this space's agent to \(m.shortTarget) (\(m.session)): it keeps running here, and there it resumes this conversation under a new session id")
+                    .confirmationDialog(confirmSend.map { "Send \(space.label) to \($0.label ?? $0.host)?" } ?? "",
+                                        isPresented: Binding(get: { confirmSend != nil }, set: { if !$0 { confirmSend = nil } }),
+                                        titleVisibility: .visible) {
+                        Button("Send") {
+                            guard let m = confirmSend else { return }
+                            sending = true
+                            Task { ferry = await store.send(space, to: m); sending = false }
+                        }
+                        Button("Cancel", role: .cancel) {}
+                    } message: {
+                        Text("Its agent keeps running here. On \(m.shortTarget) it opens in \(m.session) and resumes this conversation under a new session id, with its launch flags. A Discord bot connects there only when that machine holds its bot state: keep one copy on Discord.")
+                    }
             }
             Button("Show in herdr") { store.showInHerdr(space) }.controlSize(.small).tint(.secondary).handCursor()
                 .help("Switches herdr to this space: in place when its WezTerm window is in front, raising it on its own screen when behind")
@@ -84,6 +105,7 @@ struct SpaceLine: View {
             await Shell.run("herdr", ["--session", s] + args, timeout: 4)
         })
         .help(onOpen == nil ? "" : "Click to see its panes live (esc closes)")
+        .sheet(item: $ferry) { FerryLog(run: $0) }
     }
 
     private var closeMessage: String {

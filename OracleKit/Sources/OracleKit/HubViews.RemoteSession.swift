@@ -9,6 +9,9 @@ struct RemoteSessionPage: View {
     /// the session as it was clicked; the page reads the live one (its saved-machine id and label) from the store
     let clicked: RemoteSession
     @State private var error: String?
+    @State private var confirmBack: RemoteWorkspace?   // Bring back asked, not yet confirmed
+    @State private var bringing: String?               // the workspace coming home now
+    @State private var ferry: FerryRun?                // what the last bring-back printed
 
     init(store: HubStore, remote: RemoteSession) { self.store = store; self.clicked = remote }
 
@@ -59,6 +62,19 @@ struct RemoteSessionPage: View {
         }
         .navigationTitle(remote.session)
         .task(id: remote.id) { await store.probeRemotes() }   // fresh when the page opens
+        .confirmationDialog(confirmBack.map { "Bring \($0.label) back to this Mac?" } ?? "",
+                            isPresented: Binding(get: { confirmBack != nil }, set: { if !$0 { confirmBack = nil } }),
+                            titleVisibility: .visible) {
+            Button("Bring back") {
+                guard let w = confirmBack else { return }
+                bringing = w.id
+                Task { ferry = await store.bringBack(remote, workspace: w.id, label: w.label); bringing = nil }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Its agent on \(remote.label ?? remote.host) stops and that space closes. Its conversation, with every turn it had there, resumes here in the folder it was sent from; the agent running there now stops first.")
+        }
+        .sheet(item: $ferry) { FerryLog(run: $0) }
     }
 
     /// A workspace row, like a local space's: its state, its label, its panes, and Show in herdr.
@@ -71,6 +87,11 @@ struct RemoteSessionPage: View {
             Spacer(minLength: 8)
             Text("\(w.panes) pane\(w.panes == 1 ? "" : "s") · \(HubParse.word(w.status))")
                 .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+            if store.agentFolder(remote, workspace: w.id) != nil {
+                Button(bringing == w.id ? "Bringing…" : "Bring back") { confirmBack = w }
+                    .controlSize(.small).tint(HubStyle.accent).disabled(bringing != nil).handCursor()
+                    .help("Its Claude agent comes home: it stops there, and this Mac resumes its conversation with every turn it had there")
+            }
             Button("Show in herdr") { Task { error = await store.showRemoteWorkspace(remote, w.id) } }
                 .controlSize(.small).handCursor()
                 .help("herdr workspace focus \(w.id) on \(remote.label ?? remote.host), then this Mac's window on \(remote.session)")
