@@ -232,11 +232,11 @@ public struct OracleRootView: View {
         let session = WorkFormat.homeSession(store.activity)
         Task { @MainActor in
             switch await PickUp.run(action, issue: it.number, repo: c.localPath, session: session) {
-            case .started(let pane):
+            case .started(let place):     // the script says which herdr server the agent is on: trust that, not a guess
                 picking[it.number] = nil
                 await store.refresh()
                 section = .status
-                openPane = session.isEmpty ? pane : "\(session):\(pane)"
+                openPane = place
             case .existing:
                 picking[it.number] = nil
                 await store.refresh()
@@ -994,15 +994,21 @@ enum PickUp {
         case .open: return "ticket.sh open \(n)"
         }
     }
-    static func arguments(_ action: Action, issue n: Int, repo: String) -> [String] {
-        [script] + command(action, issue: n).split(separator: " ").dropFirst().map(String.init) + ["--repo", repo, "--json"]
+    /// `session` = the herdr server the oracle's panes live on; the script must not trust an inherited socket instead.
+    static func arguments(_ action: Action, issue n: Int, repo: String, session: String = "") -> [String] {
+        [script] + command(action, issue: n).split(separator: " ").dropFirst().map(String.init) + ["--repo", repo]
+            + (session.isEmpty ? [] : ["--session", session]) + ["--json"]
     }
-    /// The script's one JSON line: the pane the agent is in, a worktree that already exists, or why not + the fix.
-    enum Outcome: Equatable { case started(pane: String), existing, failed(String) }
+    /// The script's one JSON line: where the agent is (`herdr` session + pane → a drawer place), a worktree that already
+    /// exists without a live agent, or why not + the fix.
+    enum Outcome: Equatable { case started(place: String), existing, failed(String) }
     static func outcome(status: Int32, json: String) -> Outcome {
         let d = (try? JSONSerialization.jsonObject(with: Data(json.utf8))) as? [String: Any] ?? [:]
         if status == 0, d["ok"] as? Bool == true {
-            if let pane = d["pane"] as? String, !pane.isEmpty { return .started(pane: pane) }
+            if let pane = d["pane"] as? String, !pane.isEmpty {
+                let herdr = d["herdr"] as? String ?? ""
+                return .started(place: herdr.isEmpty ? pane : "\(herdr):\(pane)")
+            }
             if d["existing"] as? Bool == true { return .existing }
         }
         let why = d["error"] as? String ?? "ticket.sh exited \(status) without saying why"
@@ -1015,8 +1021,7 @@ enum PickUp {
         guard FileManager.default.fileExists(atPath: script) else {
             return .failed("the /herdr-ticket skill is not installed on this Mac\nnpx skills@latest add nat-build-with-oracle/skills")
         }
-        let env = session.isEmpty ? [:] : ["HERDR_SESSION": session]
-        guard let r = await Shell.capture("bash", arguments(action, issue: n, repo: repo), env: env, timeout: 120) else {
+        guard let r = await Shell.capture("bash", arguments(action, issue: n, repo: repo, session: session), timeout: 120) else {
             return .failed("bash would not start\nbash \(script) pick \(n) --repo \(repo)")
         }
         let o = outcome(status: r.status, json: r.out)

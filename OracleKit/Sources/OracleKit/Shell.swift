@@ -47,6 +47,9 @@ public enum Shell {
                 p.executableURL = URL(fileURLWithPath: path); p.arguments = args
                 var env = ProcessInfo.processInfo.environment
                 env["PATH"] = searchPaths.joined(separator: ":")
+                // an app relaunched from a herdr pane inherits that pane's HERDR_SOCKET_PATH / HERDR_PANE_ID, and herdr
+                // lets the socket beat any session you name: a script would act on the wrong server (seen 2026-10-08)
+                for k in env.keys where k.hasPrefix("HERDR_") { env[k] = nil }
                 for (k, v) in extra { env[k] = v }
                 p.environment = env
                 p.standardOutput = out; p.standardError = FileHandle.nullDevice   // an unread stderr pipe can fill and hang it

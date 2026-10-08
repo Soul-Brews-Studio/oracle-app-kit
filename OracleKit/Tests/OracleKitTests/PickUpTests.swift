@@ -18,12 +18,20 @@ final class PickUpTests: XCTestCase {
         XCTAssertEqual(PickUp.arguments(.open, issue: 7, repo: "/r/m").dropFirst(), ["open", "7", "--repo", "/r/m", "--json"])
         XCTAssertTrue(PickUp.arguments(.agent, issue: 4, repo: "/r/m")[0].hasSuffix("/.claude/skills/herdr-ticket/ticket.sh"))
         XCTAssertEqual(PickUp.command(.oneshot, issue: 4), "ticket.sh pick 4 --oneshot")
+        // the oracle's herdr server is named, so an inherited HERDR_SOCKET_PATH cannot send the worktree elsewhere
+        XCTAssertEqual(PickUp.arguments(.agent, issue: 4, repo: "/r/m", session: "default").dropFirst(),
+                       ["pick", "4", "--repo", "/r/m", "--session", "default", "--json"])
     }
 
     func testOutcomeReadsTheScriptsJSON() {
-        // the lines ticket.sh printed in the 2026-10-08 runs
+        // the lines ticket.sh printed in the 2026-10-08 runs; the place is the server the SCRIPT reports, not a guess —
+        // guessing "default" opened default:w2Z:p1 while the agent sat on laris-co:w2Z:p1
+        XCTAssertEqual(PickUp.outcome(status: 0, json: #"{"ok":true,"issue":4,"pane":"w2Z:p1","session":"63f87317","mode":"agent","started":true,"herdr":"laris-co"}"#),
+                       .started(place: "laris-co:w2Z:p1"))
         XCTAssertEqual(PickUp.outcome(status: 0, json: #"{"ok":true,"issue":153,"worktree":"/r/wt/x","pane":"w2X:p1","session":"377275b4","mode":"agent","started":true}"#),
-                       .started(pane: "w2X:p1"))
+                       .started(place: "w2X:p1"))
+        XCTAssertEqual(PickUp.outcome(status: 0, json: #"{"ok":true,"existing":true,"issue":4,"pane":"w2Z:p1","session":"u","herdr":"laris-co"}"#),
+                       .started(place: "laris-co:w2Z:p1"))          // a live agent already on it: open that one
         XCTAssertEqual(PickUp.outcome(status: 0, json: #"{"ok":true,"existing":true,"issue":4,"worktree":"/r/wt/x","session":"u","pane":""}"#), .existing)
         XCTAssertEqual(PickUp.outcome(status: 1, json: #"{"ok":false,"error":"cannot read issue #99999 in o/r","fix":["gh issue view 99999 -R o/r"]}"#),
                        .failed("cannot read issue #99999 in o/r\ngh issue view 99999 -R o/r"))
