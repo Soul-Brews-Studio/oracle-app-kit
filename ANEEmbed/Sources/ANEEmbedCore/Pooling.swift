@@ -24,13 +24,14 @@ func projectHidden(_ hidden: MLMultiArray, job: Job, tokenIds: [[Int]], assets: 
     }
     var mid = [Float](repeating: 0, count: rows * inner)
     var out = [Float](repeating: 0, count: rows * width)
+    // mid = pooled · dense1, out = mid · dense2: row-major products with vDSP (cblas_sgemm is deprecated since macOS 13.3)
     assets.dense1.withUnsafeBytes { d1 in
-        cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, Int32(rows), Int32(inner), Int32(width),
-                    1, pooled, Int32(width), d1.bindMemory(to: Float.self).baseAddress!, Int32(inner), 0, &mid, Int32(inner))
+        vDSP_mmul(pooled, 1, d1.bindMemory(to: Float.self).baseAddress!, 1, &mid, 1,
+                  vDSP_Length(rows), vDSP_Length(inner), vDSP_Length(width))
     }
     assets.dense2.withUnsafeBytes { d2 in
-        cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, Int32(rows), Int32(width), Int32(inner),
-                    1, mid, Int32(inner), d2.bindMemory(to: Float.self).baseAddress!, Int32(width), 0, &out, Int32(width))
+        vDSP_mmul(mid, 1, d2.bindMemory(to: Float.self).baseAddress!, 1, &out, 1,
+                  vDSP_Length(rows), vDSP_Length(width), vDSP_Length(inner))
     }
     return (0..<rows).map { r in
         let v = Array(out[r * width..<(r + 1) * width])

@@ -110,7 +110,7 @@ public protocol LocalEmbedding: AnyObject {
 
 @MainActor
 public final class GHIndex: ObservableObject {
-    public static let model = "embeddinggemma2:ane-w16"
+    public nonisolated static let model = "embeddinggemma2:ane-w16"
     public static let service = URL(string: "http://127.0.0.1:11435")!
     /// The bundled model once it has loaded (the app sets it). Until then — the first launch compiles it for the ANE,
     /// minutes — the index uses the HTTP service if one is running, so search answers at once.

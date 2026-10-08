@@ -326,10 +326,10 @@ public final class MapClusters: ObservableObject {
         var words = [[String]](repeating: [], count: n)
         let slices = 8, per = (n + slices - 1) / slices
         words.withUnsafeMutableBufferPointer { out in
-            let base = out.baseAddress!
+            let base = SlicePointer(out.baseAddress!)   // each slice writes only its own rows
             DispatchQueue.concurrentPerform(iterations: slices) { s in
                 let t = NLTokenizer(unit: .word)
-                for i in (s * per)..<min(n, (s + 1) * per) { base[i] = SearchCloud.words(texts[i], using: t) }
+                for i in (s * per)..<min(n, (s + 1) * per) { base.p[i] = SearchCloud.words(texts[i], using: t) }
             }
         }
         let topWords = keywords(labels: top, words: words, k: k), leafWords = keywords(labels: leaf, words: words, k: L)
@@ -398,11 +398,11 @@ public final class MapClusters: ObservableObject {
         if let start, start.count == k * dim { C = start } else { seedFarthestFirst(X, n: n, dim: dim, k: k, into: &C) }
         var labels = [Int](repeating: 0, count: n)
         var S = [Float](repeating: 0, count: n * k)   // n × k similarities
+        var Ct = [Float](repeating: 0, count: dim * k) // the centroids transposed, dim × k
         for _ in 0..<iters {
-            X.withUnsafeBufferPointer { x in C.withUnsafeBufferPointer { c in S.withUnsafeMutableBufferPointer { s in
-                cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, Int32(n), Int32(k), Int32(dim), 1,
-                            x.baseAddress, Int32(dim), c.baseAddress, Int32(dim), 0, s.baseAddress, Int32(k))
-            } } }
+            // S = X · Cᵀ, with vDSP (cblas_sgemm is deprecated since macOS 13.3): row-major, so transpose C first
+            vDSP_mtrans(C, 1, &Ct, 1, vDSP_Length(dim), vDSP_Length(k))
+            vDSP_mmul(X, 1, Ct, 1, &S, 1, vDSP_Length(n), vDSP_Length(k), vDSP_Length(dim))
             var changed = 0
             for i in 0..<n {
                 var bi = 0; var bs = S[i * k]
@@ -575,3 +575,9 @@ extension GHIndex {
     static var clusterSets: [String: MapClusters] = [:]
 }
 #endif
+
+/// A buffer's base for `concurrentPerform` workers that each write a disjoint range of it.
+struct SlicePointer<T>: @unchecked Sendable {
+    let p: UnsafeMutablePointer<T>
+    init(_ p: UnsafeMutablePointer<T>) { self.p = p }
+}

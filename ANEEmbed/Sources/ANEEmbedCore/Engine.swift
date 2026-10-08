@@ -10,7 +10,8 @@ public enum Device: String, Sendable, CaseIterable {
     var units: MLComputeUnits { self == .ane ? .cpuAndNeuralEngine : .cpuAndGPU }
 }
 
-final class Worker {
+/// Its models run only on its own serial `queue`; everything else is immutable.
+final class Worker: @unchecked Sendable {
     let models: [Int: MLModel]
     let device: Device
     let queue: DispatchQueue

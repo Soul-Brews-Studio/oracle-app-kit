@@ -74,7 +74,7 @@ public final class MCPServer: ObservableObject {
         /// Why the request can't be read (answered 400, then closed); nil for a good one.
         var bad: String? = nil
     }
-    static let maxHeader = 64 << 10, maxBody = 8 << 20
+    nonisolated static let maxHeader = 64 << 10, maxBody = 8 << 20
 
     /// A complete request from what has arrived, or nil while headers or body are still coming. A request that can
     /// never be read — a Content-Length below 0 or past 8 MB, a header block past 64 KB — comes back with `bad` set,
@@ -192,7 +192,7 @@ public final class MCPServer: ObservableObject {
         }
     }
 
-    static let kinds = ["all", "sessions", "you", "oracle", "notes", "issues", "prs"]
+    nonisolated static let kinds = ["all", "sessions", "you", "oracle", "notes", "issues", "prs"]
     static let tools: [[String: Any]] = [
         ["name": "memory_search",
          "description": "Search this oracle's memory by meaning — its own sessions (what was asked and what it answered), its ψ vault notes, its GitHub issues and PRs. Returns the best matches with a score, a snippet and where each came from.",

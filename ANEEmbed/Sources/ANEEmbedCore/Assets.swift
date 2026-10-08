@@ -2,7 +2,7 @@ import Foundation
 
 /// The files export_assets.py writes, read once. The big arrays are memory-mapped, so
 /// the 384 MB token table costs page cache, not a copy.
-public struct Manifest: Decodable {
+public struct Manifest: Decodable, Sendable {
     public let model_tag: String
     public let vector_space_identity: String
     public let hf_revision: String
@@ -23,7 +23,7 @@ public struct Manifest: Decodable {
     public let packages: [String: String]
 }
 
-public final class Assets {
+public final class Assets: Sendable {
     public let root: URL
     public let manifest: Manifest
     let embedScaled: Data      // vocab x hidden, float16
