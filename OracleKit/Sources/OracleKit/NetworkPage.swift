@@ -273,10 +273,11 @@ private struct MachineCard: View {
             ForEach(sessions) { r in
                 let st = store.remoteState[r.id]
                 SessionLine(name: r.session, detail: users.count > 1 ? (r.user ?? "") : "",
-                            count: st.map { $0.running ? "\($0.agents) agent\($0.agents == 1 ? "" : "s")" : "off" } ?? "…",
+                            // unreadable is not stopped: "?" and no Start, which would start a second server
+                            count: st.map { $0.problem != nil ? "?" : $0.running ? "\($0.agents) agent\($0.agents == 1 ? "" : "s")" : "off" } ?? "…",
                             running: st?.running == true, needsYou: (st?.needsYou ?? 0) > 0,
                             attached: store.attachedRemotes.contains(r.id),
-                            controls: AnyView(SessionControls(store: store, ref: .remote(r), running: st?.running == true,
+                            controls: st == nil || st?.problem != nil ? nil : AnyView(SessionControls(store: store, ref: .remote(r), running: st?.running == true,
                                                               ends: { "herdr --machine \(r.label ?? r.host) server stop: every pane of \(r.session) ends, \(st?.agents ?? 0) agents included." },
                                                               compact: true, error: $stopError))) { store.openRemote(r) }
                     .help(r.command)
