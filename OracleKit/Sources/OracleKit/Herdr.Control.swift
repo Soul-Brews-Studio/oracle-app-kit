@@ -40,6 +40,34 @@ public enum HerdrControl {
         return outcome(status: r.status, json: r.out, command: cmd)
     }
 
+    /// Bring back this oracle's saved agents from a stopped session — only them, not the whole session (Nat,
+    /// 2026-10-09). Each resumes exactly its own conversation into `target`, a running session:
+    /// `maw herdr ticket open <its worktree> --repo <repo> --session <target> --session-id <id>`. ticket.sh refuses one
+    /// that is open somewhere else. nil when all came back, else one line per agent that did not.
+    public static func resume(_ agents: [SavedAgent], repo: String, into target: String) async -> String? {
+        var failed: [String] = []
+        for a in agents {
+            guard !a.cwd.isEmpty, FileManager.default.fileExists(atPath: a.cwd) else {
+                failed.append("\(a.space): its folder is gone (\(a.cwd))"); continue
+            }
+            let top = (await Shell.run("git", ["-C", a.cwd, "rev-parse", "--show-toplevel"]))?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? a.cwd
+            let args = ["open", top, "--repo", repo, "--session", target, "--session-id", a.sessionId, "--json"]
+            let cmd = "maw herdr ticket " + args.dropLast().joined(separator: " ")
+            guard let r = await ticket(args) else { failed.append("\(a.space): nothing answered — run:  \(cmd)"); continue }
+            if let e = outcome(status: r.status, json: r.out, command: cmd) { failed.append("\(a.space): \(e)") }
+        }
+        return failed.isEmpty ? nil : failed.joined(separator: "\n")
+    }
+
+    /// The ticket.sh the installed maw runs (maw-herdr-plugin's own copy).
+    static var mawTicketScript: String { NSHomeDirectory() + "/.maw/plugins/herdr/scripts/herdr-ticket/ticket.sh" }
+
+    /// Whether the installed maw's ticket.sh knows `flag`.
+    static func mawKnows(_ flag: String) -> Bool {
+        (try? String(contentsOfFile: mawTicketScript, encoding: .utf8))?.contains(flag) ?? false
+    }
+
     /// The old home of /herdr-ticket's script: the fallback while an installed maw lacks the `herdr ticket` verb.
     static var ticketScript: String { NSHomeDirectory() + "/.claude/skills/herdr-ticket/ticket.sh" }
 
@@ -47,7 +75,10 @@ public enum HerdrControl {
     /// the old script by path. With `--json` either answers one JSON object on stdout; an answer that is not one
     /// (an older maw: "unknown command") falls through to the script. nil when neither ran.
     public static func ticket(_ args: [String], timeout: TimeInterval = 60) async -> (status: Int32, out: String)? {
-        if let r = await Shell.capture("maw", ["herdr", "ticket"] + args, timeout: timeout),
+        // an installed plugin older than maw-herdr-plugin #119 has no --session-id: its ticket.sh would take the id as
+        // text and quietly resume the worktree's newest conversation instead — so skip maw for that call
+        let usable = !args.contains("--session-id") || mawKnows("--session-id")
+        if usable, let r = await Shell.capture("maw", ["herdr", "ticket"] + args, timeout: timeout),
            r.out.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("{") {
             return (r.status, r.out)
         }
