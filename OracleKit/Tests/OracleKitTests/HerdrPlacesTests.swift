@@ -54,6 +54,15 @@ final class HerdrPlacesTests: XCTestCase {
         XCTAssertEqual(HerdrPlaces.runningAtShutdown(stopped: saved, boot: boot), ["laris-co", "nsm"])
     }
 
+    func testSavedSpacesListsEverySpaceWithItsPanesAndAgents() {
+        let rows = HerdrPlaces.savedSpaces(sessionJSON: Data(json.utf8))
+        XCTAssertEqual(rows.map(\.label), ["neo-oracle-main", "worktree-calm-meadow", "athena-oracle"])
+        XCTAssertEqual(rows.map(\.panes), [1, 2, 1])
+        XCTAssertEqual(rows[0].agents.map(\.name), ["neo-recap"])
+        XCTAssertTrue(rows[1].agents.isEmpty)                         // comes back as plain shells
+        XCTAssertEqual(rows[2].cwd, "/opt/Code/github.com/laris-co/athena-oracle")
+    }
+
     func testStoppedSinceSaysTheTimeTodayAndTheDayBefore() {
         let now = Date()
         XCTAssertTrue(HerdrPlaces.stoppedSince(now.addingTimeInterval(-60), now: now).hasPrefix("stopped since "))

@@ -17,6 +17,15 @@ public struct SavedAgent: Equatable, Hashable, Sendable {
     public let space: String       // the space it was saved in
 }
 
+/// One space a stopped session saved: its name, folder, panes and the agents herdr would resume.
+public struct SavedSpace: Identifiable, Equatable, Sendable {
+    public var id: String { label + "|" + cwd }
+    public let label: String
+    public let cwd: String
+    public let panes: Int
+    public let agents: [SavedAgent]
+}
+
 /// One herdr session that holds spaces in the oracle's repo.
 public struct SessionPlace: Identifiable, Equatable, Sendable {
     public var id: String { session }
@@ -57,6 +66,24 @@ public enum HerdrPlaces {
             }
         }
         return (spaces, agents)
+    }
+
+    /// Every space a session.json saved, with its folder, pane count and the agents it would resume — what a stopped
+    /// session holds, for the hub's page of that session.
+    public static func savedSpaces(sessionJSON data: Data) -> [SavedSpace] {
+        guard let d = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return [] }
+        return (d["workspaces"] as? [[String: Any]] ?? []).map { w in
+            let panes = (w["tabs"] as? [[String: Any]] ?? [])
+                .flatMap { ($0["panes"] as? [String: Any] ?? [:]).sorted { $0.key < $1.key }.compactMap { $0.value as? [String: Any] } }
+            let cwd = w["identity_cwd"] as? String ?? (panes.first?["cwd"] as? String ?? "")
+            let custom = (w["custom_name"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+            let label = custom ?? (cwd.isEmpty ? "?" : (cwd as NSString).lastPathComponent)
+            let agents = panes.compactMap { p -> SavedAgent? in
+                guard let s = p["agent_session"] as? [String: Any], let id = s["value"] as? String, !id.isEmpty else { return nil }
+                return SavedAgent(name: p["agent_name"] as? String ?? "", agent: s["agent"] as? String ?? "", sessionId: id, space: label)
+            }
+            return SavedSpace(label: label, cwd: cwd, panes: panes.count, agents: agents)
+        }
     }
 
     /// The conversation ids live now in one `herdr --session S agent list` answer.

@@ -203,6 +203,7 @@ struct SessionSpaces: View {
                     .padding(14)
                     .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
                         .strokeBorder(Color.secondary.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [6, 5])))
+                    SavedSpacesTable(store: store, dir: s?.dir)   // #116: what Start would bring back
                 }
                 if s?.running == true, !all.isEmpty {
                     HStack(spacing: 8) {
