@@ -107,16 +107,29 @@ struct WorkPlaces: View {
     /// spaces first, then the parent). The session itself keeps running.
     private func stopMine(_ p: SessionPlace) {
         let panes = Self.livePanes(store.activity, session: p.session)
+        let before = store.spaces.filter { $0.session == p.session }.count
         busy = p.session; error = nil; note = nil
         Task {
             var failed: [String] = []
             for place in panes { if let e = await HerdrControl.closePane(place: place) { failed.append(e) } }
             await store.refresh()   // the spaces as they are now, without those agents
-            note = await HerdrControl.closeIdleSpaces(store.spaces, session: p.session)
+            let kept = await HerdrControl.closeIdleSpaces(store.spaces, session: p.session)
             error = failed.isEmpty ? nil : failed.joined(separator: "\n")
             busy = nil
             await store.refresh()
+            // a Stop that worked otherwise just makes the row vanish (Nat: "it show this green and it disappear")
+            let after = store.spaces.filter { $0.session == p.session }.count
+            note = Self.stopNote(session: p.session, ended: panes.count - failed.count, closed: max(0, before - after), kept: kept)
         }
+    }
+
+    /// What Stop did, in one line: "Stopped 1 agent · closed 2 spaces in default", plus what stayed open.
+    static func stopNote(session: String, ended: Int, closed: Int, kept: String?) -> String {
+        var s = "Stopped \(ended) agent\(ended == 1 ? "" : "s")"
+        if closed > 0 { s += " · closed \(closed) space\(closed == 1 ? "" : "s")" }
+        s += " in \(session)"
+        if let kept { s += " · " + kept }
+        return s
     }
 
     /// This oracle's agent panes in a session ("default:wB3:p1", …): what "Stop <Oracle>" closes.

@@ -50,6 +50,12 @@ final class HerdrControlTests: XCTestCase {
         XCTAssertNotNil(HerdrControl.foregroundName(processInfo: "not json"))                              // unknown: never close
     }
 
+    func testStopNoteSaysWhatStopDid() {
+        XCTAssertEqual(WorkPlaces.stopNote(session: "default", ended: 1, closed: 2, kept: nil), "Stopped 1 agent · closed 2 spaces in default")
+        XCTAssertEqual(WorkPlaces.stopNote(session: "laris-co", ended: 4, closed: 0, kept: "kept open: laris-co:w25:p2 runs bun"),
+                       "Stopped 4 agents in laris-co · kept open: laris-co:w25:p2 runs bun")
+    }
+
     func testTicketShAnswerOkIsNil() {
         XCTAssertNil(HerdrControl.outcome(status: 0, json: #"{"ok":true,"live":false,"pane":"wB:p1"}"#, command: "x"))
     }
