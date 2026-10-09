@@ -22,6 +22,8 @@ public final class OracleStore: ObservableObject {
     @Published public private(set) var inbox: [InboxItem] = []
     @Published public private(set) var lastRefresh: Date?
     @Published public private(set) var problems: [String] = []
+    /// The herdr sessions holding this repo's spaces, running or stopped (#116: after a reboot only `default` runs).
+    @Published public private(set) var places: [SessionPlace] = []
     /// What the paired Mac last answered, as it sent it (iPhone/iPad; the Mac app IS the server and leaves both nil).
     @Published public private(set) var companionWork: CompanionAPI.Work?
     @Published public private(set) var companionInbox: CompanionAPI.Inbox?
@@ -69,6 +71,8 @@ public final class OracleStore: ObservableObject {
                                         localPath: config.localPath,
                                         extraRoots: [NSHomeDirectory() + "/.herdr/worktrees/" + repoName])
         }
+        self.places = await HerdrPlaces.load(roots: [config.localPath,
+                                                     NSHomeDirectory() + "/.herdr/worktrees/" + (config.localPath as NSString).lastPathComponent])
         self.inbox = inbox
         recomputeUnread()
         #else

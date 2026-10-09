@@ -32,6 +32,8 @@ public final class HubStore: ObservableObject {
     @Published public private(set) var registryOnly: [HubOracle] = []
     @Published public private(set) var lastRefresh: Date?
     @Published public private(set) var problems: [String] = []
+    /// What the after-reboot autostart held back (#116): sessions whose saved agents are already live elsewhere
+    var autostartHeld: [String] = []
     private var timer: Timer?
 
     /// Starts refreshing at once: the menu-bar item must have data even when no window is open.
@@ -40,7 +42,11 @@ public final class HubStore: ObservableObject {
     /// Safe to call again (the window calls it on appear): only the first call starts the clock.
     public func start() {
         guard timer == nil else { return }
+        #if os(macOS)
+        Task { autostartHeld = await autostartAfterReboot(); await refresh() }   // #116: once per launch, right after boot
+        #else
         Task { await refresh() }
+        #endif
         timer = Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in
             Task { @MainActor in await self?.refresh() }
         }
@@ -66,7 +72,7 @@ public final class HubStore: ObservableObject {
         registryOnly = reg.filter { !known.contains($0.repo.lowercased()) }
             .map { HubOracle(repo: $0.repo, spaces: [], running: 0, open: 0, resumable: 0, cold: 0, checkout: $0.path, resume: nil) }
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-        problems = issues
+        problems = issues + autostartHeld
         lastRefresh = Date()
         if force { lastRemoteProbe = .distantPast }
         await refreshRemotes()
@@ -283,16 +289,9 @@ public final class HubStore: ObservableObject {
     /// untouched. herdr relaunches each recorded agent resumed; Show in herdr / Open in WezTerm attach later.
     /// nil once the server answers (≤10 s); otherwise the command to run.
     public func startSession(_ name: String) async -> String? {
-        let cmd = "herdr --session \(name) server"
-        guard let herdr = Shell.which("herdr") else { return "herdr not found — run:  \(cmd)" }
-        let q = { (s: String) in "'" + s.replacingOccurrences(of: "'", with: "'\\''") + "'" }
-        _ = await Shell.run("sh", ["-c", "nohup \(q(herdr)) --session \(q(name)) server >/dev/null 2>&1 &"])
-        for _ in 0..<20 {
-            if await Shell.run("herdr", ["--session", name, "pane", "list"]) != nil { await refresh(); return nil }
-            try? await Task.sleep(for: .milliseconds(500))
-        }
+        let err = await HerdrPlaces.start(name)   // shared with the oracle apps' Start (#116)
         await refresh()
-        return "\(name) did not answer within 10 s — run:  \(cmd)"
+        return err
     }
 
     /// Which agents a reopen brings back. herdr (0.9.1) saves each pane's `agent_session` when the session stops
