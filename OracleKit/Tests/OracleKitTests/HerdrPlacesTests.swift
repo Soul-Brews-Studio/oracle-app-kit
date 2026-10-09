@@ -44,6 +44,45 @@ final class HerdrPlacesTests: XCTestCase {
         XCTAssertEqual(HerdrPlaces.duplicates(saved, live: live).map(\.name), ["neo-recap"])
     }
 
+    /// A place as `load` builds it from the fixture: parsed, plus (stopped only) the saved agents live elsewhere.
+    private func place(running: Bool = false, roots: [String]?, live: Set<String>) -> SessionPlace {
+        let p = HerdrPlaces.parse(sessionJSON: Data(json.utf8), roots: roots)
+        var place = SessionPlace(session: "laris-co", running: running, savedAt: nil,
+                                 spaces: p.spaces, agents: p.agents)
+        if !running { place.alreadyLive = HerdrPlaces.duplicates(p.agents, live: live) }
+        return place
+    }
+
+    func testAStoppedSessionWhoseAgentsAreAllLiveElsewhereHasNothingToRestore() {
+        // laris-co as the Work page showed it: neo-recap saved, and that conversation already running in `default`
+        let p = place(roots: [repo, "/Users/x/.herdr/worktrees/neo-oracle"], live: ["0bec504c-aaaa"])
+        XCTAssertEqual(p.agents.map(\.name), ["neo-recap"])
+        XCTAssertEqual(p.alreadyLive, p.agents)
+        XCTAssertTrue(HerdrPlaces.nothingToRestore(p))
+    }
+
+    func testAStoppedSessionKeepsItsRowWhileASavedAgentIsNotLiveElsewhere() {
+        let p = place(roots: nil, live: ["0bec504c-aaaa"])   // neo-recap is live elsewhere, the athena agent is not
+        XCTAssertEqual(p.agents.count, 2)
+        XCTAssertEqual(p.alreadyLive.map(\.name), ["neo-recap"])   // the warning still names the one that is
+        XCTAssertFalse(HerdrPlaces.nothingToRestore(p))
+    }
+
+    func testAStoppedSessionWithNoSavedAgentsKeepsItsRow() {
+        let p = place(roots: ["/Users/x/.herdr/worktrees/neo-oracle"], live: ["0bec504c-aaaa"])
+        XCTAssertEqual(p.spaces, ["worktree-calm-meadow"])
+        XCTAssertTrue(p.agents.isEmpty)   // Start brings its spaces back as plain shells
+        XCTAssertFalse(HerdrPlaces.nothingToRestore(p))
+    }
+
+    func testARunningSessionIsNeverDropped() {
+        var p = place(running: true, roots: [repo, "/Users/x/.herdr/worktrees/neo-oracle"], live: ["0bec504c-aaaa"])
+        XCTAssertTrue(p.alreadyLive.isEmpty)   // only a stopped session is checked for duplicates
+        XCTAssertFalse(HerdrPlaces.nothingToRestore(p))
+        p.alreadyLive = p.agents   // every agent live elsewhere, and it still runs
+        XCTAssertFalse(HerdrPlaces.nothingToRestore(p))
+    }
+
     func testOnlySessionsSavedAsTheMacWentDownWereRunning() {
         let boot = Date(timeIntervalSince1970: 1_760_000_000)
         let saved: [String: Date] = [

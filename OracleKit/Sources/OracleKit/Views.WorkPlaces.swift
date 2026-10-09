@@ -4,7 +4,8 @@ import SwiftUI
 /// Work page strip (#116): the herdr sessions that hold this oracle's spaces, shown when one of them is stopped
 /// (after a reboot only `default` comes back). Running ones by name; stopped ones with when they stopped, what they
 /// saved, and Start. A saved agent already live in another pane is named, and Start asks first: herdr would resume
-/// it, and one conversation would run in two panes.
+/// it, and one conversation would run in two panes. A stopped session whose saved agents are all live already has
+/// nothing to start and is not listed (`HerdrPlaces.nothingToRestore`).
 struct WorkPlaces: View {
     @ObservedObject var store: OracleStore
     @State private var asking: SessionPlace?

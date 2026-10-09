@@ -7,7 +7,8 @@ import Foundation
 // its spaces in `<session_dir>/session.json`: each workspace's `identity_cwd`, every pane's `cwd`, and the
 // `agent_session` herdr 0.9.1 resumes when the server starts again. Reading that file says where the oracle lives,
 // when the session stopped (the file's mtime), and which saved agents are already live in another pane: starting
-// such a session as-is would open one conversation twice (two writers on one transcript).
+// such a session as-is would open one conversation twice (two writers on one transcript). A stopped session whose
+// saved agents are all live elsewhere has nothing to bring back, so it is not listed at all.
 
 /// An agent herdr saved in a stopped session and would resume when it starts.
 public struct SavedAgent: Equatable, Hashable, Sendable {
@@ -98,6 +99,13 @@ public enum HerdrPlaces {
         saved.filter { live.contains($0.sessionId) }
     }
 
+    /// A stopped session whose saved agents are all live in another pane has nothing to bring back: Start could only
+    /// open those conversations a second time. One with any other saved agent stays (the warning names the live ones),
+    /// and so does one with no saved agents (Start brings its spaces back as plain shells).
+    public static func nothingToRestore(_ place: SessionPlace) -> Bool {
+        !place.running && !place.agents.isEmpty && place.agents.allSatisfy { place.alreadyLive.contains($0) }
+    }
+
     /// The stopped sessions that were running when the Mac went down: herdr writes session.json as its server exits,
     /// so their file is dated in the `window` before boot (a minute of slack after it). One stopped days ago stays stopped.
     public static func runningAtShutdown(stopped savedAt: [String: Date], boot: Date, window: TimeInterval = 15 * 60) -> [String] {
@@ -114,7 +122,8 @@ public enum HerdrPlaces {
 
     #if os(macOS)
     /// Every session holding the oracle's spaces: running ones first, then stopped ones with their saved agents and
-    /// the ones of those already live. One `herdr session list` + one `agent list` per running session + the files.
+    /// the ones of those already live. A stopped one with nothing to restore is left out. One `herdr session list` +
+    /// one `agent list` per running session + the files.
     public static func load(roots: [String]) async -> [SessionPlace] {
         guard let t = await Shell.run("herdr", ["session", "list", "--json"]) else { return [] }
         let sessions = HubParse.sessions(Data(t.utf8))
@@ -127,6 +136,7 @@ public enum HerdrPlaces {
             var place = SessionPlace(session: s.name, running: s.running, savedAt: modified(dir + "/session.json"),
                                      spaces: p.spaces, agents: p.agents)
             if !s.running { place.alreadyLive = duplicates(p.agents, live: live) }
+            if nothingToRestore(place) { continue }
             out.append(place)
         }
         return out.sorted { ($0.running ? 0 : 1, $0.session) < ($1.running ? 0 : 1, $1.session) }
