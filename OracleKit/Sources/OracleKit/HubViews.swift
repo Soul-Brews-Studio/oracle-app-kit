@@ -5,7 +5,7 @@ import AppKit
 // MARK: - Oracles (the landing app) — sidebar: all herdr sessions · detail: every oracle as a card
 // Same look as the oracle apps: ARRA-style sidebar, cards like the Work view.
 
-enum HubPick: Hashable { case all, search, trace, map, screens, network, settings, session(String), remote(RemoteSession) }
+enum HubPick: Hashable { case all, search, trace, map, screens, network, settings, session(String), group(String), remote(RemoteSession) }
 
 enum HubStyle {
     static let accent = Color(hex: "#9b8cff")
@@ -67,6 +67,7 @@ struct HubRootView: View {
             case .network: NetworkPage(store: store, pick: $pick)
             case .settings: SettingsView(title: "ARRA Oracles", accent: HubStyle.accent, indexes: [index, FleetMap.shared.index]) { pick = .trace }
             case .session(let name): SessionSpaces(store: store, session: name)
+            case .group(let name): SessionGroupPage(store: store, name: name, pick: $pick)   // a session name across machines
             case .remote(let r): RemoteSessionPage(store: store, remote: r)   // same as a local session's page (Nat)
             }
         }
