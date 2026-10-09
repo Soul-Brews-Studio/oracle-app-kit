@@ -42,32 +42,36 @@ struct WorkPlaces: View {
     }
 
     private func row(_ p: SessionPlace) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
+        // Two short lines, never one long one (Nat 2026-10-09, a narrow window: "ui is messy?"): line 1 the dot, the name,
+        // the state and the button; line 2, small and grey, what it holds — truncated in the middle, never wrapped.
+        VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 8) {
                 Circle().fill(p.running ? Color.green : Color.secondary.opacity(0.5)).frame(width: 7, height: 7)
-                Text(p.session).font(.system(size: 13, weight: .semibold))
-                Text(p.running ? "running" : HerdrPlaces.stoppedSince(p.savedAt)).font(.system(size: 12)).foregroundStyle(.secondary)
-                Text(p.spaces.joined(separator: " · ")).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1)
-                if !p.agents.isEmpty {
-                    Text("\(p.agents.count) agent\(p.agents.count == 1 ? "" : "s")").font(.system(size: 12)).foregroundStyle(.secondary)
-                }
+                Text(p.session).font(.system(size: 13, weight: .semibold)).lineLimit(1)
+                Text(Self.state(p)).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1).fixedSize()
                 Spacer(minLength: 8)
                 if !p.running {
                     Button(busy == p.session ? "Starting…" : "Start \(p.session)") {
                         if p.alreadyLive.isEmpty { start(p) } else { asking = p }
                     }
-                    .disabled(busy != nil)
+                    .buttonStyle(.bordered).controlSize(.small).disabled(busy != nil)
                     .help("herdr --session \(p.session) server — herdr resumes the agents it saved")
                 } else {
                     Button(busy == p.session ? "Stopping…" : "Stop") { stopping = p }
-                        .buttonStyle(.borderless).foregroundStyle(.secondary).disabled(busy != nil)
+                        .buttonStyle(.bordered).controlSize(.small).disabled(busy != nil)
                         .help("herdr session stop \(p.session) — asks first")
                 }
             }
+            Text(Self.holds(p)).font(.system(size: 11)).foregroundStyle(.secondary)
+                .lineLimit(1).truncationMode(.middle).padding(.leading, 15)
+                .help(p.spaces.joined(separator: "\n"))
             if !p.running, !p.alreadyLive.isEmpty {
-                Text("! " + Self.liveWarning(p)).font(.system(size: 11)).foregroundStyle(.orange).padding(.leading, 15)
+                Text("! " + Self.shortWarning(p)).font(.system(size: 11)).foregroundStyle(.orange)
+                    .lineLimit(1).truncationMode(.tail).padding(.leading, 15)
+                    .help(Self.liveWarning(p))
             }
         }
+        .padding(.vertical, 2)
     }
 
     private func start(_ p: SessionPlace) { run(p, "Starting…") { await HerdrPlaces.start(p.session) } }
@@ -79,6 +83,22 @@ struct WorkPlaces: View {
             busy = nil
             await store.refresh()
         }
+    }
+
+    /// "running", "stopped 07:25", "stopped Oct 5" — short enough never to wrap.
+    static func state(_ p: SessionPlace) -> String {
+        p.running ? "running" : HerdrPlaces.stoppedSince(p.savedAt).replacingOccurrences(of: "stopped since ", with: "stopped ")
+    }
+
+    /// Line 2: its spaces, then how many agents.
+    static func holds(_ p: SessionPlace) -> String {
+        p.spaces.joined(separator: " · ") + (p.agents.isEmpty ? "" : " · \(p.agents.count) agent\(p.agents.count == 1 ? "" : "s")")
+    }
+
+    /// One line for the row; the full sentence stays in the tooltip and the Start dialog.
+    static func shortWarning(_ p: SessionPlace) -> String {
+        let who = p.alreadyLive.map { $0.name.isEmpty ? String($0.sessionId.prefix(8)) : $0.name }.joined(separator: ", ")
+        return "\(who) is live elsewhere: Start would open it twice"
     }
 
     static func liveWarning(_ p: SessionPlace?) -> String {
