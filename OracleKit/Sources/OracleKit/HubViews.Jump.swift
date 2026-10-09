@@ -34,6 +34,7 @@ enum HubJump: Hashable, Identifiable {
 struct HubJumpPalette: View {
     @ObservedObject var store: HubStore
     let go: (HubJump) -> Void
+    @State private var keys: Any?
     @Environment(\.dismiss) private var dismiss
     @State private var query = ""
     @State private var cursor = 0
@@ -44,7 +45,7 @@ struct HubJumpPalette: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 10) {
                 Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                TextField("Oracle or session…   (⌘F searches issues, PRs, notes)", text: $query)
+                TextField("Oracle or session…   ↩ page · ⌘↩ WezTerm · ⌘F searches issues, PRs", text: $query)
                     .textFieldStyle(.plain).font(.title3).focused($focused)
                     .onSubmit { pick(cursor) }
                     .onChange(of: query) { cursor = 0 }
@@ -65,7 +66,15 @@ struct HubJumpPalette: View {
             .frame(maxHeight: 380)
         }
         .frame(width: 520)
-        .onAppear { focused = true }
+        .onAppear {
+            focused = true
+            // ⌘⏎: straight into WezTerm — the session attached in its window (Nat: "cmd enter to open wezterm, that nsm session")
+            keys = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { e in
+                guard e.keyCode == 36, e.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command else { return e }
+                wezterm(cursor); return nil
+            }
+        }
+        .onDisappear { if let k = keys { NSEvent.removeMonitor(k); keys = nil } }
         .onKeyPress(.downArrow) { cursor = min(cursor + 1, max(rows.count - 1, 0)); return .handled }
         .onKeyPress(.upArrow) { cursor = max(cursor - 1, 0); return .handled }
         .onKeyPress(.escape) { dismiss(); return .handled }
@@ -89,6 +98,15 @@ struct HubJumpPalette: View {
                 Text(running ? "session" : "session · off").font(.caption).foregroundStyle(.secondary)
             }
         }
+    }
+
+    private func wezterm(_ i: Int) {
+        guard rows.indices.contains(i) else { return }
+        switch rows[i] {
+        case .session(let name, _): store.openSession(name)
+        case .oracle(_, _, let session, let key): if let session { store.openSession(session) } else { store.openApp(key) }
+        }
+        dismiss()
     }
 
     private func pick(_ i: Int) {

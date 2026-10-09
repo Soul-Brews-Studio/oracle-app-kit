@@ -127,6 +127,10 @@ struct SessionSpaces: View {
             let mods = e.modifierFlags.intersection(.deviceIndependentFlagsMask)
             let typing = NSApp.keyWindow?.firstResponder is NSTextView   // a field already has the keys
             if mods == .command, e.charactersIgnoringModifiers == "f" { filterFocused = true; return nil }
+            if e.keyCode == 36, mods == .command {   // ⌘⏎: the cursor's row, else the first match, in WezTerm — from the filter too (Nat)
+                if let r = visibleRows().first(where: { $0.id == cursor }) ?? visibleRows().first { filterFocused = false; cursor = r.id; store.showInHerdr(r) }
+                return nil
+            }
             if typing {   // in the filter: ↓ or ⏎ leaves it for the rows, like Gmail's search
                 if filterFocused, e.keyCode == 125 || e.keyCode == 36 { filterFocused = false; if cursor == nil { move(1) }; return nil }
                 return e
@@ -237,7 +241,7 @@ struct SessionSpaces: View {
                         Button("Clear (esc)") { marks = [] }.controlSize(.small)
                     }
                 } else if s?.running == true, !all.isEmpty {
-                    Text("j k move · o open · s show in herdr · x pick · ⇧J ⇧K or ⇧click pick up/down · # close picked · / filter · esc clear")
+                    Text("j k move · o open · ⌘⏎ WezTerm · s show in herdr · x pick · ⇧J ⇧K or ⇧click pick up/down · # close picked · / filter · esc clear")
                         .font(.caption).foregroundStyle(.tertiary)
                 }
                 VStack(spacing: 2) {

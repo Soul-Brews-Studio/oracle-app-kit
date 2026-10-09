@@ -244,6 +244,17 @@ public enum RemoteParse {
     }
 
     /// "white", or "white · nm" when white has more than one login among `remotes`.
+    /// The sidebar's other view (Nat, 2026-10-09: "we should have 2 views"): each machine with its sessions under it,
+    /// this Mac first, then hosts by label; sessions by name inside each.
+    public static func byMachine(local: [HubSession], remotes: [RemoteSession], localName: String)
+        -> [(machine: String, places: [Place])] {
+        var out: [(machine: String, places: [Place])] = []
+        if !local.isEmpty { out.append((localName, local.sorted { $0.name < $1.name }.map(Place.local))) }
+        let hosts = Dictionary(grouping: remotes) { machineLabel($0, among: remotes) }
+        for h in hosts.keys.sorted() { out.append((h, hosts[h]!.sorted { $0.session < $1.session }.map(Place.remote))) }
+        return out
+    }
+
     public static func machineLabel(_ r: RemoteSession, among remotes: [RemoteSession]) -> String {
         let logins = Set(remotes.filter { $0.host == r.host }.map(\.shortTarget))
         guard logins.count > 1, let u = r.user else { return r.host }

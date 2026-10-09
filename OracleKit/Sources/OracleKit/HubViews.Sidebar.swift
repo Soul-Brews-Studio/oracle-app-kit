@@ -155,6 +155,7 @@ struct SessionsHeader: View {
     @State private var target = ""
     @State private var session = ""
     @State private var addError: String?
+    @AppStorage("hub.sessionsBy") private var by = "session"
     @State private var remote = false     // + : false = a new session on this Mac (Nat: "i can not new session from the app?")
     @State private var newName = ""
     @State private var starting = false
@@ -169,6 +170,16 @@ struct SessionsHeader: View {
             }
             .buttonStyle(.plain).handCursor().help("The Network page: every machine, full size")
             Spacer()
+            Picker("", selection: $by) {   // 2 views: by session name, or by machine (Nat, 2026-10-09)
+                Image(systemName: "rectangle.stack").tag("session").help("By session name")
+                Image(systemName: "desktopcomputer").tag("machine").help("By machine")
+            }
+            .pickerStyle(.segmented).labelsHidden().frame(width: 64).controlSize(.mini)
+            .help("Sessions by name, or by machine (⌃⇥ switches)")
+            .background {   // ⌃⇥ flips the two views (Nat: "ctrl tab to switch")
+                Button("") { by = by == "machine" ? "session" : "machine" }
+                    .keyboardShortcut(.tab, modifiers: .control).opacity(0).allowsHitTesting(false)
+            }
             Button { addError = nil; adding = true } label: { Image(systemName: "plus").font(.system(size: 11, weight: .semibold)) }
                 .buttonStyle(.plain).foregroundStyle(.secondary).handCursor().help("New session on this Mac (herdr --session <name> server), or save a machine in herdr")
                 .popover(isPresented: $adding, arrowEdge: .trailing) { form }
@@ -245,18 +256,61 @@ struct SessionList<LocalRow: View>: View {
     @Binding var pick: HubPick
     @ViewBuilder let localRow: (HubSession, _ title: String?, _ tag: String?) -> LocalRow
     @AppStorage("hub.sessionsFolded") private var foldedList = ""   // names folded shut, comma-separated
+    @AppStorage("hub.sessionsBy") private var by = "session"         // "session" (by name) or "machine" — SessionsHeader's toggle
     private var folded: Set<String> { Set(foldedList.split(separator: ",").map(String.init)) }
     var body: some View {
-        let groups = RemoteParse.byName(local: store.localSessions, remotes: store.remotes, running: running)
+        if by == "machine" { machineView } else { sessionView }
+    }
+
+    /// Each machine, its sessions under it; the machine's name opens the Network page, the chevron folds it.
+    private var machineView: some View {
         VStack(alignment: .leading, spacing: 2) {
+            ForEach(RemoteParse.byMachine(local: store.localSessions, remotes: store.remotes, localName: NetworkPage.localHost),
+                    id: \.machine) { g in
+                let key = "machine:" + g.machine
+                Button { pick = .network } label: {
+                    HStack(spacing: 7) {
+                        Image(systemName: folded.contains(key) ? "chevron.right" : "chevron.down")
+                            .font(.system(size: 9, weight: .semibold)).foregroundStyle(.tertiary).frame(width: 10)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                var f = folded; if f.contains(key) { f.remove(key) } else { f.insert(key) }
+                                foldedList = f.sorted().joined(separator: ",")
+                            }
+                        Text(g.machine).font(.custom("Avenir Next", size: 14).weight(.semibold)).lineLimit(1)
+                        Spacer(minLength: 4)
+                        Text("\(g.places.filter(running).count) of \(g.places.count) running").font(.system(size: 11)).foregroundStyle(.tertiary)
+                    }
+                    .foregroundStyle(Color.primary.opacity(0.85))
+                    .padding(.horizontal, 14).padding(.vertical, 7).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain).handCursor().help("\(g.machine): every herdr session on it — click for the Network page")
+                if !folded.contains(key) {
+                    ForEach(g.places, id: \.self) { p in row(p, title: p.name, tag: nil).padding(.leading, 14) }
+                }
+            }
+        }
+    }
+
+    private var sessionView: some View {
+        let groups = RemoteParse.byName(local: store.localSessions, remotes: store.remotes, running: running)
+        return VStack(alignment: .leading, spacing: 2) {
             ForEach(groups, id: \.name) { g in
                 if g.places.count == 1, let p = g.places.first {
                     row(p, title: nil, tag: machine(p))
                 } else {
-                    header(g.name, places: g.places)
-                    if !folded.contains(g.name) {
-                        ForEach(g.places, id: \.self) { p in row(p, title: machine(p), tag: nil).padding(.leading, 14) }
+                    VStack(alignment: .leading, spacing: 2) {
+                        header(g.name, places: g.places)
+                        if !folded.contains(g.name) {
+                            ForEach(g.places, id: \.self) { p in row(p, title: machine(p), tag: nil).padding(.leading, 14) }
+                        }
                     }
+                    // its page is open: the whole group is highlighted, heading and rows (Nat: "should around this whole")
+                    .background(RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(pick == .group(g.name) ? HubStyle.accent.opacity(0.14) : .clear))
+                    .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .strokeBorder(pick == .group(g.name) ? HubStyle.accent.opacity(0.45) : .clear, lineWidth: 1))
+                    .padding(.horizontal, 6)
                 }
             }
             if store.remotes.isEmpty {
