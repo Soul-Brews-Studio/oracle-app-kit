@@ -69,4 +69,28 @@ final class RemoteMachineTests: XCTestCase {
         XCTAssertEqual(g.map(\.user), ["phd-oracle", "nat", "nm"])
         XCTAssertEqual(g[1].sessions.map(\.session), ["infra-teamexit", "default"], "the stopped one last")
     }
+
+    func testByNameGroupsOneNameAcrossMachines() {
+        let local = [HubSession(name: "laris-co", running: true), HubSession(name: "nsm", running: true),
+                     HubSession(name: "board-lab", running: false)]
+        let rs = [RemoteSession(target: "nat@white.follow-rankine.ts.net", session: "laris-co"),
+                  RemoteSession(target: "phd-oracle@black.follow-rankine.ts.net", session: "laris-co"),
+                  RemoteSession(target: "phd-oracle@black.follow-rankine.ts.net", session: "phd")]
+        let off: Set<String> = ["board-lab"]
+        let g = RemoteParse.byName(local: local, remotes: rs, running: { !off.contains($0.name) })
+        // one laris-co, this Mac first then hosts by name (Nat: "laris-co both m5 and white and black")
+        XCTAssertEqual(g.map(\.name), ["laris-co", "nsm", "phd", "board-lab"], "running names first, the stopped one last")
+        XCTAssertEqual(g[0].places, [.local(local[0]), .remote(rs[1]), .remote(rs[0])])
+        XCTAssertEqual(g[2].places.count, 1)
+    }
+
+    func testMachineLabelNamesTheLoginOnlyWhenAHostHasTwo() {
+        let nat = RemoteSession(target: "nat@white.follow-rankine.ts.net", session: "laris-co")
+        let nm = RemoteSession(target: "nm@white.local", session: "default")
+        let phd = RemoteSession(target: "phd-oracle@black.follow-rankine.ts.net", session: "phd")
+        let all = [nat, nm, phd]
+        XCTAssertEqual(RemoteParse.machineLabel(nat, among: all), "white · nat")
+        XCTAssertEqual(RemoteParse.machineLabel(phd, among: all), "black")
+        XCTAssertEqual(RemoteParse.machineLabel(nat, among: [nat, phd]), "white")
+    }
 }

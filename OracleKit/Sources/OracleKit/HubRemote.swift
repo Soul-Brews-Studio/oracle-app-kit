@@ -216,4 +216,37 @@ public enum RemoteParse {
         }
         return out.sorted { ($0.host, $0.user ?? "") < ($1.host, $1.user ?? "") }
     }
+
+    /// Where a session of one name runs: this Mac, or a saved remote session.
+    public enum Place: Hashable, Sendable {
+        case local(HubSession)
+        case remote(RemoteSession)
+        public var name: String { switch self { case .local(let s): return s.name; case .remote(let r): return r.session } }
+        /// sorts this Mac first, then hosts and logins in name order
+        var order: (Int, String, String) {
+            switch self { case .local: return (0, "", ""); case .remote(let r): return (1, r.host, r.user ?? "") }
+        }
+    }
+
+    /// The sidebar, session first (Nat: "session name / machine A B C", then "laris-co both m5 and white and black
+    /// it should show? how?" → one laris-co with a row per machine). One entry per session name, its places this Mac
+    /// first, then hosts. Names running anywhere first, then by name. Same name ≠ same session: each machine's herdr
+    /// server is its own; the grouping only shows where a name runs.
+    public static func byName(local: [HubSession], remotes: [RemoteSession], running: (Place) -> Bool)
+        -> [(name: String, places: [Place])] {
+        let all = local.map(Place.local) + remotes.map(Place.remote)
+        let byName = Dictionary(grouping: all, by: \.name)
+        let out = byName.map { (name: $0.key, places: $0.value.sorted { $0.order < $1.order }) }
+        return out.sorted { a, b in
+            let ra = a.places.contains(where: running) ? 0 : 1, rb = b.places.contains(where: running) ? 0 : 1
+            return ra != rb ? ra < rb : a.name < b.name
+        }
+    }
+
+    /// "white", or "white · nm" when white has more than one login among `remotes`.
+    public static func machineLabel(_ r: RemoteSession, among remotes: [RemoteSession]) -> String {
+        let logins = Set(remotes.filter { $0.host == r.host }.map(\.shortTarget))
+        guard logins.count > 1, let u = r.user else { return r.host }
+        return r.host + " · " + u
+    }
 }
