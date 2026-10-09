@@ -31,6 +31,11 @@ struct SessionSpaces: View {
             }
         }
         .onDisappear { closeDrawer() }
+        // ⌘⎋ while typing into the drawer's pane: its keys came back; now this page's esc in the same press
+        .onReceive(NotificationCenter.default.publisher(for: LiveTerminal.escapeNotification)) { _ in
+            guard open != nil else { return }
+            if full { withAnimation(.easeOut(duration: 0.15)) { full = false } } else { closeDrawer() }
+        }
         .task {   // -hubOpenSpace <label> (tests): open that space's drawer once the spaces are known; -hubFull YES: full screen
             guard let want = UserDefaults.standard.string(forKey: "hubOpenSpace") else { return }
             for _ in 0..<100 { if let sp = store.spaces.first(where: { $0.session == session && $0.label == want }) {
@@ -47,7 +52,7 @@ struct SessionSpaces: View {
             let dx = CGFloat(drawerWidth) + 1; grown += dx
             DispatchQueue.main.async { Drawer.grow(by: dx) }
             esc = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { e in
-                if LiveTerminal.typing { return e }   // esc is the agent's while typing (⌘⎋ stops typing)
+                if LiveTerminal.typing { return e }   // esc is the agent's while typing (⌘⎋ is this page's esc then)
                 if e.keyCode == 53, open != nil, full { withAnimation(.easeOut(duration: 0.15)) { full = false }; return nil }   // full screen first
                 if e.keyCode == 53, open != nil { closeDrawer(); return nil }
                 return e

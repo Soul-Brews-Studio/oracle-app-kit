@@ -141,7 +141,7 @@ struct SpaceDrawer: View {
                 Text(space.label).font(.callout.weight(.semibold)).foregroundStyle(accent).lineLimit(1)
                 Text(space.session + " · " + space.spaceId).font(.caption.monospaced()).foregroundStyle(.secondary)
                 Spacer(minLength: 6)
-                Text(full ? (live && LiveTerminal.make != nil ? "i type · esc back" : "esc back") : "f full · esc")
+                Text(full ? (live && LiveTerminal.make != nil ? "i type · ⌘⎋ back" : "esc back") : "f full · esc")
                     .font(.caption.monospaced()).foregroundStyle(.tertiary)
                 if LiveTerminal.make != nil {
                     Toggle("Live", isOn: $live).toggleStyle(.checkbox).font(.caption).handCursor()

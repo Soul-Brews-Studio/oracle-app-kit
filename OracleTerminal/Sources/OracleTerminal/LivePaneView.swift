@@ -433,7 +433,7 @@ struct LivePaneView: View {
                 .background(Color(red: 0.04, green: 0.04, blue: 0.06))
             .overlay(alignment: .topTrailing) {
                 if pane.typing {
-                    Text("typing into \(spec.pane) · ⌘⎋ stop")
+                    Text("typing into \(spec.pane) · esc → agent · ⌘⎋ leave")
                         .font(.caption.monospaced().weight(.semibold)).foregroundStyle(.black)
                         .padding(.horizontal, 8).padding(.vertical, 3)
                         .background(Capsule().fill(Color(red: 0.39, green: 0.71, blue: 0.96)))
@@ -449,7 +449,10 @@ struct LivePaneView: View {
         .onReceive(NotificationCenter.default.publisher(for: LiveTerminal.releaseNotification)) { n in
             if (n.object as? String) == (spec.session.map { $0 + ":" } ?? "") + spec.pane { pane.stopTyping() }
         }
-        .background(StopTypingKey(active: pane.typing) { focused = false; pane.stopTyping() })
+        .background(StopTypingKey(active: pane.typing) {
+            focused = false; pane.stopTyping()
+            NotificationCenter.default.post(name: LiveTerminal.escapeNotification, object: (spec.session.map { $0 + ":" } ?? "") + spec.pane)
+        })
     }
 
     @ViewBuilder private var footer: some View {
@@ -470,7 +473,7 @@ struct LivePaneView: View {
                         .help("herdr --session \(spec.session ?? "default") terminal session control \(spec.pane) --takeover — the other client is closed")
                 } else if pane.spec?.control != true, spec.typeToControl {
                     Button("Type") { pane.wantTyping() }.buttonStyle(.borderless).font(.caption.weight(.semibold)).handCursor()
-                        .help("Click the pane, or Type: it takes this drawer's size and your keys; ⌘⎋ gives it back")
+                        .help("Click the pane, or Type: it takes this drawer's size and your keys. Esc then goes to the agent; ⌘⎋ gives the pane back and does the page's esc")
                 } else if pane.spec?.control == true {
                     Button("A−") { pane.changeFont(by: -1) }.buttonStyle(.borderless).font(.caption.weight(.semibold)).handCursor()
                         .help("Smaller text: the pane gets more columns")
@@ -478,7 +481,7 @@ struct LivePaneView: View {
                         .help("Bigger text: the pane gets fewer columns")
                     if !pane.typing {
                         Button("Type") { pane.wantTyping() }.buttonStyle(.borderless).font(.caption.weight(.semibold)).handCursor()
-                            .help("Keys go to the pane (i); ⌘⎋ gives them back")
+                            .help("Keys go to the pane (i), esc too; ⌘⎋ gives them back and does the page's esc")
                     }
                 }
             }
@@ -499,7 +502,8 @@ struct LivePaneView: View {
     }
 }
 
-/// ⌘⎋ while typing: the keys go back to the page.
+/// ⌘⎋ while typing: the keys go back to the page, which then does its own esc (`LiveTerminal.escapeNotification`):
+/// one press leaves full screen or closes the pane. Esc itself stays the agent's interrupt.
 private struct StopTypingKey: NSViewRepresentable {
     let active: Bool
     let stop: () -> Void

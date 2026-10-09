@@ -110,7 +110,7 @@ struct TerminalColumn: View {
                 Spacer(minLength: 6)
                 if LiveTerminal.make != nil {
                     Toggle("Live", isOn: $live).toggleStyle(.checkbox).font(.caption).handCursor()
-                        .help("Ticked: the pane itself, live; click it (or Type) to type into it, ⌘⎋ gives it back. Unticked: its text, read every second.")
+                        .help("Ticked: the pane itself, live; click it (or Type) to type into it. Esc then goes to the agent; ⌘⎋ gives the pane back and closes it (in full screen: leaves full screen). Unticked: its text, read every second.")
                 }
                 Button { store.openInWezTerm(place: place) } label: { Label("WezTerm", systemImage: "macwindow.on.rectangle") }
                     .buttonStyle(.borderless).font(.caption.weight(.medium)).labelStyle(.titleAndIcon).handCursor()

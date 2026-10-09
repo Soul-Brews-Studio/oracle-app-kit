@@ -241,7 +241,7 @@ public enum LiveTerminal {
         /// false: observe (read-only, the pane keeps its size); true: control (the pane takes this view's size and keys)
         public let control: Bool
         /// Observe until you type: a click, Type or `i` takes control at the view's size, ⌘⎋ gives the pane back
-        /// (an oracle app's Work drawer, which has no full screen).
+        /// (an oracle app's Work drawer).
         public let typeToControl: Bool
         public init(session: String?, pane: String, control: Bool, typeToControl: Bool = false) {
             self.session = session; self.pane = pane; self.control = control; self.typeToControl = typeToControl
@@ -265,6 +265,10 @@ public enum LiveTerminal {
     /// Posted (object: "<session>:<pane>") to make the live terminal of that pane let go: it stops typing and gives the
     /// pane back its own size, before WezTerm shows it (Nat: "open in wezterm and active").
     public static let releaseNotification = Notification.Name("co.laris.oracle.liveTerminal.release")
+    /// Posted (object: "<session>:<pane>") when ⌘⎋ gave a typed-into pane's keys back: the page then does its own esc —
+    /// leave full screen first, else close that pane — in the same press. Esc itself stays the agent's interrupt
+    /// (Nat, 2026-10-09: "⌘⎋ = app's esc").
+    public static let escapeNotification = Notification.Name("co.laris.oracle.liveTerminal.escape")
     /// Whether the drawers draw live terminals; off, they read the pane's text every second (with its history).
     public static let enabledKey = "hub.liveTerminal"
 }
