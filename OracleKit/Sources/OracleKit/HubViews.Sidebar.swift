@@ -44,13 +44,12 @@ struct HubSidebar: View {
                 .padding(.horizontal, 12)
             SessionsHeader(store: store, pick: $pick)
             ScrollView {
-                // one heading per machine — this Mac first, then each remote host — with its sessions under it
-                // (Nat: "session name / machine A B C, not session / Remote")
-                MachineSections(store: store, pick: $pick) { s in
+                // session first: one row per name, its machines under it when it runs on more than one
+                // (Nat: "session name / machine A B C", "laris-co both m5 and white and black")
+                SessionList(store: store, pick: $pick) { s, title, tag in
                     SessionRow(session: s, spaces: store.spaces.filter { $0.session == s.name },
-                               on: pick == .session(s.name), store: store,
+                               on: pick == .session(s.name), store: store, title: title, tag: tag,
                                onDelete: { deleteError = nil; deletingHolds = HubStore.contents(of: s); deleting = s }) { pick = .session(s.name) }
-                        .padding(.leading, 14)
                 }
                 .padding(.horizontal, 12)
             }
@@ -109,6 +108,10 @@ struct SessionRow: View {
     let spaces: [HubSpace]
     let on: Bool
     var store: HubStore? = nil
+    /// the row's text when it is not the session's name: the machine, under a name that runs on several
+    var title: String? = nil
+    /// the machine, small before the count, on a name that runs only here
+    var tag: String? = nil
     var onDelete: (() -> Void)? = nil
     let action: () -> Void
     @State private var hover = false
@@ -117,8 +120,9 @@ struct SessionRow: View {
         Button(action: action) {
             HStack(spacing: 10) {
                 Circle().fill(session.running ? Color.green : Color.secondary.opacity(0.35)).frame(width: 7, height: 7)
-                Text(session.name).font(.custom("Avenir Next", size: 14).weight(on ? .semibold : .regular)).lineLimit(1)
+                Text(title ?? session.name).font(.custom("Avenir Next", size: 14).weight(on ? .semibold : .regular)).lineLimit(1)
                 Spacer(minLength: 4)
+                if let tag { Text(tag).font(.system(size: 11)).foregroundStyle(.tertiary).lineLimit(1) }
                 if let u = urgent, HubParse.rank(u) <= 2 { HubGlyph(status: u) }
                 Text(session.running ? "\(spaces.count)" : "off").font(.system(size: 12).monospacedDigit()).foregroundStyle(.secondary)
             }
@@ -190,41 +194,26 @@ struct SessionsHeader: View {
     }
 }
 
-/// Every machine as a heading with its sessions under it: this Mac (its herdr sessions), then each remote host
-/// from saved herdr machines (`herdr --remote <target> --session <s>`), the way the Network page groups them.
-/// A row's subtitle is the login on that host, so nat and nm on white stay apart. Headings fold.
-struct MachineSections<LocalRow: View>: View {
+/// Every herdr session by name, wherever it runs (Nat: "laris-co both m5 and white and black it should show? how?").
+/// A name on one machine is one row, the machine small at its right. A name on several is a heading — "laris-co
+/// 3 places" — with a row per machine under it: this Mac first, then hosts. `default` is herdr's own on every
+/// machine, unrelated across them, so its heading says "per machine". The Network page keeps the machine-first view.
+struct SessionList<LocalRow: View>: View {
     @ObservedObject var store: HubStore
     @Binding var pick: HubPick
-    @ViewBuilder let localRow: (HubSession) -> LocalRow
-    @AppStorage("hub.machinesFolded") private var foldedList = ""   // machines folded shut, comma-separated
+    @ViewBuilder let localRow: (HubSession, _ title: String?, _ tag: String?) -> LocalRow
+    @AppStorage("hub.sessionsFolded") private var foldedList = ""   // names folded shut, comma-separated
     private var folded: Set<String> { Set(foldedList.split(separator: ",").map(String.init)) }
     var body: some View {
-        let local = store.localSessions.sorted { ($0.running ? 0 : 1, $0.name) < ($1.running ? 0 : 1, $1.name) }
-        let isRunning: (RemoteSession) -> Bool = { store.remoteState[$0.id]?.running == true }
+        let groups = RemoteParse.byName(local: store.localSessions, remotes: store.remotes, running: running)
         VStack(alignment: .leading, spacing: 2) {
-            header(NetworkPage.localHost, icon: "laptopcomputer", count: local.filter(\.running).count,
-                   help: "This Mac — \(local.filter(\.running).count) of \(local.count) herdr sessions running")
-            if !folded.contains(NetworkPage.localHost) { ForEach(local) { localRow($0) } }
-            ForEach(RemoteParse.machines(store.remotes, running: isRunning), id: \.host) { m in
-                let sessions = m.logins.flatMap(\.sessions)
-                let targets = Set(sessions.map(\.target))
-                let problems = targets.compactMap { store.remoteMachines[$0]?.problem }
-                let herdr = targets.compactMap { t in store.remoteMachines[t]?.version.map { (RemoteSession(target: t, session: "x").user ?? t) + " " + $0 } }.sorted()
-                let running = sessions.filter(isRunning).count
-                header(m.host, icon: "server.rack", count: running, warn: !problems.isEmpty,
-                       help: ([m.host + " — " + m.logins.map(\.key).joined(separator: ", ") + " — \(running) of \(sessions.count) sessions running"]
-                              + herdr.map { "herdr " + $0 } + problems).joined(separator: "\n"))
-                    .contextMenu {
-                        ForEach(sessions) { r in
-                            Button("Remove saved machine \(r.label ?? r.session) (herdr machine remove)") { Task { _ = await store.removeMachine(r) } }
-                        }
-                    }
-                if !folded.contains(m.host) {
-                    ForEach(sessions) { r in
-                        RemoteRow(remote: r, state: store.remoteState[r.id], attached: store.attachedRemotes.contains(r.id), store: store,
-                                  subtitle: Self.subtitle(r), onOpen: { pick = .remote(r) })
-                            .padding(.leading, 14)
+            ForEach(groups, id: \.name) { g in
+                if g.places.count == 1, let p = g.places.first {
+                    row(p, title: nil, tag: machine(p))
+                } else {
+                    header(g.name, places: g.places)
+                    if !folded.contains(g.name) {
+                        ForEach(g.places, id: \.self) { p in row(p, title: machine(p), tag: nil).padding(.leading, 14) }
                     }
                 }
             }
@@ -235,29 +224,44 @@ struct MachineSections<LocalRow: View>: View {
         }
     }
 
-    /// "nat · white-laris-co": the login, then the saved label when it says more than the host already does.
-    static func subtitle(_ r: RemoteSession) -> String {
-        let label = r.label.flatMap { $0 == r.host || $0.isEmpty ? nil : $0 }
-        return [r.user, label].compactMap { $0 }.joined(separator: " · ")
+    private func running(_ p: RemoteParse.Place) -> Bool {
+        switch p { case .local(let s): return s.running; case .remote(let r): return store.remoteState[r.id]?.running == true }
     }
 
-    private func header(_ key: String, icon: String, count: Int, warn: Bool = false, help: String) -> some View {
-        Button {
-            var f = folded; if f.contains(key) { f.remove(key) } else { f.insert(key) }
+    private func machine(_ p: RemoteParse.Place) -> String {
+        switch p { case .local: return NetworkPage.localHost; case .remote(let r): return RemoteParse.machineLabel(r, among: store.remotes) }
+    }
+
+    @ViewBuilder private func row(_ p: RemoteParse.Place, title: String?, tag: String?) -> some View {
+        switch p {
+        case .local(let s): localRow(s, title, tag)
+        case .remote(let r):
+            RemoteRow(remote: r, state: store.remoteState[r.id], attached: store.attachedRemotes.contains(r.id), store: store,
+                      subtitle: "", title: title, tag: tag, onOpen: { pick = .remote(r) })
+        }
+    }
+
+    private func header(_ name: String, places: [RemoteParse.Place]) -> some View {
+        let on = places.filter(running).count
+        let machines = places.map(machine)
+        return Button {
+            var f = folded; if f.contains(name) { f.remove(name) } else { f.insert(name) }
             foldedList = f.sorted().joined(separator: ",")
         } label: {
             HStack(spacing: 7) {
-                Image(systemName: folded.contains(key) ? "chevron.right" : "chevron.down")
+                Image(systemName: folded.contains(name) ? "chevron.right" : "chevron.down")
                     .font(.system(size: 9, weight: .semibold)).foregroundStyle(.tertiary).frame(width: 10)
-                Image(systemName: icon).font(.system(size: 11)).foregroundStyle(warn ? Color.orange : Color.secondary)
-                Text(key).font(.custom("Avenir Next", size: 14).weight(.semibold)).lineLimit(1).truncationMode(.middle)
+                Text(name).font(.custom("Avenir Next", size: 14).weight(.semibold)).lineLimit(1)
                 Spacer(minLength: 4)
-                Text("\(count)").font(.system(size: 12).monospacedDigit()).foregroundStyle(.secondary)
+                Text(name == "default" ? "per machine" : "\(places.count) places").font(.system(size: 11)).foregroundStyle(.tertiary)
             }
-            .padding(.horizontal, 14).padding(.top, 10).padding(.bottom, 4).contentShape(Rectangle())
+            .foregroundStyle(on > 0 ? Color.primary.opacity(0.85) : Color.secondary)
+            .padding(.horizontal, 14).padding(.vertical, 7).contentShape(Rectangle())
         }
         .buttonStyle(.plain).handCursor()
-        .help(help)
+        .help(name == "default"
+              ? "herdr's default session on each machine — separate sessions that share the name"
+              : "\(name) runs on \(machines.joined(separator: ", ")) — \(on) of \(places.count) running. Each is its own herdr session; same name only.")
     }
 }
 
@@ -267,6 +271,8 @@ struct RemoteRow: View {
     let attached: Bool
     @ObservedObject var store: HubStore
     var subtitle: String? = nil
+    var title: String? = nil
+    var tag: String? = nil
     /// a click opens the session's page in the hub (Nat: "same as local?"); without it, WezTerm as before
     var onOpen: (() -> Void)? = nil
     @State private var hover = false
@@ -275,11 +281,12 @@ struct RemoteRow: View {
             HStack(spacing: 10) {
                 Circle().fill(dot).frame(width: 7, height: 7)
                 VStack(alignment: .leading, spacing: 0) {
-                    Text(remote.session).font(.custom("Avenir Next", size: 14)).lineLimit(1)
+                    Text(title ?? remote.session).font(.custom("Avenir Next", size: 14)).lineLimit(1)
                     let sub = subtitle ?? remote.label ?? remote.shortTarget
                     if !sub.isEmpty { Text(sub).font(.system(size: 10.5)).foregroundStyle(.tertiary).lineLimit(1) }
                 }
                 Spacer(minLength: 4)
+                if let tag { Text(tag).font(.system(size: 11)).foregroundStyle(.tertiary).lineLimit(1) }
                 if attached { Image(systemName: "link").font(.system(size: 10)).foregroundStyle(.secondary).help("This Mac is attached to it now") }
                 if let s = state, s.needsYou > 0 { HubGlyph(status: "done") }
                 Text(count).font(.system(size: 12).monospacedDigit()).foregroundStyle(.secondary)
