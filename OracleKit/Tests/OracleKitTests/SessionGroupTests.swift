@@ -11,5 +11,13 @@ final class SessionGroupTests: XCTestCase {
         XCTAssertEqual(GroupSpace.facts([]), "0 spaces · 0 live")
         XCTAssertEqual(GroupSpace.facts([s[0]]), "1 space · 0 live")
     }
+
+    func testFilterMatchesNameOrBranch() {
+        let s = [GroupSpace(id: "a", label: "nexus-oracle", status: "idle", panes: 1, branch: "main"),
+                 GroupSpace(id: "b", label: "pulse", status: "idle", panes: 1, branch: "feat/board")]
+        XCTAssertEqual(GroupSpace.matching(s, "NEX").map(\.id), ["a"])
+        XCTAssertEqual(GroupSpace.matching(s, "board").map(\.id), ["b"])
+        XCTAssertEqual(GroupSpace.matching(s, " ").count, 2)
+    }
 }
 #endif
