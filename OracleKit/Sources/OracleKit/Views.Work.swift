@@ -58,7 +58,10 @@ struct WorkView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             ForEach(allResumable ? resumable : Array(resumable.prefix(6))) { w in
                                 TreeRow(item: w, config: c, copied: $copied,
-                                        open: w.isMain ? nil : { act { await HerdrControl.open(worktree: w.path, repo: c.localPath) } })
+                                        // main: only with its exact claude id (ticket.sh resumes claude, not codex)
+                                        open: w.isMain && (w.resumeId == nil || w.resumeProvider == "codex") ? nil : {
+                                            act { await HerdrControl.open(worktree: w.path, repo: c.localPath, sessionId: w.isMain ? w.resumeId : nil) }
+                                        })
                             }
                         }
                         if resumable.count > 6 {

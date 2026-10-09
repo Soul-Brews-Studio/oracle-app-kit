@@ -119,9 +119,12 @@ public enum HerdrControl {
 
     /// Open a resumable worktree: `ticket.sh open <worktree> --json` resumes its own claude session in a pane
     /// (and refuses when that session is open somewhere else: no second writer).
-    public static func open(worktree path: String, repo: String) async -> String? {
-        let cmd = "maw herdr ticket open \(path) --repo \(repo)"
-        guard let r = await ticket(["open", path, "--repo", repo, "--json"]) else {
+    /// `sessionId`: resume exactly that conversation. The main checkout needs it — without one ticket.sh takes the
+    /// newest transcript in the folder, and in a main checkout that can be any session (a one-shot, a signing resume).
+    public static func open(worktree path: String, repo: String, sessionId: String? = nil) async -> String? {
+        let idArgs = sessionId.map { ["--session-id", $0] } ?? []
+        let cmd = (["maw herdr ticket open", path, "--repo", repo] + idArgs).joined(separator: " ")
+        guard let r = await ticket(["open", path, "--repo", repo] + idArgs + ["--json"]) else {
             return "neither `maw herdr ticket` nor the /herdr-ticket script answered — run:  \(cmd)"
         }
         return outcome(status: r.status, json: r.out, command: cmd)
