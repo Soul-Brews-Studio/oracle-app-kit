@@ -5,6 +5,7 @@ import Foundation
 // "neo should can open and close … ourself that neo and session")
 //
 //   Close  a LIVE pane      → herdr closes it; the agent quits, its conversation stays and shows under RESUMABLE
+//                             (a space's last pane, when the space holds worktrees: only the agent ends)
 //   Open   a RESUMABLE one  → ticket.sh open <worktree>: the worktree's own claude session, resumed in a pane
 //   Stop   a running session→ herdr session stop: every pane in it ends; Start brings back the agents it saved
 // Every call answers nil when it worked, else what failed with the command to run.
@@ -18,10 +19,54 @@ public enum HerdrControl {
     }
 
     /// Close one pane: its agent quits; the conversation stays in its transcript and can be opened again.
+    /// herdr will not close the last pane of a space that has linked worktrees ("closing this pane would close a
+    /// worktree group", and `pane close` has no way to confirm): there only the agent ends, and the pane stays a shell.
     public static func closePane(place: String) async -> String? {
         guard let (s, p) = split(place: place) else { return "cannot tell the session of \(place) — run:  herdr pane close <pane>" }
         let cmd = "herdr --session \(s) pane close \(p)"
-        return await Shell.run("herdr", ["--session", s, "pane", "close", p], timeout: 15) != nil ? nil : "herdr did not close \(place) — run:  \(cmd)"
+        guard let r = await Shell.capture("herdr", ["--session", s, "pane", "close", p], stderr: true, timeout: 15) else {
+            return "herdr did not answer — run:  \(cmd)"
+        }
+        if r.status == 0 { return nil }
+        let e = herdrError(r.out)
+        if e?.code == "confirmation_required" { return await endAgent(place: place) }
+        return "herdr did not close \(place)\(e.map { ": " + $0.message } ?? "") — run:  \(cmd)"
+    }
+
+    /// End a pane's agent and keep the pane: SIGHUP to its foreground process group (what closing the pane sends it),
+    /// so the shell under it stays. Only when that group is led by an agent, never the shell itself.
+    public static func endAgent(place: String) async -> String? {
+        guard let (s, p) = split(place: place) else { return "cannot tell the session of \(place)" }
+        let look = "herdr --session \(s) pane process-info --pane \(p)"
+        guard let json = await Shell.run("herdr", ["--session", s, "pane", "process-info", "--pane", p], timeout: 10),
+              let group = agentGroup(processInfo: json) else {
+            return "no agent runs in the foreground of \(place) — see what does:  \(look)"
+        }
+        return kill(-group, SIGHUP) == 0 ? nil : "could not end the agent in \(place) — run:  kill -HUP -\(group)"
+    }
+
+    /// herdr's JSON error (`{"error":{"code":…,"message":…}}`, on stderr) → its code and message.
+    static func herdrError(_ out: String) -> (code: String, message: String)? {
+        for line in out.split(separator: "\n") where line.hasPrefix("{") {
+            guard let d = try? JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any],
+                  let e = d["error"] as? [String: Any], let code = e["code"] as? String else { continue }
+            return (code, e["message"] as? String ?? code)
+        }
+        return nil
+    }
+
+    /// `herdr pane process-info` → the pane's foreground process group, when its leader is an agent (claude, codex):
+    /// nil when the shell is in the foreground or something else runs there.
+    static func agentGroup(processInfo json: String) -> pid_t? {
+        guard let d = try? JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any],
+              let info = (d["result"] as? [String: Any])?["process_info"] as? [String: Any],
+              let group = (info["foreground_process_group_id"] as? NSNumber)?.int32Value, group > 1,
+              group != (info["shell_pid"] as? NSNumber)?.int32Value,
+              let leader = (info["foreground_processes"] as? [[String: Any]])?
+                  .first(where: { ($0["pid"] as? NSNumber)?.int32Value == group }),
+              let argv0 = leader["argv0"] as? String,
+              ["claude", "codex"].contains((argv0 as NSString).lastPathComponent) else { return nil }
+        return group
     }
 
     /// Stop a whole session: its server and every pane in it.

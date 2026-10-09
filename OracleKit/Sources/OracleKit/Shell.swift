@@ -37,8 +37,9 @@ public enum Shell {
     }
 
     /// Like run, but answers when the tool fails too: its exit status and stdout (nil only when the tool is missing or
-    /// would not start), for a script that explains its failure on stdout. `env` adds to the environment.
-    public static func capture(_ tool: String, _ args: [String], env extra: [String: String] = [:],
+    /// would not start), for a script that explains its failure on stdout. `env` adds to the environment; `stderr`
+    /// folds stderr into the answer, for a tool that explains its failure there (herdr's JSON errors).
+    public static func capture(_ tool: String, _ args: [String], env extra: [String: String] = [:], stderr: Bool = false,
                                timeout: TimeInterval = 10) async -> (status: Int32, out: String)? {
         guard let path = which(tool) else { return nil }
         return await withCheckedContinuation { cont in
@@ -52,7 +53,7 @@ public enum Shell {
                 for k in env.keys where k.hasPrefix("HERDR_") { env[k] = nil }
                 for (k, v) in extra { env[k] = v }
                 p.environment = env
-                p.standardOutput = out; p.standardError = FileHandle.nullDevice   // an unread stderr pipe can fill and hang it
+                p.standardOutput = out; p.standardError = stderr ? out : FileHandle.nullDevice   // an unread stderr pipe can fill and hang it
                 do { try p.run() } catch { cont.resume(returning: nil); return }
                 DispatchQueue.global().asyncAfter(deadline: .now() + timeout) { if p.isRunning { p.terminate() } }
                 let data = out.fileHandleForReading.readDataToEndOfFile()
@@ -78,7 +79,7 @@ public enum Shell {
 public enum Shell {
     public static func which(_ tool: String) -> String? { nil }
     public static func run(_ tool: String, _ args: [String], timeout: TimeInterval = 10) async -> String? { nil }
-    public static func capture(_ tool: String, _ args: [String], env extra: [String: String] = [:],
+    public static func capture(_ tool: String, _ args: [String], env extra: [String: String] = [:], stderr: Bool = false,
                                timeout: TimeInterval = 10) async -> (status: Int32, out: String)? { nil }
 }
 #endif

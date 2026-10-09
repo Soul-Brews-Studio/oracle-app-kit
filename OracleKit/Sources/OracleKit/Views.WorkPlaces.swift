@@ -53,7 +53,8 @@ struct WorkPlaces: View {
                 Button("Cancel", role: .cancel) {}
             } message: {
                 let mine = stoppingMine.map { Self.livePanes(store.activity, session: $0.session) } ?? []
-                Text("Closes \(store.config.name)'s \(mine.count) pane(s) in \(stoppingMine?.session ?? ""): \(mine.joined(separator: ", ")). "
+                Text("Ends \(store.config.name)'s \(mine.count) agent(s) in \(stoppingMine?.session ?? ""): \(mine.joined(separator: ", ")). "
+                     + "Each pane closes, except the last one of a space that holds worktrees: herdr keeps that one, as a shell. "
                      + "Their conversations stay, and Resume brings them back — here, or in the session they were saved in. "
                      + "Everything else in \(stoppingMine?.session ?? "") keeps running. If you are talking to one of them, that conversation stops mid-reply.")
             }
