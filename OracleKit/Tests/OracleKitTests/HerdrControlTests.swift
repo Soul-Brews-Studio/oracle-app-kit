@@ -11,6 +11,45 @@ final class HerdrControlTests: XCTestCase {
         XCTAssertNil(HerdrControl.split(place: "w22:p1"))          // no session prefix: refuse rather than guess
     }
 
+    func testStopOracleClosesOnlyItsPanesInThatSession() {
+        let acts = [OracleSnapshot.Activity(title: "List email in repo", status: "idle", place: "default:wB3:p1"),
+                    OracleSnapshot.Activity(title: "issue #31", status: "idle", place: "default:wB6:p1"),
+                    OracleSnapshot.Activity(title: "other session", status: "working", place: "board-lab:w2:p1")]
+        XCTAssertEqual(WorkPlaces.livePanes(acts, session: "default"), ["default:wB3:p1", "default:wB6:p1"])
+        XCTAssertEqual(WorkPlaces.livePanes(acts, session: "board-lab"), ["board-lab:w2:p1"])
+        XCTAssertTrue(WorkPlaces.livePanes(acts, session: "laris-co").isEmpty)              // nothing there: no Stop button
+        XCTAssertTrue(WorkPlaces.livePanes(acts, session: "default-2").isEmpty)             // a prefix of a name is not the session
+    }
+
+    // herdr 0.9.1 on m5, 2026-10-09: Stop on Transcriber's main pane — the last pane of a space with linked worktrees
+    func testHerdrErrorReadsTheWorktreeGroupRefusal() {
+        let out = #"{"error":{"code":"confirmation_required","message":"closing this pane would close a worktree group"},"id":"cli:pane:close"}"# + "\n"
+        XCTAssertEqual(HerdrControl.herdrError(out)?.code, "confirmation_required")
+        XCTAssertEqual(HerdrControl.herdrError(out)?.message, "closing this pane would close a worktree group")
+        XCTAssertNil(HerdrControl.herdrError(""))
+        XCTAssertNil(HerdrControl.herdrError(#"{"id":"cli:pane:close","result":{}}"#))
+    }
+
+    func testAgentGroupIsOnlyAnAgentLeadingTheForeground() {
+        func info(group: Int, argv0: String) -> String {
+            #"{"id":"cli:pane:process_info","result":{"process_info":{"pane_id":"w18:p1","shell_pid":61268,"foreground_process_group_id":\#(group),"foreground_processes":[{"pid":29886,"argv0":"bun","name":"bun"},{"pid":\#(group),"argv0":"\#(argv0)","name":"2.1.295"}]}}}"#
+        }
+        XCTAssertEqual(HerdrControl.agentGroup(processInfo: info(group: 28921, argv0: "claude")), 28921)
+        XCTAssertEqual(HerdrControl.agentGroup(processInfo: info(group: 4242, argv0: "/opt/homebrew/bin/codex")), 4242)
+        XCTAssertNil(HerdrControl.agentGroup(processInfo: info(group: 61268, argv0: "-zsh")))   // the shell itself: never signal it
+        XCTAssertNil(HerdrControl.agentGroup(processInfo: info(group: 5151, argv0: "vim")))     // not an agent
+        XCTAssertNil(HerdrControl.agentGroup(processInfo: "not json"))
+    }
+
+    func testForegroundNameIsNilOnlyForTheIdleShell() {
+        func info(group: Int, argv0: String) -> String {
+            #"{"result":{"process_info":{"shell_pid":61268,"foreground_process_group_id":\#(group),"foreground_processes":[{"pid":\#(group),"argv0":"\#(argv0)"}]}}}"#
+        }
+        XCTAssertNil(HerdrControl.foregroundName(processInfo: info(group: 61268, argv0: "-zsh")))           // idle: the space may close
+        XCTAssertEqual(HerdrControl.foregroundName(processInfo: info(group: 7001, argv0: "/opt/homebrew/bin/bun")), "bun")   // a server: it stays
+        XCTAssertNotNil(HerdrControl.foregroundName(processInfo: "not json"))                              // unknown: never close
+    }
+
     func testTicketShAnswerOkIsNil() {
         XCTAssertNil(HerdrControl.outcome(status: 0, json: #"{"ok":true,"live":false,"pane":"wB:p1"}"#, command: "x"))
     }

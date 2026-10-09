@@ -168,7 +168,7 @@ public struct OracleRootView: View {
                 if wasEmpty, !isEmpty {
                     let dx = drawerWidth + DrawerHandle.width; Drawer.grow(by: dx); drawerGrown += dx
                     escMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { e in   // esc closes the ACTIVE pane
-                        if LiveTerminal.typing { return e }   // …unless you are typing into a pane: then esc is the agent's
+                        if LiveTerminal.typing { return e }   // …unless you are typing into a pane: then esc is the agent's, ⌘⎋ the page's
                         if e.keyCode == 53, drawerFull { withAnimation(.easeOut(duration: 0.15)) { drawerFull = false }; return nil }   // full screen first
                         if e.keyCode == 53, openPane != nil { openPane = nil; return nil }
                         return e
@@ -179,6 +179,14 @@ public struct OracleRootView: View {
                     Drawer.grow(by: -drawerGrown); drawerGrown = 0   // give back exactly what it took
                     if let m = escMonitor { NSEvent.removeMonitor(m); escMonitor = nil }
                 }
+            }
+            // ⌘⎋ while typing into a pane: its keys came back; now this page's esc in the same press — full screen first,
+            // else close the pane that was typed into (the active one if it is not in the drawer)
+            .onReceive(NotificationCenter.default.publisher(for: LiveTerminal.escapeNotification)) { n in
+                guard !openPanes.isEmpty else { return }
+                if drawerFull { withAnimation(.easeOut(duration: 0.15)) { drawerFull = false }; return }
+                if let place = n.object as? String, place != openPane, openPanes.contains(place) { openPanes.removeAll { $0 == place }; return }
+                openPane = nil
             }
             .onChange(of: section) { old, s in
                 if s != .status { openPanes = []; openPane = nil }
