@@ -29,6 +29,7 @@ struct WorkView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 26) {
                 WorkHero(acts: store.activity, color: c.color)
+                WorkPlaces(store: store)
                 if !live.isEmpty {
                     block("LIVE", live.count) {
                         ForEach(live) { w in
@@ -99,7 +100,11 @@ struct WorkView: View {
 
     @ViewBuilder private var emptyNote: some View {
         #if os(macOS)
-        Text("Nothing from maw herdr ls for \(c.localPath)").foregroundStyle(.secondary)
+        if let p = store.places.first(where: { !$0.running }) {
+            Text("Nothing running here: \(p.session) is \(HerdrPlaces.stoppedSince(p.savedAt)). Start it above.").foregroundStyle(.secondary)
+        } else {
+            Text("Nothing from maw herdr ls for \(c.localPath)").foregroundStyle(.secondary)
+        }
         #else
         Text("Work is read from herdr on the Mac.").foregroundStyle(.secondary)
         #endif

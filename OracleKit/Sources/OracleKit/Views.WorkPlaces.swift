@@ -1,0 +1,73 @@
+#if os(macOS)
+import SwiftUI
+
+/// Work page strip (#116): the herdr sessions that hold this oracle's spaces, shown when one of them is stopped
+/// (after a reboot only `default` comes back). Running ones by name; stopped ones with when they stopped, what they
+/// saved, and Start. A saved agent already live in another pane is named, and Start asks first: herdr would resume
+/// it, and one conversation would run in two panes.
+struct WorkPlaces: View {
+    @ObservedObject var store: OracleStore
+    @State private var asking: SessionPlace?
+    @State private var busy: String?
+    @State private var error: String?
+
+    var body: some View {
+        if store.places.contains(where: { !$0.running }) {
+            VStack(alignment: .leading, spacing: 8) {
+                WorkFormat.header("LIVES IN", store.places.count, note: "herdr sessions with this repo's spaces")
+                ForEach(store.places) { row($0) }
+                if let error { Text(error).font(.system(size: 11)).foregroundStyle(.orange).textSelection(.enabled) }
+            }
+            .confirmationDialog("Start \(asking?.session ?? "")?", isPresented: Binding(get: { asking != nil }, set: { if !$0 { asking = nil } }),
+                                titleVisibility: .visible) {
+                Button("Start anyway — opens \(asking?.alreadyLive.count ?? 0) conversation(s) twice", role: .destructive) {
+                    if let p = asking { start(p) }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text(Self.liveWarning(asking))
+            }
+        }
+    }
+
+    private func row(_ p: SessionPlace) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 8) {
+                Circle().fill(p.running ? Color.green : Color.secondary.opacity(0.5)).frame(width: 7, height: 7)
+                Text(p.session).font(.system(size: 13, weight: .semibold))
+                Text(p.running ? "running" : HerdrPlaces.stoppedSince(p.savedAt)).font(.system(size: 12)).foregroundStyle(.secondary)
+                Text(p.spaces.joined(separator: " · ")).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1)
+                if !p.agents.isEmpty {
+                    Text("\(p.agents.count) agent\(p.agents.count == 1 ? "" : "s")").font(.system(size: 12)).foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 8)
+                if !p.running {
+                    Button(busy == p.session ? "Starting…" : "Start \(p.session)") {
+                        if p.alreadyLive.isEmpty { start(p) } else { asking = p }
+                    }
+                    .disabled(busy != nil)
+                    .help("herdr --session \(p.session) server — herdr resumes the agents it saved")
+                }
+            }
+            if !p.running, !p.alreadyLive.isEmpty {
+                Text("! " + Self.liveWarning(p)).font(.system(size: 11)).foregroundStyle(.orange).padding(.leading, 15)
+            }
+        }
+    }
+
+    private func start(_ p: SessionPlace) {
+        busy = p.session; error = nil
+        Task {
+            error = await HerdrPlaces.start(p.session)
+            busy = nil
+            await store.refresh()
+        }
+    }
+
+    static func liveWarning(_ p: SessionPlace?) -> String {
+        guard let p, !p.alreadyLive.isEmpty else { return "" }
+        let who = p.alreadyLive.map { $0.name.isEmpty ? String($0.sessionId.prefix(8)) : $0.name }.joined(separator: ", ")
+        return "\(who) already live in another pane: starting \(p.session) resumes it a second time"
+    }
+}
+#endif
