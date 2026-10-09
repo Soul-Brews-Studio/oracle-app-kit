@@ -286,13 +286,15 @@ struct SessionList<LocalRow: View>: View {
     private func header(_ name: String, places: [RemoteParse.Place]) -> some View {
         let on = places.filter(running).count
         let machines = places.map(machine)
-        return Button {
-            var f = folded; if f.contains(name) { f.remove(name) } else { f.insert(name) }
-            foldedList = f.sorted().joined(separator: ",")
-        } label: {
+        return Button { pick = .group(name) } label: {   // the name: its machines as cards; the chevron folds the rows
             HStack(spacing: 7) {
                 Image(systemName: folded.contains(name) ? "chevron.right" : "chevron.down")
                     .font(.system(size: 9, weight: .semibold)).foregroundStyle(.tertiary).frame(width: 10)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        var f = folded; if f.contains(name) { f.remove(name) } else { f.insert(name) }
+                        foldedList = f.sorted().joined(separator: ",")
+                    }
                 Text(name).font(.custom("Avenir Next", size: 14).weight(.semibold)).lineLimit(1)
                 Spacer(minLength: 4)
                 Text(name == "default" ? "per machine" : "\(places.count) places").font(.system(size: 11)).foregroundStyle(.tertiary)
