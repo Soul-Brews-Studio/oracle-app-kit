@@ -289,9 +289,11 @@ public final class HubStore: ObservableObject {
     /// untouched. herdr relaunches each recorded agent resumed; Show in herdr / Open in WezTerm attach later.
     /// nil once the server answers (≤10 s); otherwise the command to run.
     public func startSession(_ name: String) async -> String? {
-        let err = await HerdrPlaces.start(name)   // shared with the oracle apps' Start (#116)
+        // never resume a conversation twice: one already live elsewhere comes back as a shell (session.json backed up first)
+        let r = await HerdrPlaces.startSkippingLive(name: name, dir: sessions.first(where: { $0.name == name })?.dir)
+        if let n = HerdrPlaces.skippedNote(name, r.skipped, backup: r.backup) { autostartHeld = Array((autostartHeld + [n]).suffix(3)) }
         await refresh()
-        return err
+        return r.error
     }
 
     /// Which agents a reopen brings back. herdr (0.9.1) saves each pane's `agent_session` when the session stops

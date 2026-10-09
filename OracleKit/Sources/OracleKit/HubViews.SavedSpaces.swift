@@ -41,9 +41,9 @@ struct SavedSpacesTable: View {
             HStack(spacing: 6) {
                 ForEach(r.agents, id: \.sessionId) { a in
                     let dup = live.contains(a.sessionId)
-                    Text((a.name.isEmpty ? a.agent : "\(a.agent) \(a.name)") + (dup ? " · already live" : ""))
+                    Text((a.name.isEmpty ? a.agent : "\(a.agent) \(a.name)") + (dup ? " · live elsewhere, Start skips it" : ""))
                         .font(.caption).foregroundStyle(dup ? Color.orange : Color.primary).lineLimit(1)
-                        .help(dup ? "This conversation runs in another pane now; Start would resume it a second time" : "resumes \(a.sessionId)")
+                        .help(dup ? "This conversation runs in another pane now; Start skips it and its pane comes back as a shell" : "resumes \(a.sessionId)")
                 }
             }
         }
