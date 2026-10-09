@@ -126,8 +126,8 @@ public final class OracleStore: ObservableObject {
         }
     }
 
-    /// Bring a worktree's herdr space to Nat: focus it in herdr, then move its WezTerm window to the main
-    /// display and focus it (the ARRA Oracles path — WezTerm.show).
+    /// Bring a worktree's herdr space to Nat: focus it in herdr, then move its WezTerm window to the display
+    /// this app is on and focus it (the ARRA Oracles path — WezTerm.show).
     public func bringToMain(_ item: WorkItem) {
         let space = spaces.first { $0.checkout == item.path || (item.isMain && $0.checkout == nil && $0.label == item.folder) }
             ?? item.panes.first.flatMap { p in spaces.first { s in s.panes.contains { $0.place == p.place } } }

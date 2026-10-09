@@ -108,12 +108,13 @@ public enum WezTerm {
         return displays.first { ($0["index"] as? Int) == index }?["id"] as? Int
     }
 
-    /// Move a window to the main display (the one at the origin), centred on its visible space, and focus it.
+    /// Move a window to the display THIS app's window is on — "bring here" means here (Nat, 2026-10-09: "it should
+    /// same the display of app") — centred on that display's visible space, and focus it. With no app window on screen,
+    /// the main display (the one at the origin).
     static func bringToMain(_ id: Int) async {
+        let appDisplay = await MainActor.run { hubDisplayID() }
         guard let displays = await yabaiJSON(["--displays"]) as? [[String: Any]],
-              let main = displays.first(where: { d in
-                  let f = d["frame"] as? [String: Double]; return f?["x"] == 0 && f?["y"] == 0
-              }) ?? displays.first(where: { ($0["index"] as? Int) == 1 }),
+              let main = Self.target(displays, appDisplay: appDisplay),
               let index = main["index"] as? Int, let frame = main["frame"] as? [String: Double],
               let spaces = await yabaiJSON(["--spaces", "--display", String(index)]) as? [[String: Any]],
               let here = spaces.first(where: { ($0["is-visible"] as? Bool) == true })?["index"] as? Int,
@@ -128,6 +129,14 @@ public enum WezTerm {
             }
         }
         _ = await Shell.run("yabai", ["-m", "window", String(id), "--focus"])
+    }
+
+    /// Which yabai display "bring here" aims at: the one whose CGDirectDisplayID (`id`) is the app window's screen,
+    /// else the main display (frame at the origin), else display 1.
+    static func target(_ displays: [[String: Any]], appDisplay: Int?) -> [String: Any]? {
+        if let appDisplay, let d = displays.first(where: { ($0["id"] as? Int) == appDisplay }) { return d }
+        return displays.first(where: { d in let f = d["frame"] as? [String: Double]; return f?["x"] == 0 && f?["y"] == 0 })
+            ?? displays.first(where: { ($0["index"] as? Int) == 1 })
     }
 
     static func yabaiJSON(_ query: [String]) async -> Any? {
