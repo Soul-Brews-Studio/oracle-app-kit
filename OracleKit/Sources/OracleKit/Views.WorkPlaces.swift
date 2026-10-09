@@ -54,7 +54,7 @@ struct WorkPlaces: View {
             } message: {
                 let mine = stoppingMine.map { Self.livePanes(store.activity, session: $0.session) } ?? []
                 Text("Ends \(store.config.name)'s \(mine.count) agent(s) in \(stoppingMine?.session ?? ""): \(mine.joined(separator: ", ")). "
-                     + "Each pane closes, except the last one of a space that holds worktrees: herdr keeps that one, as a shell. "
+                     + "Then each of its spaces there that holds only idle shells closes, worktree spaces first; a space where something still runs stays. "
                      + "Their conversations stay, and Resume brings them back — here, or in the session they were saved in. "
                      + "Everything else in \(stoppingMine?.session ?? "") keeps running. If you are talking to one of them, that conversation stops mid-reply.")
             }
@@ -103,13 +103,19 @@ struct WorkPlaces: View {
         }
     }
 
-    /// Close this oracle's live panes in one session; the session itself keeps running.
+    /// End this oracle's agents in one session, then close its spaces there that hold only idle shells (worktree
+    /// spaces first, then the parent). The session itself keeps running.
     private func stopMine(_ p: SessionPlace) {
         let panes = Self.livePanes(store.activity, session: p.session)
-        run(p) {
+        busy = p.session; error = nil; note = nil
+        Task {
             var failed: [String] = []
             for place in panes { if let e = await HerdrControl.closePane(place: place) { failed.append(e) } }
-            return failed.isEmpty ? nil : failed.joined(separator: "\n")
+            await store.refresh()   // the spaces as they are now, without those agents
+            note = await HerdrControl.closeIdleSpaces(store.spaces, session: p.session)
+            error = failed.isEmpty ? nil : failed.joined(separator: "\n")
+            busy = nil
+            await store.refresh()
         }
     }
 

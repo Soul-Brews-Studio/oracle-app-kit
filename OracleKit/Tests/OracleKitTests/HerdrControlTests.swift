@@ -41,6 +41,15 @@ final class HerdrControlTests: XCTestCase {
         XCTAssertNil(HerdrControl.agentGroup(processInfo: "not json"))
     }
 
+    func testForegroundNameIsNilOnlyForTheIdleShell() {
+        func info(group: Int, argv0: String) -> String {
+            #"{"result":{"process_info":{"shell_pid":61268,"foreground_process_group_id":\#(group),"foreground_processes":[{"pid":\#(group),"argv0":"\#(argv0)"}]}}}"#
+        }
+        XCTAssertNil(HerdrControl.foregroundName(processInfo: info(group: 61268, argv0: "-zsh")))           // idle: the space may close
+        XCTAssertEqual(HerdrControl.foregroundName(processInfo: info(group: 7001, argv0: "/opt/homebrew/bin/bun")), "bun")   // a server: it stays
+        XCTAssertNotNil(HerdrControl.foregroundName(processInfo: "not json"))                              // unknown: never close
+    }
+
     func testTicketShAnswerOkIsNil() {
         XCTAssertNil(HerdrControl.outcome(status: 0, json: #"{"ok":true,"live":false,"pane":"wB:p1"}"#, command: "x"))
     }
