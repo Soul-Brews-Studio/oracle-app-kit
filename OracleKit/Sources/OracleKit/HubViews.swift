@@ -34,6 +34,7 @@ public struct HubScene: Scene {
 struct HubRootView: View {
     @ObservedObject var store: HubStore
     @Binding var menuBar: Bool
+    @State private var jumping = false   // the ⌘K switcher
     @State private var pick: HubPick = UserDefaults.standard.string(forKey: "hubSession").map { HubPick.session($0) }   // -hubSession <name> (tests)
         ?? UserDefaults.standard.string(forKey: "hubRemote").flatMap { s -> HubPick? in   // -hubRemote <target>|<session> (tests)
             let p = s.split(separator: "|").map(String.init)
@@ -98,8 +99,17 @@ struct HubRootView: View {
                 }
             }
         }
-        .background {   // ⌘K: search, from anywhere in the hub
-            Button("") { pick = .search; focusTick += 1 }.keyboardShortcut("k", modifiers: .command).opacity(0).allowsHitTesting(false)
+        .background {   // ⌘K: jump to an oracle or a session; ⌘F: search issues, PRs and notes (Nat, 2026-10-09)
+            Button("") { jumping = true }.keyboardShortcut("k", modifiers: .command).opacity(0).allowsHitTesting(false)
+            Button("") { pick = .search; focusTick += 1 }.keyboardShortcut("f", modifiers: .command).opacity(0).allowsHitTesting(false)
+        }
+        .sheet(isPresented: $jumping) {
+            HubJumpPalette(store: store) { j in
+                switch j {
+                case .session(let name, _): pick = .session(name)
+                case .oracle(_, _, let session, let key): if let session { pick = .session(session) } else { store.openApp(key) }
+                }
+            }
         }
         .onAppear { store.start() }
         .task {   // keep the ANE index fresh in the background: on launch when it is missing or older than 6 h
