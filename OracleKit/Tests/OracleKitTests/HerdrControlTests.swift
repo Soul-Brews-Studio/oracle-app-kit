@@ -11,6 +11,16 @@ final class HerdrControlTests: XCTestCase {
         XCTAssertNil(HerdrControl.split(place: "w22:p1"))          // no session prefix: refuse rather than guess
     }
 
+    func testStopOracleClosesOnlyItsPanesInThatSession() {
+        let acts = [OracleSnapshot.Activity(title: "List email in repo", status: "idle", place: "default:wB3:p1"),
+                    OracleSnapshot.Activity(title: "issue #31", status: "idle", place: "default:wB6:p1"),
+                    OracleSnapshot.Activity(title: "other session", status: "working", place: "board-lab:w2:p1")]
+        XCTAssertEqual(WorkPlaces.livePanes(acts, session: "default"), ["default:wB3:p1", "default:wB6:p1"])
+        XCTAssertEqual(WorkPlaces.livePanes(acts, session: "board-lab"), ["board-lab:w2:p1"])
+        XCTAssertTrue(WorkPlaces.livePanes(acts, session: "laris-co").isEmpty)              // nothing there: no Stop button
+        XCTAssertTrue(WorkPlaces.livePanes(acts, session: "default-2").isEmpty)             // a prefix of a name is not the session
+    }
+
     func testTicketShAnswerOkIsNil() {
         XCTAssertNil(HerdrControl.outcome(status: 0, json: #"{"ok":true,"live":false,"pane":"wB:p1"}"#, command: "x"))
     }
