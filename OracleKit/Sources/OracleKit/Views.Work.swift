@@ -16,7 +16,13 @@ struct WorkView: View {
     @State private var showCold = true          // open: a cold list on view is a list that gets cleaned up
     @State private var copiedPlan = false
     @State private var copied: String?
+    @State private var actionError: String?     // what a Close / Open answered when it failed, with the command
     private var c: OracleConfig { store.config }
+
+    /// Run a herdr action from a card, then refresh; keep its error on the page.
+    private func act(_ f: @escaping () async -> String?) {
+        Task { actionError = await f(); await store.refresh() }
+    }
 
     var body: some View {
         let work = store.work
@@ -30,10 +36,14 @@ struct WorkView: View {
             VStack(alignment: .leading, spacing: 26) {
                 WorkHero(acts: store.activity, color: c.color)
                 WorkPlaces(store: store)
+                if let e = actionError {
+                    Text(e).font(.system(size: 11)).foregroundStyle(.orange).textSelection(.enabled)
+                }
                 if !live.isEmpty {
                     block("LIVE", live.count) {
                         ForEach(live) { w in
                             LiveCard(item: w, config: c, twins: twins, home: home, copied: $copied, openPane: openPane,
+                                     close: { place in act { await HerdrControl.closePane(place: place) } },
                                      shells: panesOf(w, store: store).filter { p in !w.panes.contains { $0.place == p } }) {
                                 #if os(macOS)
                                 store.bringToMain(w)
@@ -46,7 +56,10 @@ struct WorkView: View {
                 if !resumable.isEmpty {
                     block("RESUMABLE", resumable.count) {
                         VStack(alignment: .leading, spacing: 2) {
-                            ForEach(allResumable ? resumable : Array(resumable.prefix(6))) { TreeRow(item: $0, config: c, copied: $copied) }
+                            ForEach(allResumable ? resumable : Array(resumable.prefix(6))) { w in
+                                TreeRow(item: w, config: c, copied: $copied,
+                                        open: w.isMain ? nil : { act { await HerdrControl.open(worktree: w.path, repo: c.localPath) } })
+                            }
                         }
                         if resumable.count > 6 {
                             Button(allResumable ? "show less" : "\(resumable.count - 6) more") { allResumable.toggle() }.handCursor()
@@ -136,8 +149,10 @@ struct LiveCard: View {
     let item: WorkItem; let config: OracleConfig; let twins: [String: String]; let home: String
     @Binding var copied: String?
     var openPane: Binding<String?> = .constant(nil)
+    var close: ((String) -> Void)? = nil  // close one pane (its agent quits; the conversation stays resumable)
     var shells: [String] = []          // plain shell panes of this worktree's herdr space
     var bring: () -> Void = {}
+    @State private var closing: String?
     var body: some View {
         VStack(alignment: .leading, spacing: 9) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -166,6 +181,11 @@ struct LiveCard: View {
                     }
                     Spacer(minLength: 6)
                     if let s = p.since { Text(WorkFormat.ago(s)).font(.caption.monospacedDigit()).foregroundStyle(.secondary) }
+                    if close != nil {
+                        Button { closing = p.place } label: { Image(systemName: "xmark").font(.caption2) }
+                            .buttonStyle(.borderless).foregroundStyle(.secondary).handCursor()
+                            .help("Close this pane: its agent quits, its conversation stays under RESUMABLE")
+                    }
                     Image(systemName: openPane.wrappedValue == p.place ? "chevron.right.circle.fill" : "chevron.right")
                         .font(.caption).foregroundStyle(openPane.wrappedValue == p.place ? config.color : Color.secondary.opacity(0.6))
                 }
@@ -204,6 +224,14 @@ struct LiveCard: View {
             #endif
             WorkMenu(item: item, repo: config.repoSlug, copied: $copied)
         }
+        .confirmationDialog("Close \(closing.map { WorkFormat.pane($0, home: home) } ?? "")?",
+                            isPresented: Binding(get: { closing != nil }, set: { if !$0 { closing = nil } }), titleVisibility: .visible) {
+            Button("Close — its agent quits", role: .destructive) { if let p = closing { close?(p) } }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Its conversation stays: it shows under RESUMABLE, where Open brings it back. "
+                 + "If this is the pane you are talking to, that conversation stops mid-reply.")
+        }
     }
 }
 
@@ -211,6 +239,7 @@ struct LiveCard: View {
 struct TreeRow: View {
     let item: WorkItem; let config: OracleConfig
     @Binding var copied: String?
+    var open: (() -> Void)? = nil     // resume its own session in a pane (ticket.sh open); nil: copy the command instead
     var body: some View {
         HStack(spacing: 10) {
             Text(item.slug).lineLimit(1).truncationMode(.middle)
@@ -218,7 +247,11 @@ struct TreeRow: View {
             Spacer(minLength: 8)
             Text(item.born.map(WorkFormat.ago) ?? "").font(.callout.monospacedDigit()).foregroundStyle(.secondary)
                 .frame(width: 44, alignment: .trailing)
-            if let cmd = item.resumeCommand {
+            if let open, let cmd = item.resumeCommand {
+                Button("open", action: open).handCursor()
+                    .buttonStyle(.borderless).help("Resume this worktree's own session in a herdr pane — \(cmd)")
+                    .frame(width: 64, alignment: .trailing)
+            } else if let cmd = item.resumeCommand {
                 Button(copied == item.id ? "copied" : "resume") { WorkFormat.copy(cmd); copied = item.id }.handCursor()
                     .buttonStyle(.borderless).help(cmd)
                     .frame(width: 64, alignment: .trailing)

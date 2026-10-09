@@ -8,11 +8,12 @@ import SwiftUI
 struct WorkPlaces: View {
     @ObservedObject var store: OracleStore
     @State private var asking: SessionPlace?
+    @State private var stopping: SessionPlace?
     @State private var busy: String?
     @State private var error: String?
 
     var body: some View {
-        if store.places.contains(where: { !$0.running }) {
+        if !store.places.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
                 WorkFormat.header("LIVES IN", store.places.count, note: "herdr sessions with this repo's spaces")
                 ForEach(store.places) { row($0) }
@@ -26,6 +27,16 @@ struct WorkPlaces: View {
                 Button("Cancel", role: .cancel) {}
             } message: {
                 Text(Self.liveWarning(asking))
+            }
+            .confirmationDialog("Stop \(stopping?.session ?? "")?", isPresented: Binding(get: { stopping != nil }, set: { if !$0 { stopping = nil } }),
+                                titleVisibility: .visible) {
+                Button("Stop — every pane in it ends", role: .destructive) {
+                    if let p = stopping { run(p, "Stopping…") { await HerdrControl.stopSession(p.session) } }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("\(stopping?.spaces.count ?? 0) space(s) of this repo and every other pane in \(stopping?.session ?? "") end. "
+                     + "Start brings back the agents it saves. If you are talking to an agent in it, that conversation stops mid-reply.")
             }
         }
     }
@@ -47,6 +58,10 @@ struct WorkPlaces: View {
                     }
                     .disabled(busy != nil)
                     .help("herdr --session \(p.session) server — herdr resumes the agents it saved")
+                } else {
+                    Button(busy == p.session ? "Stopping…" : "Stop") { stopping = p }
+                        .buttonStyle(.borderless).foregroundStyle(.secondary).disabled(busy != nil)
+                        .help("herdr session stop \(p.session) — asks first")
                 }
             }
             if !p.running, !p.alreadyLive.isEmpty {
@@ -55,10 +70,12 @@ struct WorkPlaces: View {
         }
     }
 
-    private func start(_ p: SessionPlace) {
+    private func start(_ p: SessionPlace) { run(p, "Starting…") { await HerdrPlaces.start(p.session) } }
+
+    private func run(_ p: SessionPlace, _ label: String, _ f: @escaping () async -> String?) {
         busy = p.session; error = nil
         Task {
-            error = await HerdrPlaces.start(p.session)
+            error = await f()
             busy = nil
             await store.refresh()
         }
