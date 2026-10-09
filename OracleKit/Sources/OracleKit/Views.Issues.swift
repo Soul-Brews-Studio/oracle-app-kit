@@ -12,19 +12,23 @@ enum PickUp {
         inWorktree ? [Item(label: "Open session", action: .open)]
                    : [Item(label: "Pick up", action: .agent), Item(label: "Pick up as a one-shot", action: .oneshot)]
     }
+    /// The fallback when the installed maw has no `herdr ticket` verb yet (maw-herdr-plugin before #118).
     static var script: String { NSHomeDirectory() + "/.claude/skills/herdr-ticket/ticket.sh" }
-    /// What a click runs, minus `bash <script>`: also the tooltip, so the human can run it by hand.
-    static func command(_ action: Action, issue n: Int) -> String {
+    static func words(_ action: Action, issue n: Int) -> [String] {
         switch action {
-        case .agent: return "ticket.sh pick \(n)"
-        case .oneshot: return "ticket.sh pick \(n) --oneshot"
-        case .open: return "ticket.sh open \(n)"
+        case .agent: return ["pick", "\(n)"]
+        case .oneshot: return ["pick", "\(n)", "--oneshot"]
+        case .open: return ["open", "\(n)"]
         }
     }
+    /// What a click runs: also the tooltip, so the human can run it by hand.
+    static func command(_ action: Action, issue n: Int) -> String {
+        "maw herdr ticket " + words(action, issue: n).joined(separator: " ")
+    }
+    /// The script path, then the ticket arguments (`dropFirst()` gives what `maw herdr ticket` takes).
     /// `session` = the herdr server the oracle's panes live on; the script must not trust an inherited socket instead.
     static func arguments(_ action: Action, issue n: Int, repo: String, session: String = "") -> [String] {
-        [script] + command(action, issue: n).split(separator: " ").dropFirst().map(String.init) + ["--repo", repo]
-            + (session.isEmpty ? [] : ["--session", session]) + ["--json"]
+        [script] + words(action, issue: n) + ["--repo", repo] + (session.isEmpty ? [] : ["--session", session]) + ["--json"]
     }
     /// The script's one JSON line: where the agent is (`herdr` session + pane → a drawer place), a worktree that already
     /// exists without a live agent, or why not + the fix.
@@ -45,11 +49,10 @@ enum PickUp {
     #if os(macOS)
     /// `session` is the herdr server the oracle's panes live on (HERDR_SESSION for every herdr call the script makes).
     static func run(_ action: Action, issue n: Int, repo: String, session: String) async -> Outcome {
-        guard FileManager.default.fileExists(atPath: script) else {
-            return .failed("the /herdr-ticket skill is not installed on this Mac\nnpx skills@latest add nat-build-with-oracle/skills")
-        }
-        guard let r = await Shell.capture("bash", arguments(action, issue: n, repo: repo, session: session), timeout: 120) else {
-            return .failed("bash would not start\nbash \(script) pick \(n) --repo \(repo)")
+        let args = Array(arguments(action, issue: n, repo: repo, session: session).dropFirst())
+        guard let r = await HerdrControl.ticket(args, timeout: 120) else {
+            return .failed("neither `maw herdr ticket` nor the /herdr-ticket script answered\n"
+                           + "git -C ~/.maw/plugins/herdr pull --ff-only   # maw-herdr-plugin with the ticket verb")
         }
         let o = outcome(status: r.status, json: r.out)
         // an issue that already has a worktree but no live agent: open its session instead

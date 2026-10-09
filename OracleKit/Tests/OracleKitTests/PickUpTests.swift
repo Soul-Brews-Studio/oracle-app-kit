@@ -17,7 +17,7 @@ final class PickUpTests: XCTestCase {
         XCTAssertEqual(PickUp.arguments(.oneshot, issue: 4, repo: "/r/m").dropFirst(), ["pick", "4", "--oneshot", "--repo", "/r/m", "--json"])
         XCTAssertEqual(PickUp.arguments(.open, issue: 7, repo: "/r/m").dropFirst(), ["open", "7", "--repo", "/r/m", "--json"])
         XCTAssertTrue(PickUp.arguments(.agent, issue: 4, repo: "/r/m")[0].hasSuffix("/.claude/skills/herdr-ticket/ticket.sh"))
-        XCTAssertEqual(PickUp.command(.oneshot, issue: 4), "ticket.sh pick 4 --oneshot")
+        XCTAssertEqual(PickUp.command(.oneshot, issue: 4), "maw herdr ticket pick 4 --oneshot")
         // the oracle's herdr server is named, so an inherited HERDR_SOCKET_PATH cannot send the worktree elsewhere
         XCTAssertEqual(PickUp.arguments(.agent, issue: 4, repo: "/r/m", session: "default").dropFirst(),
                        ["pick", "4", "--repo", "/r/m", "--session", "default", "--json"])

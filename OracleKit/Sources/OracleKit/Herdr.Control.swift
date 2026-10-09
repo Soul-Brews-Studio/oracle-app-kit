@@ -33,15 +33,27 @@ public enum HerdrControl {
     /// Open a resumable worktree: `ticket.sh open <worktree> --json` resumes its own claude session in a pane
     /// (and refuses when that session is open somewhere else: no second writer).
     public static func open(worktree path: String, repo: String) async -> String? {
-        let script = NSHomeDirectory() + "/.claude/skills/herdr-ticket/ticket.sh"
-        let cmd = "bash \(script) open \(path) --repo \(repo)"
-        guard FileManager.default.isExecutableFile(atPath: "/bin/bash"), FileManager.default.fileExists(atPath: script) else {
-            return "ticket.sh is missing — run:  \(cmd)"
+        let cmd = "maw herdr ticket open \(path) --repo \(repo)"
+        guard let r = await ticket(["open", path, "--repo", repo, "--json"]) else {
+            return "neither `maw herdr ticket` nor the /herdr-ticket script answered — run:  \(cmd)"
         }
-        guard let (status, out) = await Shell.capture("bash", [script, "open", path, "--repo", repo, "--json"]) else {
-            return "could not run ticket.sh — run:  \(cmd)"
+        return outcome(status: r.status, json: r.out, command: cmd)
+    }
+
+    /// The old home of /herdr-ticket's script: the fallback while an installed maw lacks the `herdr ticket` verb.
+    static var ticketScript: String { NSHomeDirectory() + "/.claude/skills/herdr-ticket/ticket.sh" }
+
+    /// Run /herdr-ticket with these arguments: `maw herdr ticket …` (the script ships with maw-herdr-plugin), else
+    /// the old script by path. With `--json` either answers one JSON object on stdout; an answer that is not one
+    /// (an older maw: "unknown command") falls through to the script. nil when neither ran.
+    public static func ticket(_ args: [String], timeout: TimeInterval = 60) async -> (status: Int32, out: String)? {
+        if let r = await Shell.capture("maw", ["herdr", "ticket"] + args, timeout: timeout),
+           r.out.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("{") {
+            return (r.status, r.out)
         }
-        return outcome(status: status, json: out, command: cmd)
+        guard FileManager.default.fileExists(atPath: ticketScript),
+              let r = await Shell.capture("bash", [ticketScript] + args, timeout: timeout) else { return nil }
+        return (r.status, r.out)
     }
 
     /// ticket.sh's --json answer → nil on {"ok":true}, else its error and first fix (or the command).
