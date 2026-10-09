@@ -24,7 +24,7 @@ struct HubSidebar: View {
             NavRow(symbol: "square.grid.2x2", title: "All oracles", badge: "\(store.oracles.count)",
                    on: pick == .all, accent: HubStyle.accent) { pick = .all }
                 .padding(.horizontal, 12)
-            NavRow(symbol: "sparkle.magnifyingglass", title: "Search issues & PRs", badge: "⌘K",
+            NavRow(symbol: "sparkle.magnifyingglass", title: "Search issues & PRs", badge: "⌘F",
                    on: pick == .search, accent: HubStyle.accent) { pick = .search }
                 .padding(.horizontal, 12)
             NavRow(symbol: "list.bullet.rectangle", title: "Trace", badge: nil, on: pick == .trace, accent: HubStyle.accent, sub: true) { pick = .trace }

@@ -81,7 +81,7 @@ struct IndexSearchView: View {
                 DebugLogView()
                 HStack(spacing: 10) {
                     Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                    TextField("Ask by meaning — flood sensors, ontology of the fleet, ANE speed…   ⌘K", text: $query)
+                    TextField("Ask by meaning — flood sensors, ontology of the fleet, ANE speed…   ⌘F", text: $query)
                         .textFieldStyle(.plain).font(.custom("Avenir Next", size: 16)).focused($fieldFocused)
                         .onSubmit { Task { await index.search(query, kind: kind == "all" ? nil : kind, openOnly: openOnly) } }
                     if index.searching { ProgressView().controlSize(.small) }
