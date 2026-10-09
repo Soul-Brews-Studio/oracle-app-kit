@@ -216,4 +216,15 @@ public enum RemoteParse {
         }
         return out.sorted { ($0.host, $0.user ?? "") < ($1.host, $1.user ?? "") }
     }
+
+    /// The sidebar's machines: one per host, in name order, each holding its logins as `groups` orders them
+    /// (Nat: "session name / machine A B C, not session / Remote") — white holds nat@white and nm@white.
+    public static func machines(_ remotes: [RemoteSession], running: (RemoteSession) -> Bool)
+        -> [(host: String, logins: [(key: String, host: String, user: String?, sessions: [RemoteSession])])] {
+        var out: [(host: String, logins: [(key: String, host: String, user: String?, sessions: [RemoteSession])])] = []
+        for g in groups(remotes, running: running) {
+            if out.last?.host == g.host { out[out.count - 1].logins.append(g) } else { out.append((host: g.host, logins: [g])) }
+        }
+        return out
+    }
 }

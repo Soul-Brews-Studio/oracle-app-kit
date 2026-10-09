@@ -69,4 +69,15 @@ final class RemoteMachineTests: XCTestCase {
         XCTAssertEqual(g.map(\.user), ["phd-oracle", "nat", "nm"])
         XCTAssertEqual(g[1].sessions.map(\.session), ["infra-teamexit", "default"], "the stopped one last")
     }
+
+    func testMachinesGroupLoginsByHost() {
+        let rs = [RemoteSession(target: "nat@white.follow-rankine.ts.net", session: "laris-co"),
+                  RemoteSession(target: "phd-oracle@black.follow-rankine.ts.net", session: "phd"),
+                  RemoteSession(target: "nm@white.local", session: "default")]
+        let m = RemoteParse.machines(rs, running: { _ in true })
+        // one heading per machine, its logins inside (Nat: "session name / machine A B C, not session / Remote")
+        XCTAssertEqual(m.map(\.host), ["black", "white"])
+        XCTAssertEqual(m[1].logins.map(\.key), ["nat@white", "nm@white"])
+        XCTAssertTrue(RemoteParse.machines([], running: { _ in true }).isEmpty)
+    }
 }
