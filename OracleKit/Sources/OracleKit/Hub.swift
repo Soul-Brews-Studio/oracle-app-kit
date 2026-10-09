@@ -396,3 +396,19 @@ public final class HubStore: ObservableObject {
     }
     #endif
 }
+
+#if os(macOS)
+extension HubStore {
+    /// Why a name cannot be a new herdr session here, nil when it can: letters, digits, - and _ (herdr makes a folder of
+    /// it under ~/.config/herdr/sessions), not one that already exists — that one is Started from its row instead.
+    nonisolated public static func newSessionProblem(_ raw: String, existing: [String]) -> String? {
+        let name = raw.trimmingCharacters(in: .whitespaces)
+        if name.isEmpty { return "give it a name" }
+        if name.range(of: #"^[A-Za-z0-9][A-Za-z0-9_-]*$"#, options: .regularExpression) == nil {
+            return "use letters, digits, - and _ (it becomes a folder under ~/.config/herdr/sessions)"
+        }
+        if existing.contains(name) { return "\(name) already exists — open it from the list, or Start it there if it is off" }
+        return nil
+    }
+}
+#endif

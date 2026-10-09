@@ -147,7 +147,7 @@ struct SessionRow: View {
     }
 }
 
-/// "Sessions ↗  +": the ↗ opens the Network page, + saves a machine in herdr.
+/// "Sessions ↗  +": the ↗ opens the Network page; + starts a new session on this Mac or saves a machine in herdr.
 struct SessionsHeader: View {
     @ObservedObject var store: HubStore
     @Binding var pick: HubPick
@@ -155,6 +155,9 @@ struct SessionsHeader: View {
     @State private var target = ""
     @State private var session = ""
     @State private var addError: String?
+    @State private var remote = false     // + : false = a new session on this Mac (Nat: "i can not new session from the app?")
+    @State private var newName = ""
+    @State private var starting = false
     var body: some View {
         HStack {
             Button { pick = .network } label: {
@@ -167,13 +170,53 @@ struct SessionsHeader: View {
             .buttonStyle(.plain).handCursor().help("The Network page: every machine, full size")
             Spacer()
             Button { addError = nil; adding = true } label: { Image(systemName: "plus").font(.system(size: 11, weight: .semibold)) }
-                .buttonStyle(.plain).foregroundStyle(.secondary).handCursor().help("Save a machine in herdr: herdr machine add <target> --label <name> --remote-session <session>")
+                .buttonStyle(.plain).foregroundStyle(.secondary).handCursor().help("New session on this Mac (herdr --session <name> server), or save a machine in herdr")
                 .popover(isPresented: $adding, arrowEdge: .trailing) { form }
         }
         .padding(.leading, 26).padding(.trailing, 26).padding(.top, 18).padding(.bottom, 4)
     }
 
     private var form: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Picker("", selection: $remote) { Text("This Mac").tag(false); Text("Another machine").tag(true) }
+                .pickerStyle(.segmented).frame(width: 300).labelsHidden()
+            if remote { machineForm } else { localForm }
+        }
+        .padding(16)
+    }
+
+    /// A new herdr session here: started in the background (no window), then its page opens.
+    private var localForm: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("New session on this Mac").font(.headline)
+            Text("Starts herdr --session <name> server in the background. Open its page to add spaces, or move an oracle in with herdr-move <oracle> --to <name>.")
+                .font(.caption).foregroundStyle(.secondary).frame(width: 300, alignment: .leading).fixedSize(horizontal: false, vertical: true)
+            TextField("name — e.g. maeon-craft", text: $newName).textFieldStyle(.roundedBorder).frame(width: 300)
+                .onSubmit(startNew)
+            if let e = addError ?? HubStore.newSessionProblem(newName, existing: store.sessions.map(\.name)) , !newName.isEmpty {
+                Text(e).font(.caption).foregroundStyle(.orange).frame(width: 300, alignment: .leading).fixedSize(horizontal: false, vertical: true)
+            }
+            HStack {
+                Spacer()
+                Button("Cancel") { adding = false }
+                Button(starting ? "Starting…" : "Start session", action: startNew).buttonStyle(.borderedProminent)
+                    .disabled(starting || newName.isEmpty || HubStore.newSessionProblem(newName, existing: store.sessions.map(\.name)) != nil)
+            }
+        }
+    }
+
+    private func startNew() {
+        let name = newName.trimmingCharacters(in: .whitespaces)
+        guard HubStore.newSessionProblem(name, existing: store.sessions.map(\.name)) == nil else { return }
+        starting = true; addError = nil
+        Task {
+            addError = await store.startSession(name)
+            starting = false
+            if addError == nil { adding = false; newName = ""; pick = .session(name) }
+        }
+    }
+
+    private var machineForm: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Save a machine in herdr").font(.headline)
             Text("Opens WezTerm with herdr machine add: it may ask before it installs or starts herdr there. One saved machine is one remote session.")
@@ -190,7 +233,6 @@ struct SessionsHeader: View {
                 }.buttonStyle(.borderedProminent).disabled(target.trimmingCharacters(in: .whitespaces).isEmpty)
             }
         }
-        .padding(16)
     }
 }
 
