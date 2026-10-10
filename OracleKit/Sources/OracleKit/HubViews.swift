@@ -35,7 +35,8 @@ struct HubRootView: View {
     @ObservedObject var store: HubStore
     @Binding var menuBar: Bool
     @State private var jumping = false   // the ⌘K switcher
-    @State private var pick: HubPick = UserDefaults.standard.string(forKey: "hubSession").map { HubPick.session($0) }   // -hubSession <name> (tests)
+    @State private var pick: HubPick = (UserDefaults.standard.string(forKey: "hubPage") == "board" ? HubPick.board : nil)   // -hubPage board (tests)
+        ?? UserDefaults.standard.string(forKey: "hubSession").map { HubPick.session($0) }   // -hubSession <name> (tests)
         ?? UserDefaults.standard.string(forKey: "hubRemote").flatMap { s -> HubPick? in   // -hubRemote <target>|<session> (tests)
             let p = s.split(separator: "|").map(String.init)
             return p.count == 2 ? .remote(RemoteSession(target: p[0], session: p[1])) : nil
