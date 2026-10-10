@@ -40,6 +40,9 @@ struct HubSidebar: View {
                    on: pick == .network, accent: HubStyle.accent, sub: true) { pick = .network }
                 .padding(.horizontal, 12)
                 .help("Every machine with herdr: this Mac and each remote one, with every session on it")
+            NavRow(symbol: "square.grid.3x3.square", title: "Board", badge: nil, on: pick == .board, accent: HubStyle.accent, sub: true) { pick = .board }
+                .padding(.horizontal, 12)
+                .help("The herdr board: drag spaces between sessions and machines — started for you when it is down")
             NavRow(symbol: "gearshape", title: "Settings", badge: nil, on: pick == .settings, accent: HubStyle.accent) { pick = .settings }
                 .padding(.horizontal, 12)
             SessionsHeader(store: store, pick: $pick)

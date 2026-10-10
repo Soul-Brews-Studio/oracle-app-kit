@@ -5,7 +5,7 @@ import AppKit
 // MARK: - Oracles (the landing app) — sidebar: all herdr sessions · detail: every oracle as a card
 // Same look as the oracle apps: ARRA-style sidebar, cards like the Work view.
 
-enum HubPick: Hashable { case all, search, trace, map, screens, network, settings, session(String), group(String), remote(RemoteSession) }
+enum HubPick: Hashable { case all, search, trace, map, screens, network, settings, session(String), group(String), remote(RemoteSession), board }
 
 enum HubStyle {
     static let accent = Color(hex: "#9b8cff")
@@ -35,7 +35,8 @@ struct HubRootView: View {
     @ObservedObject var store: HubStore
     @Binding var menuBar: Bool
     @State private var jumping = false   // the ⌘K switcher
-    @State private var pick: HubPick = UserDefaults.standard.string(forKey: "hubSession").map { HubPick.session($0) }   // -hubSession <name> (tests)
+    @State private var pick: HubPick = (UserDefaults.standard.string(forKey: "hubPage") == "board" ? HubPick.board : nil)   // -hubPage board (tests)
+        ?? UserDefaults.standard.string(forKey: "hubSession").map { HubPick.session($0) }   // -hubSession <name> (tests)
         ?? UserDefaults.standard.string(forKey: "hubRemote").flatMap { s -> HubPick? in   // -hubRemote <target>|<session> (tests)
             let p = s.split(separator: "|").map(String.init)
             return p.count == 2 ? .remote(RemoteSession(target: p[0], session: p[1])) : nil
@@ -67,6 +68,7 @@ struct HubRootView: View {
             case .network: NetworkPage(store: store, pick: $pick)
             case .settings: SettingsView(title: "ARRA Oracles", accent: HubStyle.accent, indexes: [index, FleetMap.shared.index]) { pick = .trace }
             case .session(let name): SessionSpaces(store: store, session: name)
+            case .board: BoardPage()   // the herdr board, started when it is down
             case .group(let name): SessionGroupPage(store: store, name: name, pick: $pick)   // a session name across machines
             case .remote(let r): RemoteSessionPage(store: store, remote: r)   // same as a local session's page (Nat)
             }
