@@ -17,7 +17,7 @@ public enum HerdrBoard {
         return (try? await URLSession.shared.data(for: r)).map { ($0.1 as? HTTPURLResponse)?.statusCode == 200 } ?? false
     }
 
-    /// Start the board when it is down and wait until it answers (≤ 20 s: the first start bundles the page).
+    /// Start the board when it is down and wait until it answers (≤ 45 s: the first start bundles the page).
     /// nil once it answers, else what failed with the command to run.
     public static func ensure() async -> String? {
         if await up() { return nil }
@@ -29,11 +29,11 @@ public enum HerdrBoard {
         try? FileManager.default.createDirectory(atPath: (log as NSString).deletingLastPathComponent, withIntermediateDirectories: true)
         // detached, without the hub's HERDR_* (a socket path there would point the board at one session)
         _ = await Shell.run("sh", ["-c", "env -u HERDR_SOCKET_PATH -u HERDR_PANE_ID -u HERDR_SESSION PATH=\(q(path)) nohup \(q(tool)) >>\(q(log)) 2>&1 &"])
-        for _ in 0..<40 {
+        for _ in 0..<90 {
             if await up() { return nil }
             try? await Task.sleep(for: .milliseconds(500))
         }
-        return "the board did not answer on \(url.absoluteString) within 20 s — see \(log), or run:  herdr-board"
+        return "the board did not answer on \(url.absoluteString) within 45 s — see \(log), or run:  herdr-board"
     }
 }
 
