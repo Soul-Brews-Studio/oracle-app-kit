@@ -20,7 +20,8 @@ for N in $names; do
   PORT=$(sed -n 's/.*port: \([0-9][0-9]*\).*/\1/p' $R/Apps/$N/${N}App.swift | head -1)
   KEY=$(sed -n 's/^ *PRODUCT_BUNDLE_IDENTIFIER: co\.laris\.oracle\.\([a-z0-9-]*\)$/\1/p' $R/Apps/$N/app.yml | head -1)
   TEAM=$(sed -n 's/.*<string>\([A-Z0-9]*\)\.co\.laris\.oracle\.[a-z0-9-]*<\/string>.*/\1/p' $R/Apps/$N/$N.entitlements | head -1)
-  opts=(); [ -n "$KEY" ] && opts+=(--key=$KEY); [ -n "$PORT" ] && opts+=(--port=$PORT); [ -n "$TEAM" ] && opts+=(--team=$TEAM)
+  DISP=$(sed -n 's/^ *CFBundleDisplayName: \(.*\) Oracle$/\1/p' $R/Apps/$N/app.yml | head -1)
+  opts=(); [ -n "$KEY" ] && opts+=(--key=$KEY); [ -n "$DISP" ] && [[ $DISP != $N ]] && opts+=(--display=$DISP); [ -n "$PORT" ] && opts+=(--port=$PORT); [ -n "$TEAM" ] && opts+=(--team=$TEAM)
   rm -rf $T/Apps/$N
   if ! out=$(cd $T && ORACLE_APP_SCRATCH=1 zsh scripts/new-oracle-app.sh "$N" "$SLUG" "$LP" "$HEX" "$SYM" "$TAG" $opts --no-regen 2>&1); then
     # its hint was built for this scratch call: show it as the command to run in the real kit (--update, no --no-regen)
