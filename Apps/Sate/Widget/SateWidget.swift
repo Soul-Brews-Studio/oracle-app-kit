@@ -15,8 +15,8 @@ struct SateStatusWidget: Widget {
     let kind = "oracle.status.sate"
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: OracleProvider(config: .sate)) { OracleWidgetView(entry: $0) }
-            .configurationDisplayName("Sate Oracle")
-            .description("Sate Oracle: working panes, open PRs, issues and inbox.")
+            .configurationDisplayName("Prof. Sate Oracle")
+            .description("Prof. Sate Oracle: working panes, open PRs, issues and inbox.")
             .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }

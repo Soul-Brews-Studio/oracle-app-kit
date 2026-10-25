@@ -46,7 +46,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: co.laris.oracle.proof-sate
         PRODUCT_NAME: Sate Oracle
-        INFOPLIST_KEY_CFBundleDisplayName: Sate Oracle
+        INFOPLIST_KEY_CFBundleDisplayName: Prof. Sate Oracle
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: "1,2"
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
@@ -59,7 +59,7 @@ targets:
       path: Apps/Sate/Info.plist
       properties:
         CFBundleName: Sate Oracle
-        CFBundleDisplayName: Sate Oracle
+        CFBundleDisplayName: Prof. Sate Oracle
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen: {}
@@ -81,19 +81,19 @@ targets:
             LSHandlerRank: Alternate
             LSItemContentTypes: [public.item, public.content, public.folder, public.url, public.data]
         NSServices:                  # right-click → Services, anywhere: selected text, links, Finder files
-          - NSMenuItem: { default: "New Sate Oracle issue" }
+          - NSMenuItem: { default: "New Prof. Sate Oracle issue" }
             NSMessage: newIssue
             NSPortName: Sate
             NSSendTypes: [public.utf8-plain-text, public.plain-text, public.url, public.file-url]
             NSSendFileTypes: [public.item]
             NSRequiredContext: {}       # enabled by default — without it macOS hides the service until switched on
-          - NSMenuItem: { default: "Send to Sate Oracle inbox" }
+          - NSMenuItem: { default: "Send to Prof. Sate Oracle inbox" }
             NSMessage: sendToInbox
             NSPortName: Sate
             NSSendTypes: [public.utf8-plain-text, public.plain-text, public.url, public.file-url]
             NSSendFileTypes: [public.item]
             NSRequiredContext: {}
-          - NSMenuItem: { default: "Message Sate Oracle" }
+          - NSMenuItem: { default: "Message Prof. Sate Oracle" }
             NSMessage: messageOracle
             NSPortName: Sate
             NSSendTypes: [public.utf8-plain-text, public.plain-text, public.url, public.file-url]
@@ -133,7 +133,7 @@ targets:
     info:
       path: Apps/Sate/Widget/Info.plist
       properties:
-        CFBundleDisplayName: Sate Oracle
+        CFBundleDisplayName: Prof. Sate Oracle
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSExtension:
@@ -167,7 +167,7 @@ targets:
     info:
       path: Apps/Sate/Share/Info.plist
       properties:
-        CFBundleDisplayName: Sate Oracle
+        CFBundleDisplayName: Prof. Sate Oracle
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSExtension:

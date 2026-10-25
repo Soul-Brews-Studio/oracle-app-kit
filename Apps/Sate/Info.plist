@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Sate Oracle</string>
+	<string>Prof. Sate Oracle</string>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>
@@ -65,7 +65,7 @@
 			<key>NSMenuItem</key>
 			<dict>
 				<key>default</key>
-				<string>New Sate Oracle issue</string>
+				<string>New Prof. Sate Oracle issue</string>
 			</dict>
 			<key>NSMessage</key>
 			<string>newIssue</string>
@@ -89,7 +89,7 @@
 			<key>NSMenuItem</key>
 			<dict>
 				<key>default</key>
-				<string>Send to Sate Oracle inbox</string>
+				<string>Send to Prof. Sate Oracle inbox</string>
 			</dict>
 			<key>NSMessage</key>
 			<string>sendToInbox</string>
@@ -113,7 +113,7 @@
 			<key>NSMenuItem</key>
 			<dict>
 				<key>default</key>
-				<string>Message Sate Oracle</string>
+				<string>Message Prof. Sate Oracle</string>
 			</dict>
 			<key>NSMessage</key>
 			<string>messageOracle</string>

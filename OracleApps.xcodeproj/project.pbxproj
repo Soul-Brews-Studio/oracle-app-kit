@@ -3363,7 +3363,7 @@
 				ENABLE_HARDENED_RUNTIME = NO;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				INFOPLIST_FILE = Apps/Sate/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Sate Oracle";
+				INFOPLIST_KEY_CFBundleDisplayName = "Prof. Sate Oracle";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -4105,7 +4105,7 @@
 				ENABLE_HARDENED_RUNTIME = NO;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				INFOPLIST_FILE = Apps/Sate/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Sate Oracle";
+				INFOPLIST_KEY_CFBundleDisplayName = "Prof. Sate Oracle";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

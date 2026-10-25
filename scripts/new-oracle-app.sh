@@ -1,6 +1,7 @@
 #!/usr/bin/env zsh
 # new-oracle-app.sh <Name> <org/repo> <mac checkout path> <#hex> <sf-symbol> ["<tagline>"]
-#                   [--update] [--key=<key>] [--port=<n>] [--team=<id>] [--no-regen]     (also "--key <key>" …)
+#                   [--update] [--key=<key>] [--port=<n>] [--team=<id>] [--display=<shown name>] [--no-regen]
+#                   (also "--key <key>" …)
 # Creates Apps/<Name>/: the identity (shared with the widget), the app (Memory engine, Map layout, MCP server, the
 # iPhone/iPad companion server),
 # its Extras, a WidgetKit status widget, a Share extension, entitlements (App Group), icon and xcodegen targets —
@@ -13,6 +14,9 @@
 #   --team   Apple signing team (Team ID) for the App Group. Default: --update keeps the app's own; else
 #            $ORACLE_APP_TEAM; else project.yml's DEVELOPMENT_TEAM if a certificate on this Mac has it, else this Mac's
 #            only certificate's team (several: refuses and prints one command per team).
+#   --display the name people see (menu bar, Dock, widget gallery, Share menu, Services), before " Oracle": a Name
+#            cannot hold a space or a dot ("Prof. Sate" → "Prof. Sate Oracle"). Default: <Name>. The app file,
+#            product name and logs keep "<Name> Oracle" — build.sh, check.sh and shot.sh find the app by it.
 #   --update rewrites the generated files of an existing app; keeps <Name>Extras.swift, the icon, and — unless given
 #            again — its key, port and team (read back from its app.yml / App.swift / entitlements).
 # Needs: zsh, sed, lsof (/usr/sbin), security + openssl (team), xcodegen (regen), uv (icon: draws one, or resizes
@@ -20,19 +24,19 @@
 # Refuses before writing anything.
 set -e
 die() { print -r -- "✗ $*"; exit 2; }
-usage='usage:  zsh scripts/new-oracle-app.sh <Name> <org/repo> <mac checkout path> <#rrggbb> <sf-symbol> ['"'"'<tagline>'"'"'] [--update] [--key=k] [--port=n] [--team=id] [--no-regen]'
+usage='usage:  zsh scripts/new-oracle-app.sh <Name> <org/repo> <mac checkout path> <#rrggbb> <sf-symbol> ['"'"'<tagline>'"'"'] [--update] [--key=k] [--port=n] [--team=id] [--display=<shown name>] [--no-regen]'
 ARGS=("$@"); pos=(); UPDATE=0; REGEN=1; KEY=""; PORT=""; TEAM=""
 while (( $# )); do
   case $1 in
     --update) UPDATE=1 ;;
     --no-regen) REGEN=0 ;;
-    --key=*|--port=*|--team=*) v=${1#*=}; [ -n "$v" ] || die "$1: empty value — $usage"; typeset -g ${${1%%=*}#--}_opt=$v ;;
-    --key|--port|--team) [ -n "${2:-}" ] && [[ $2 != --* ]] || die "$1 needs a value — $usage"; typeset -g ${1#--}_opt=$2; shift ;;
+    --key=*|--port=*|--team=*|--display=*) v=${1#*=}; [ -n "$v" ] || die "$1: empty value — $usage"; typeset -g ${${1%%=*}#--}_opt=$v ;;
+    --key|--port|--team|--display) [ -n "${2:-}" ] && [[ $2 != --* ]] || die "$1 needs a value — $usage"; typeset -g ${1#--}_opt=$2; shift ;;
     --*) die "unknown option $1 — $usage" ;;
     *) pos+=("$1") ;;
   esac; shift
 done
-KEY=${key_opt:-}; PORT=${port_opt:-}; TEAM=${team_opt:-}; OLDPORT=""; KEYSRC=${key_opt:+--key}; TEAMSRC=${team_opt:+--team}
+KEY=${key_opt:-}; PORT=${port_opt:-}; TEAM=${team_opt:-}; DISP=${display_opt:-}; OLDPORT=""; KEYSRC=${key_opt:+--key}; TEAMSRC=${team_opt:+--team}
 (( $#pos >= 5 && $#pos <= 6 )) || die "$usage"
 N=$pos[1]; SLUG=$pos[2]; LP=$pos[3]; HEX=$pos[4]; SYM=$pos[5]; TAG=${pos[6]:-"$N oracle"}
 R=${0:A:h}/..; R=${R:A}; D=$R/Apps/$N; low=${(L)N}
@@ -51,7 +55,7 @@ fi
 # ASCII controls only, spelled out: [[:cntrl:]] is per-locale, and in UTF-8 it also hits joiners, ZWSP, soft hyphen,
 # bidi marks — characters a Swift literal takes fine (an emoji ZWJ sequence, Thai word breaks)
 cc=$'[\001-\037\177"\\\\]'
-for v in "$SLUG" "$LP" "$TAG" "$SYM"; do [[ $v == *${~cc}* ]] && die "no '\"', '\\' or ASCII control (tab, newline) in the identity (got: ${(q)v}) — e.g.:  zsh $0 ${(@q)${(@)ARGS//${~cc}/}}"; done
+for v in "$SLUG" "$LP" "$TAG" "$SYM" "$DISP"; do [[ $v == *${~cc}* ]] && die "no '\"', '\\' or ASCII control (tab, newline) in the identity (got: ${(q)v}) — e.g.:  zsh $0 ${(@q)${(@)ARGS//${~cc}/}}"; done
 [[ $LP == /* ]] || die "mac checkout path must be absolute, got '$LP' — the oracle's main checkout:  ghq list -p --exact $SLUG"
 [[ -n ${ORACLE_APP_SCRATCH:-} || -d $LP ]] || die "no checkout at $LP on this Mac — clone it:  ghq get -p $SLUG"
 [ -n "$SYM" ] || die "sf-symbol is empty — pass one, e.g. star.fill"
@@ -69,7 +73,9 @@ if (( UPDATE )); then
   [ -n "$KEY" ]  || { KEY=$(sed -n 's/^ *PRODUCT_BUNDLE_IDENTIFIER: co\.laris\.oracle\.\([a-z0-9-]*\)$/\1/p' $D/app.yml 2>/dev/null | head -1); KEYSRC=${KEY:+Apps/$N/app.yml}; }
   OLDPORT=$(sed -n 's/.*port: \([0-9][0-9]*\).*/\1/p' $D/${N}App.swift 2>/dev/null | head -1); [ -n "$PORT" ] || PORT=$OLDPORT
   [ -n "$TEAM" ] || { TEAM=$(sed -n 's/.*<string>\([A-Z0-9]*\)\.co\.laris\.oracle\.[a-z0-9-]*<\/string>.*/\1/p' $D/${N}.entitlements 2>/dev/null | head -1); TEAMSRC=${TEAM:+Apps/$N/$N.entitlements}; }
+  [ -n "$DISP" ] || { DISP=$(sed -n 's/^ *CFBundleDisplayName: \(.*\) Oracle$/\1/p' $D/app.yml 2>/dev/null | head -1); }
 fi
+DISP=${DISP:-$N}; DN="$DISP Oracle"   # the shown name; the product name stays "$N Oracle"
 # the portal's rule (HubParse.appKey): repo minus "-oracle", lower-cased, "_" and "." → "-" (a bundle id has no "_")
 if [ -z "$KEY" ]; then KEY=${(L)${SLUG#*/}}; KEY=${KEY%-oracle}; KEY=${KEY//[_.]/-}; KEYSRC="the repo name $SLUG"; fi
 # the same command again, minus any --key — so a printed fix keeps --update / --port / --team / --no-regen
@@ -210,8 +216,8 @@ struct ${N}StatusWidget: Widget {
     let kind = "oracle.status.${low}"
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: OracleProvider(config: .${low})) { OracleWidgetView(entry: \$0) }
-            .configurationDisplayName("$N Oracle")
-            .description("$N Oracle: working panes, open PRs, issues and inbox.")
+            .configurationDisplayName("$DN")
+            .description("$DN: working panes, open PRs, issues and inbox.")
             .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }
@@ -302,7 +308,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: co.laris.oracle.$KEY
         PRODUCT_NAME: $N Oracle
-        INFOPLIST_KEY_CFBundleDisplayName: $N Oracle
+        INFOPLIST_KEY_CFBundleDisplayName: $DN
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: "1,2"
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
@@ -315,7 +321,7 @@ targets:
       path: Apps/$N/Info.plist
       properties:
         CFBundleName: $N Oracle
-        CFBundleDisplayName: $N Oracle
+        CFBundleDisplayName: $DN
         CFBundleShortVersionString: \$(MARKETING_VERSION)
         CFBundleVersion: \$(CURRENT_PROJECT_VERSION)
         UILaunchScreen: {}
@@ -337,19 +343,19 @@ targets:
             LSHandlerRank: Alternate
             LSItemContentTypes: [public.item, public.content, public.folder, public.url, public.data]
         NSServices:                  # right-click → Services, anywhere: selected text, links, Finder files
-          - NSMenuItem: { default: "New $N Oracle issue" }
+          - NSMenuItem: { default: "New $DN issue" }
             NSMessage: newIssue
             NSPortName: $N
             NSSendTypes: [public.utf8-plain-text, public.plain-text, public.url, public.file-url]
             NSSendFileTypes: [public.item]
             NSRequiredContext: {}       # enabled by default — without it macOS hides the service until switched on
-          - NSMenuItem: { default: "Send to $N Oracle inbox" }
+          - NSMenuItem: { default: "Send to $DN inbox" }
             NSMessage: sendToInbox
             NSPortName: $N
             NSSendTypes: [public.utf8-plain-text, public.plain-text, public.url, public.file-url]
             NSSendFileTypes: [public.item]
             NSRequiredContext: {}
-          - NSMenuItem: { default: "Message $N Oracle" }
+          - NSMenuItem: { default: "Message $DN" }
             NSMessage: messageOracle
             NSPortName: $N
             NSSendTypes: [public.utf8-plain-text, public.plain-text, public.url, public.file-url]
@@ -389,7 +395,7 @@ targets:
     info:
       path: Apps/$N/Widget/Info.plist
       properties:
-        CFBundleDisplayName: $N Oracle
+        CFBundleDisplayName: $DN
         CFBundleShortVersionString: \$(MARKETING_VERSION)
         CFBundleVersion: \$(CURRENT_PROJECT_VERSION)
         NSExtension:
@@ -423,7 +429,7 @@ targets:
     info:
       path: Apps/${N}/Share/Info.plist
       properties:
-        CFBundleDisplayName: ${N} Oracle
+        CFBundleDisplayName: $DN
         CFBundleShortVersionString: \$(MARKETING_VERSION)
         CFBundleVersion: \$(CURRENT_PROJECT_VERSION)
         NSExtension:
