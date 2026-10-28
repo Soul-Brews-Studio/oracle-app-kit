@@ -15,10 +15,10 @@ final class HerdrControlTests: XCTestCase {
         let acts = [OracleSnapshot.Activity(title: "List email in repo", status: "idle", place: "default:wB3:p1"),
                     OracleSnapshot.Activity(title: "issue #31", status: "idle", place: "default:wB6:p1"),
                     OracleSnapshot.Activity(title: "other session", status: "working", place: "board-lab:w2:p1")]
-        XCTAssertEqual(WorkPlaces.livePanes(acts, session: "default"), ["default:wB3:p1", "default:wB6:p1"])
-        XCTAssertEqual(WorkPlaces.livePanes(acts, session: "board-lab"), ["board-lab:w2:p1"])
-        XCTAssertTrue(WorkPlaces.livePanes(acts, session: "laris-co").isEmpty)              // nothing there: no Stop button
-        XCTAssertTrue(WorkPlaces.livePanes(acts, session: "default-2").isEmpty)             // a prefix of a name is not the session
+        XCTAssertEqual(SessionHeader.livePanes(acts, session: "default"), ["default:wB3:p1", "default:wB6:p1"])
+        XCTAssertEqual(SessionHeader.livePanes(acts, session: "board-lab"), ["board-lab:w2:p1"])
+        XCTAssertTrue(SessionHeader.livePanes(acts, session: "laris-co").isEmpty)              // nothing there: no Stop button
+        XCTAssertTrue(SessionHeader.livePanes(acts, session: "default-2").isEmpty)             // a prefix of a name is not the session
     }
 
     // herdr 0.9.1 on m5, 2026-10-09: Stop on Transcriber's main pane — the last pane of a space with linked worktrees
@@ -51,8 +51,8 @@ final class HerdrControlTests: XCTestCase {
     }
 
     func testStopNoteSaysWhatStopDid() {
-        XCTAssertEqual(WorkPlaces.stopNote(session: "default", ended: 1, closed: 2, kept: nil), "Stopped 1 agent · closed 2 spaces in default")
-        XCTAssertEqual(WorkPlaces.stopNote(session: "laris-co", ended: 4, closed: 0, kept: "kept open: laris-co:w25:p2 runs bun"),
+        XCTAssertEqual(SessionHeader.stopNote(session: "default", ended: 1, closed: 2, kept: nil), "Stopped 1 agent · closed 2 spaces in default")
+        XCTAssertEqual(SessionHeader.stopNote(session: "laris-co", ended: 4, closed: 0, kept: "kept open: laris-co:w25:p2 runs bun"),
                        "Stopped 4 agents in laris-co · kept open: laris-co:w25:p2 runs bun")
     }
 

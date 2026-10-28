@@ -69,7 +69,7 @@ public enum CompanionAPI {
         public var issue: Int?
         public var prNumber: Int?
         public var prTitle: String?
-        public var state: String           // needs you · working · open · resumable · cold (WorkItem.State.label)
+        public var state: String           // needs you · working · idle ("open" from an older Mac) · resumable · cold (WorkItem.State.label)
         public var panes: [Pane]
         public var resumeCommand: String?  // what reopens it, when it can be resumed
         public var slug: String?           // the worktree's /herdr-wt slug ("companion"), as the Mac shows it; nil from an older Mac
