@@ -8,6 +8,8 @@ extension OracleStore {
         async let ag = Shell.run("maw", ["herdr", "ls", "--agents", "--json"], timeout: 15)
         if let l = await ls, let a = await ag {
             lastLs = Data(l.utf8)
+            let ls = Data(l.utf8), home = config.localPath
+            bodies = await Task.detached(priority: .utility) { TeamBody.bodies(ls: ls, home: home) }.value
             let rows = MawParse.rows(ls: Data(l.utf8), agents: Data(a.utf8), localPath: config.localPath)
             let panes = rows.filter { $0.depth == 2 }.map {
                 AgentPane(session: "", paneId: $0.id, name: $0.title, agent: "", status: $0.status, cwd: "", title: $0.title) }
@@ -24,17 +26,18 @@ extension OracleStore {
         guard let table = await Shell.run("herdr", ["session", "list"]) else { return [] }
         let repoName = (config.localPath as NSString).lastPathComponent
         let herdrWT = NSHomeDirectory() + "/.herdr/worktrees/" + repoName
+        let roots = self.roots
         var out: [OracleSnapshot.Activity] = []
         var found: [HerdrSpace] = []
         for s in HerdrParse.runningSessions(table: table) {
             // one call per session gives both the agents and herdr's own layout (spaces · tabs · split rects)
             guard let json = await Shell.run("herdr", ["--session", s, "api", "snapshot"]) else { continue }
             let snap = HerdrSnapshot.parse(Data(json.utf8), session: s)
-            found += HerdrSnapshot.mine(snap.spaces, roots: [config.localPath, herdrWT])
+            found += HerdrSnapshot.mine(snap.spaces, roots: roots)
             for a in snap.agents {
                 let cwd = a["cwd"] as? String ?? ""
-                guard HerdrParse.belongs(AgentPane(session: s, paneId: "", name: "", agent: "", status: "", cwd: cwd, title: ""), to: config.localPath)
-                        || cwd == herdrWT || cwd.hasPrefix(herdrWT + "/") else { continue }
+                guard HerdrParse.belongs(AgentPane(session: s, paneId: "", name: "", agent: "", status: "", cwd: cwd, title: ""), roots: roots)
+                else { continue }
                 let pane = a["pane_id"] as? String ?? "?"
                 var title = (a["terminal_title_stripped"] as? String ?? "").trimmingCharacters(in: .whitespaces)
                 let generic = title.isEmpty || title == (a["name"] as? String) || title.lowercased() == repoName.lowercased()
@@ -47,7 +50,8 @@ extension OracleStore {
                     } else {
                         let inWT = cwd.hasPrefix(config.localPath + "/wt/") || cwd.hasPrefix(herdrWT + "/")
                         let leaf = (cwd as NSString).lastPathComponent
-                        title = inWT ? (leaf.hasPrefix("worktree") ? leaf : "worktree " + leaf) : "\(config.name) main"
+                        let inBody = TeamBody.under(cwd, roots: bodies)
+                        title = inBody ? "\(config.name) body" : inWT ? (leaf.hasPrefix("worktree") ? leaf : "worktree " + leaf) : "\(config.name) main"
                     }
                 }
                 out.append(.init(title: title, status: a["agent_status"] as? String ?? "idle", place: "\(s):\(pane)", cwd: cwd, session: sid))
@@ -131,7 +135,7 @@ extension OracleStore {
         var all: [AgentPane] = []
         for s in HerdrParse.runningSessions(table: table) {
             if let out = await Shell.run("herdr", ["--session", s, "agent", "list"]) {
-                all += HerdrParse.agents(json: Data(out.utf8), session: s).filter { HerdrParse.belongs($0, to: config.localPath) }
+                all += HerdrParse.agents(json: Data(out.utf8), session: s).filter { HerdrParse.belongs($0, roots: roots) }
             }
         }
         return all.sorted { ($0.status, $0.paneId) < ($1.status, $1.paneId) }

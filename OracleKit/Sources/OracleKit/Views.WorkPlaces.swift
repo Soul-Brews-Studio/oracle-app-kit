@@ -113,7 +113,7 @@ struct WorkPlaces: View {
             var failed: [String] = []
             for place in panes { if let e = await HerdrControl.closePane(place: place) { failed.append(e) } }
             await store.refresh()   // the spaces as they are now, without those agents
-            let kept = await HerdrControl.closeIdleSpaces(store.spaces, session: p.session)
+            let kept = await HerdrControl.closeIdleSpaces(store.spaces, session: p.session, roots: store.roots)
             error = failed.isEmpty ? nil : failed.joined(separator: "\n")
             busy = nil
             await store.refresh()

@@ -51,9 +51,9 @@ public enum HerdrControl {
     /// After Stop: close this oracle's spaces in `session` that hold nothing but idle shells. Linked worktree spaces go
     /// first, so the parent is no longer a group and closes as well (Nat, 2026-10-09: "it should close group ws").
     /// A space where something still runs in the foreground, such as a server or an editor, stays. Answers what stayed.
-    public static func closeIdleSpaces(_ spaces: [HerdrSpace], session: String) async -> String? {
+    public static func closeIdleSpaces(_ spaces: [HerdrSpace], session: String, roots: [String]) async -> String? {
         var kept: [String] = []
-        for sp in spaces.filter({ $0.session == session }).sorted(by: { $0.linked && !$1.linked }) {
+        for sp in closable(spaces, session: session, roots: roots) {
             var busy: String?
             for pane in sp.panes { if let fg = await foreground(pane.paneId, session: session) { busy = "\(pane.place) runs \(fg)"; break } }
             if let busy { kept.append(busy); continue }
@@ -62,6 +62,16 @@ public enum HerdrControl {
             }
         }
         return kept.isEmpty ? nil : "kept open: " + kept.joined(separator: "; ")
+    }
+
+    /// The spaces Stop may close, linked worktree spaces first: only those wholly this oracle's, whose checkout and
+    /// every pane's folder lie under `roots` (home, its worktrees, its team bodies). A room that also holds other
+    /// agents' panes, or a team's own main space with members' bodies linked under it, is never this oracle's to close.
+    public static func closable(_ spaces: [HerdrSpace], session: String, roots: [String]) -> [HerdrSpace] {
+        spaces.filter { sp in
+            sp.session == session && sp.checkout.map { TeamBody.under($0, roots: roots) } != false
+                && !sp.panes.isEmpty && sp.panes.allSatisfy { TeamBody.under($0.cwd, roots: roots) }
+        }.sorted { $0.linked && !$1.linked }
     }
 
     /// What runs in the foreground of a pane, nil for an idle shell. An agent that was just told to end gets 5 s.

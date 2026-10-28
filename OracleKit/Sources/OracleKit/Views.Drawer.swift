@@ -19,7 +19,7 @@ struct HeyComposer: View {
         let twins = WorkParse.twins(store.activity)
         let panes = store.activity.filter { twins[$0.place] == nil }
             .sorted { (WorkFormat.rank($0.status), $0.place) < (WorkFormat.rank($1.status), $1.place) }
-        let chosen = panes.first { $0.place == focus } ?? panes.first { $0.place == target } ?? panes.first { $0.cwd == c.localPath && $0.status == "idle" } ?? panes.first
+        let chosen = panes.first { $0.place == focus } ?? panes.first { $0.place == target } ?? panes.first { ($0.cwd == c.localPath || $0.cwd.map { TeamBody.under($0, roots: store.bodies) } == true) && $0.status == "idle" } ?? panes.first
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .bottom, spacing: 10) {
                 TextField("Message \(c.name) — maw herdr hey", text: $text, axis: .vertical)
