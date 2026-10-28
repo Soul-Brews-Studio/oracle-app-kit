@@ -115,7 +115,12 @@ struct SessionHeader: View {
     private func resume(_ agents: [SavedAgent], into target: String) {
         busy = true; error = nil; note = nil
         Task {
-            error = await HerdrControl.resume(agents, repo: store.config.localPath, into: target)
+            // a conversation saved in a team body reopens under that body's repo, the rest under home
+            var failed: [String] = []
+            for g in WorkGroups.resumeRepos(agents, work: store.work, home: store.config.localPath) {
+                if let e = await HerdrControl.resume(g.agents, repo: g.repo, into: target) { failed.append(e) }
+            }
+            error = failed.isEmpty ? nil : failed.joined(separator: "\n")
             if error == nil { note = "\(agents.count) conversation(s) resumed in \(target)" }
             busy = false
             await store.refresh()

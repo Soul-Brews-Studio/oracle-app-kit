@@ -44,6 +44,17 @@ final class WorkGroupsTests: XCTestCase {
         XCTAssertEqual(all.count, 6)
     }
 
+    /// A conversation saved in a team body reopens under the body's own repo; the rest under home.
+    func testResumeReposSplitBodyFromHome() {
+        var body = item("/t/team/wt/alpha", state: "resumable", resumeId: "conv-b")
+        body.isBody = true; body.repoRoot = "/t/team"
+        let wt = item("/r/home/wt/x", state: "resumable")
+        let agents = [agent("conv-h", cwd: "/r/home"), agent("conv-b", cwd: "/elsewhere"), agent("conv-w", cwd: "/r/home/wt/x/src")]
+        let g = WorkGroups.resumeRepos(agents, work: [body, wt], home: "/r/home")
+        XCTAssertEqual(g.map(\.repo), ["/r/home", "/t/team"])
+        XCTAssertEqual(g.map { $0.agents.map(\.sessionId) }, [["conv-h", "conv-w"], ["conv-b"]])
+    }
+
     func testLabels() {
         XCTAssertEqual(WorkGroups.resumeLabel(2, into: "laris-co"), "Resume 2 in laris-co")
         XCTAssertEqual(WorkGroups.startLabel("default"), "Start default")

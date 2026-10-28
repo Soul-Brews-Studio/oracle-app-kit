@@ -55,6 +55,18 @@ public struct WorkGroups: Equatable, Sendable {
         return work.filter { a.cwd == $0.path || a.cwd.hasPrefix($0.path + "/") }.max { $0.path.count < $1.path.count }
     }
 
+    /// The repo each saved conversation reopens under: a team body's own repo for one saved in a body, else home.
+    /// Resume runs one `ticket open --repo` per group, in the order the conversations came.
+    public static func resumeRepos(_ agents: [SavedAgent], work: [WorkItem], home: String) -> [(repo: String, agents: [SavedAgent])] {
+        var out: [(repo: String, agents: [SavedAgent])] = []
+        for a in agents {
+            let w = owner(of: a, in: work)
+            let repo = w?.isBody == true ? (w?.repoRoot ?? home) : home
+            if let i = out.firstIndex(where: { $0.repo == repo }) { out[i].agents.append(a) } else { out.append((repo, [a])) }
+        }
+        return out
+    }
+
     /// The stopped session's buttons: where Resume lands is part of its name.
     public static func resumeLabel(_ n: Int, into target: String) -> String { "Resume \(n) in \(target)" }
     public static func startLabel(_ session: String) -> String { "Start \(session)" }
