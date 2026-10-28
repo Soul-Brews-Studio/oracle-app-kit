@@ -17,6 +17,13 @@ public final class OracleStore: ObservableObject {
     @Published public private(set) var work: [WorkItem] = []
     @Published public internal(set) var spaces: [HerdrSpace] = []
     var lastLs: Data?
+    /// This oracle's team bodies on this Mac, from the last `maw herdr ls` (see TeamBody).
+    @Published public internal(set) var bodies: [String] = []
+    /// Where this oracle's panes live: home, herdr's worktrees of it, and its team bodies. The ONE list that
+    /// the Work items, their shells, the activity, the spaces, LIVES IN and Stop all read.
+    public var roots: [String] {
+        [config.localPath, NSHomeDirectory() + "/.herdr/worktrees/" + (config.localPath as NSString).lastPathComponent] + bodies
+    }
     @Published public private(set) var prs: [GHItem] = []
     @Published public private(set) var issues: [GHItem] = []
     @Published public private(set) var inbox: [InboxItem] = []
@@ -66,13 +73,10 @@ public final class OracleStore: ObservableObject {
         }
         if let ls = lastLs {
             let porcelain = await Shell.run("git", ["-C", config.localPath, "worktree", "list", "--porcelain"]) ?? ""
-            let repoName = (config.localPath as NSString).lastPathComponent
             self.work = WorkParse.items(ls: ls, locks: WorkParse.lockReasons(porcelain), activity: activity, prs: prs,
-                                        localPath: config.localPath,
-                                        extraRoots: [NSHomeDirectory() + "/.herdr/worktrees/" + repoName])
+                                        localPath: config.localPath, extraRoots: Array(roots.dropFirst()), bodies: bodies)
         }
-        self.places = await HerdrPlaces.load(roots: [config.localPath,
-                                                     NSHomeDirectory() + "/.herdr/worktrees/" + (config.localPath as NSString).lastPathComponent])
+        self.places = await HerdrPlaces.load(roots: roots)
         self.inbox = inbox
         recomputeUnread()
         #else

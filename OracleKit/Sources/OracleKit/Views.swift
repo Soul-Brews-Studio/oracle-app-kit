@@ -166,7 +166,7 @@ public struct OracleRootView: View {
             }
             .onChange(of: openPanes.isEmpty) { wasEmpty, isEmpty in
                 if wasEmpty, !isEmpty {
-                    let dx = drawerWidth + DrawerHandle.width; Drawer.grow(by: dx); drawerGrown += dx
+                    let dx = drawerWidth + DrawerHandle.width; Drawer.open(by: dx); drawerGrown += dx
                     escMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { e in   // esc closes the ACTIVE pane
                         if LiveTerminal.typing { return e }   // …unless you are typing into a pane: then esc is the agent's, ⌘⎋ the page's
                         if e.keyCode == 53, drawerFull { withAnimation(.easeOut(duration: 0.15)) { drawerFull = false }; return nil }   // full screen first
@@ -176,7 +176,7 @@ public struct OracleRootView: View {
                 }
                 if !wasEmpty, isEmpty {
                     drawerFull = false
-                    Drawer.grow(by: -drawerGrown); drawerGrown = 0   // give back exactly what it took
+                    Drawer.close(by: drawerGrown); drawerGrown = 0   // back where it was, or give back exactly what it took
                     if let m = escMonitor { NSEvent.removeMonitor(m); escMonitor = nil }
                 }
             }
@@ -197,7 +197,7 @@ public struct OracleRootView: View {
             .onAppear { installFitMonitor(); installHistoryMonitor() }
             .onAppear {   // quit with the drawer open: the saved frame still holds the drawer's width — take it back
                 guard drawerGrown > 0 else { return }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { Drawer.grow(by: -drawerGrown, animate: false); drawerGrown = 0 }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { Drawer.close(by: drawerGrown, animate: false); drawerGrown = 0 }
             }
             .task {   // -oracleOpenPane <session:pane> (tests): that pane's drawer, once the window has settled
                 guard let p = UserDefaults.standard.string(forKey: "oracleOpenPane") else { return }

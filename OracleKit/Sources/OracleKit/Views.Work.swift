@@ -59,8 +59,9 @@ struct WorkView: View {
                             ForEach(allResumable ? resumable : Array(resumable.prefix(6))) { w in
                                 TreeRow(item: w, config: c, copied: $copied,
                                         // main: only with its exact claude id (ticket.sh resumes claude, not codex)
-                                        open: w.isMain && (w.resumeId == nil || w.resumeProvider == "codex") ? nil : {
-                                            act { await HerdrControl.open(worktree: w.path, repo: c.localPath, sessionId: w.isMain ? w.resumeId : nil) }
+                                        open: (w.isMain || w.isBody) && (w.resumeId == nil || w.resumeProvider == "codex") ? nil : {
+                                            act { await HerdrControl.open(worktree: w.path, repo: w.repoRoot ?? c.localPath,
+                                                                          sessionId: w.isMain || w.isBody ? w.resumeId : nil) }
                                         })
                             }
                         }

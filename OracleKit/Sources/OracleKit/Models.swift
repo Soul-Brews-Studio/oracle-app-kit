@@ -58,7 +58,11 @@ public enum HerdrParse {
 
     /// Panes that belong to this oracle: their cwd is the checkout or one of its worktrees.
     public static func belongs(_ pane: AgentPane, to localPath: String) -> Bool {
-        !localPath.isEmpty && (pane.cwd == localPath || pane.cwd.hasPrefix(localPath + "/"))
+        belongs(pane, roots: [localPath])
+    }
+    /// The same over several roots: home, herdr's worktrees of it, and the oracle's team bodies.
+    public static func belongs(_ pane: AgentPane, roots: [String]) -> Bool {
+        TeamBody.under(pane.cwd, roots: roots)
     }
 }
 
@@ -157,6 +161,9 @@ public struct WorkItem: Identifiable, Hashable, Sendable {
     public let panes: [OracleSnapshot.Activity]
     public let resumeId: String?
     public var resumeProvider: String? = nil
+    /// A team body: a checkout of another repo whose CLAUDE.local.md imports this oracle's CLAUDE.md (see TeamBody).
+    public var isBody: Bool = false
+    public var repoRoot: String? = nil        // a body's own repo, which its sessions reopen under
 
     public enum State: Int, Comparable, Sendable {
         case needsYou, working, open, resumable, cold
@@ -227,12 +234,11 @@ public enum WorkParse {
     }
 
     public static func items(ls: Data, locks: [String: String], activity: [OracleSnapshot.Activity],
-                             prs: [GHItem], localPath: String, extraRoots: [String] = []) -> [WorkItem] {
+                             prs: [GHItem], localPath: String, extraRoots: [String] = [], bodies: [String] = []) -> [WorkItem] {
         guard !localPath.isEmpty, let l = try? JSONSerialization.jsonObject(with: ls) as? [String: Any] else { return [] }
-        let roots = [localPath] + extraRoots
+        let roots = [localPath] + extraRoots + bodies
         let wts = (l["worktrees"] as? [[String: Any]] ?? []).filter { w in
-            let p = w["path"] as? String ?? ""
-            return roots.contains { p == $0 || p.hasPrefix($0 + "/") }
+            TeamBody.under(w["path"] as? String ?? "", roots: roots)
         }
         let paths = wts.compactMap { $0["path"] as? String }
         let repo = (localPath as NSString).lastPathComponent
@@ -248,9 +254,19 @@ public enum WorkParse {
             let folder = (path as NSString).lastPathComponent
             let lock = parseLock(locks[path] ?? "")
             let isMain = path == localPath
-            let name = isMain ? (slug: folder, issue: Int?.none, born: Date?.none) : parseFolder(folder, oracle: oracle)
             let branch = w["branch"] as? String ?? ""
             let resume = w["resume"] as? [String: Any]
+            if bodies.contains(path) {
+                // a team body is a place, not a task: named after the repo it is a checkout of; its branch, issues
+                // and PRs are that repo's, not this oracle's
+                let repoRoot = w["repoRoot"] as? String
+                let team = w["repo"] as? String ?? repoRoot.map { ($0 as NSString).lastPathComponent } ?? folder
+                return WorkItem(path: path, isMain: false, slug: "body · " + team, folder: folder, branch: branch, born: nil,
+                                issue: nil, pr: nil, mawState: w["state"] as? String ?? "cold", panes: panesBy[path] ?? [],
+                                resumeId: resume?["id"] as? String, resumeProvider: resume?["provider"] as? String,
+                                isBody: true, repoRoot: repoRoot)
+            }
+            let name = isMain ? (slug: folder, issue: Int?.none, born: Date?.none) : parseFolder(folder, oracle: oracle)
             let issue = lock.issue ?? name.issue
             // the PR is the one built from this branch, else the one that closes this tree's issue
             let pr = (branch.isEmpty ? nil : prs.first { $0.branch == branch }) ?? issue.flatMap { n in prs.first { $0.closes.contains(n) } }
@@ -302,10 +318,11 @@ public enum WorkParse {
         }
         return out
     }
-    /// needs-you first; the main checkout before its worktrees; newest worktree first
+    /// needs-you first; the main checkout, then team bodies, before its worktrees; newest worktree first
     static func order(_ a: WorkItem, _ b: WorkItem) -> Bool {
         if a.state != b.state { return a.state < b.state }
         if a.isMain != b.isMain { return a.isMain }
+        if a.isBody != b.isBody { return a.isBody }
         return (a.born ?? .distantPast) > (b.born ?? .distantPast)
     }
 }
