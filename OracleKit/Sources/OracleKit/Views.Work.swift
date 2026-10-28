@@ -13,10 +13,12 @@ struct WorkView: View {
     @ObservedObject var store: OracleStore
     var openPane: Binding<String?> = .constant(nil)
     @State private var allResumable = false
-    @State private var showCold = true          // open: a cold list on view is a list that gets cleaned up
+    @State private var showCold = false         // folded to one line; a click opens it
     @State private var copiedPlan = false
     @State private var copied: String?
     @State private var actionError: String?     // what a Close / Open answered when it failed, with the command
+    @State private var cleaning: WorkItem?      // Clean up…: the worktree whose dry-run plan the confirm shows
+    @State private var cleanPlan = ""
     private var c: OracleConfig { store.config }
 
     /// Run a herdr action from a card, then refresh; keep its error on the page.
@@ -63,7 +65,7 @@ struct WorkView: View {
                         }
                         if g.resumable.count > 6 {
                             Button(allResumable ? "show less" : "\(g.resumable.count - 6) more") { allResumable.toggle() }.handCursor()
-                                .buttonStyle(.link).padding(.leading, 4)
+                                .buttonStyle(.plain).foregroundStyle(c.color).padding(.leading, 4)
                         }
                     }
                 }
@@ -80,6 +82,16 @@ struct WorkView: View {
         }
         .overlay { if work.isEmpty && g.stopped.isEmpty { emptyNote } }
         .navigationTitle("Work")
+        .confirmationDialog("Clean up \(cleaning?.folder ?? "")?", isPresented: Binding(get: { cleaning != nil }, set: { if !$0 { cleaning = nil } }),
+                            titleVisibility: .visible) {
+            Button("Clean up — run the plan", role: .destructive) {
+                if let w = cleaning { act { await WorkFormat.clean([w.path], go: true) } }
+            }
+            Button("Copy the command") { if let w = cleaning { WorkFormat.copy(WorkFormat.cleanCommand([w.path], go: true)) } }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(cleanPlan.isEmpty ? "maw herdr clean did not answer with a plan." : cleanPlan)
+        }
     }
 
     private func liveCard(_ w: WorkItem, twins: [String: String], home: String) -> some View {
@@ -97,23 +109,34 @@ struct WorkView: View {
                 open: (w.isMain || w.isBody) && (w.resumeId == nil || w.resumeProvider == "codex") ? nil : {
                     act { await HerdrControl.open(worktree: w.path, repo: w.repoRoot ?? c.localPath,
                                                   sessionId: w.isMain || w.isBody ? w.resumeId : nil) }
-                })
+                },
+                clean: { review(w) })
     }
 
+    /// Clean up…: the dry-run plan first (`maw herdr clean <path>` changes nothing), then the confirm runs it with --go.
+    private func review(_ w: WorkItem) {
+        Task {
+            cleanPlan = await Shell.run("maw", WorkFormat.cleanArgs([w.path], go: false), timeout: 30)?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            cleaning = w
+        }
+    }
+
+    /// COLD folded to one line; a click lists them, each with its own Clean up…
     private func coldBlock(_ cold: [WorkItem]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 10) {
                 Button { withAnimation(.snappy) { showCold.toggle() } } label: {
                     HStack(spacing: 6) {
-                        WorkFormat.header("COLD", cold.count, note: "no session to resume — clean them up")
-                        Image(systemName: showCold ? "chevron.down" : "chevron.right")
-                            .font(.caption2.bold()).foregroundStyle(.secondary)
-                    }.contentShape(Rectangle())
+                        Image(systemName: showCold ? "chevron.down" : "chevron.right").font(.caption2.bold())
+                        Text(WorkGroups.coldLine(cold.count)).font(.callout)
+                    }
+                    .foregroundStyle(.secondary).contentShape(Rectangle())
                 }.buttonStyle(.plain).handCursor()
                 // the plan only: maw herdr clean lists what it would remove; nothing changes without --go
                 let plan = WorkFormat.cleanCommand(cold.map(\.path))
                 Button(copiedPlan ? "plan copied" : "copy cleanup plan") { WorkFormat.copy(plan); copiedPlan = true }.handCursor()
-                    .buttonStyle(.link).font(.caption).help(plan)
+                    .buttonStyle(.plain).foregroundStyle(c.color).font(.caption).help(plan)
             }
             if showCold {
                 VStack(alignment: .leading, spacing: 2) {
@@ -145,22 +168,18 @@ struct WorkView: View {
 }
 #endif
 
-/// The widget's rule: needs you > working > idle — one big word, the counts, the urgent pane's ask.
+/// The widget's rule: needs you > working > idle — one big word and the live counts (the LIVE rows say what each pane does).
 struct WorkHero: View {
     let acts: [OracleSnapshot.Activity]; let color: Color
     var body: some View {
         let need = acts.filter { $0.status == "blocked" || $0.status == "done" }.count
         let working = acts.filter { $0.status == "working" }.count
-        let urgent = acts.min { WorkFormat.rank($0.status) < WorkFormat.rank($1.status) }
         VStack(alignment: .leading, spacing: 6) {
             Text(need > 0 ? "needs you" : working > 0 ? "working" : "idle")
                 .font(.system(size: 40, weight: .bold, design: .rounded))
                 .foregroundStyle(need + working > 0 ? color : Color.secondary)
-            Text("\(acts.count) \(acts.count == 1 ? "pane" : "panes") · \(working) working · \(need) need you")
+            Text("\(acts.count) live \(acts.count == 1 ? "pane" : "panes") · \(working) working · \(need) need you")
                 .font(.callout).foregroundStyle(.secondary)
-            if let t = urgent?.title, !t.isEmpty {
-                Text("“\(t)”").font(.callout).lineLimit(2).foregroundStyle(.primary.opacity(0.85))
-            }
         }
     }
 }
@@ -176,9 +195,12 @@ struct LiveCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 9) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(item.slug).font(.headline).lineLimit(1)
-                Text(item.branch).font(.caption.monospaced()).foregroundStyle(.secondary)
-                    .lineLimit(1).truncationMode(.middle)
+                // the sidebar's name first (its branch, else its folder); the slug or "body · <repo>" is detail
+                let name = item.branch.isEmpty ? item.folder : item.branch
+                Text(name).font(.headline).lineLimit(1).truncationMode(.middle)
+                if item.slug != name {
+                    Text(item.slug).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                }
                 Spacer(minLength: 8)
                 WorkLinks(item: item, repo: config.repoSlug)
                 Text(item.state.label).font(.caption).foregroundStyle(.secondary)
@@ -249,7 +271,7 @@ struct LiveCard: View {
             Button("Close — its agent quits", role: .destructive) { if let p = closing { close?(p) } }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Its conversation stays: it shows under RESUMABLE, where Open brings it back. "
+            Text("Its conversation stays: it shows under RESUMABLE, where Resume brings it back. "
                  + "If this is the pane you are talking to, that conversation stops mid-reply.")
         }
     }
@@ -260,6 +282,7 @@ struct TreeRow: View {
     let item: WorkItem; let config: OracleConfig
     @Binding var copied: String?
     var open: (() -> Void)? = nil     // resume its own session in a pane (ticket.sh open); nil: copy the command instead
+    var clean: (() -> Void)? = nil    // Clean up…: show the dry-run plan, then confirm
     var body: some View {
         HStack(spacing: 10) {
             Text(item.slug).lineLimit(1).truncationMode(.middle)
@@ -268,18 +291,18 @@ struct TreeRow: View {
             Text(item.born.map(WorkFormat.ago) ?? "").font(.callout.monospacedDigit()).foregroundStyle(.secondary)
                 .frame(width: 44, alignment: .trailing)
             if let open, let cmd = item.resumeCommand {
-                Button("open", action: open).handCursor()
+                Button("Resume", action: open).handCursor()
                     .buttonStyle(.borderless).help("Resume this worktree's own session in a herdr pane — \(cmd)")
                     .frame(width: 64, alignment: .trailing)
             } else if let cmd = item.resumeCommand {
-                Button(copied == item.id ? "copied" : "resume") { WorkFormat.copy(cmd); copied = item.id }.handCursor()
+                Button(copied == item.id ? "copied" : "copy resume") { WorkFormat.copy(cmd); copied = item.id }.handCursor()
                     .buttonStyle(.borderless).help(cmd)
                     .frame(width: 64, alignment: .trailing)
-            } else {
-                let clean = WorkFormat.cleanCommand([item.path])
-                Button(copied == item.id ? "copied" : "clean up") { WorkFormat.copy(clean); copied = item.id }.handCursor()
-                    .buttonStyle(.borderless).foregroundStyle(.secondary).help(clean)
-                    .frame(width: 64, alignment: .trailing)
+            } else if let clean {
+                Button("Clean up…", action: clean).handCursor()
+                    .buttonStyle(.borderless).foregroundStyle(.secondary)
+                    .help("See what \(WorkFormat.cleanCommand([item.path])) would remove, then confirm")
+                    .frame(width: 72, alignment: .trailing)
             }
         }
         .padding(.vertical, 4).padding(.horizontal, 4)
@@ -410,9 +433,19 @@ enum WorkFormat {
     }
     /// `maw herdr clean` plans removing worktrees whose commits are pushed (or merged); it changes nothing
     /// until run again with --go.
-    static func cleanCommand(_ paths: [String]) -> String {
-        "maw herdr clean " + paths.map { "'\($0)'" }.joined(separator: " ")
+    static func cleanCommand(_ paths: [String], go: Bool = false) -> String {
+        "maw herdr clean " + paths.map { "'\($0)'" }.joined(separator: " ") + (go ? " --go" : "")
     }
+    /// The same as arguments to `maw`: the plan, or with `go` the removal itself.
+    static func cleanArgs(_ paths: [String], go: Bool) -> [String] {
+        ["herdr", "clean"] + paths + (go ? ["--go"] : [])
+    }
+    #if os(macOS)
+    /// Run the cleanup for real (--go): nil when it worked, else what to run by hand.
+    static func clean(_ paths: [String], go: Bool) async -> String? {
+        await Shell.run("maw", cleanArgs(paths, go: go), timeout: 120) == nil ? "maw herdr clean failed — run:  \(cleanCommand(paths, go: go))" : nil
+    }
+    #endif
     static func header(_ title: String, _ n: Int, note: String = "") -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
             Text(title).font(.caption.weight(.semibold)).tracking(1.4)

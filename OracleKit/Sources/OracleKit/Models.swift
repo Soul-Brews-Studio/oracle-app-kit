@@ -168,7 +168,7 @@ public struct WorkItem: Identifiable, Hashable, Sendable {
     public enum State: Int, Comparable, Sendable {
         case needsYou, working, open, resumable, cold
         public static func < (a: State, b: State) -> Bool { a.rawValue < b.rawValue }
-        public var label: String { ["needs you", "working", "open", "resumable", "cold"][rawValue] }
+        public var label: String { ["needs you", "working", "idle", "resumable", "cold"][rawValue] }   // .open reads "idle": a live space, nothing working
     }
     public var state: State {
         if panes.contains(where: { $0.status == "blocked" || $0.status == "done" }) { return .needsYou }

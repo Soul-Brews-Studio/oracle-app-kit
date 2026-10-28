@@ -47,5 +47,15 @@ final class WorkGroupsTests: XCTestCase {
     func testLabels() {
         XCTAssertEqual(WorkGroups.resumeLabel(2, into: "laris-co"), "Resume 2 in laris-co")
         XCTAssertEqual(WorkGroups.startLabel("default"), "Start default")
+        XCTAssertEqual(WorkGroups.coldLine(13), "13 worktrees with no session to resume · Review cleanup")
+        XCTAssertEqual(WorkGroups.coldLine(1), "1 worktree with no session to resume · Review cleanup")
+        XCTAssertEqual(WorkItem.State.open.label, "idle")
+    }
+
+    func testCleanCommandPlansUnlessGo() {
+        XCTAssertEqual(WorkFormat.cleanCommand(["/r/wt/a b"]), "maw herdr clean '/r/wt/a b'")
+        XCTAssertEqual(WorkFormat.cleanCommand(["/r/wt/a", "/r/wt/b"], go: true), "maw herdr clean '/r/wt/a' '/r/wt/b' --go")
+        XCTAssertEqual(WorkFormat.cleanArgs(["/r/wt/a"], go: false), ["herdr", "clean", "/r/wt/a"])
+        XCTAssertEqual(WorkFormat.cleanArgs(["/r/wt/a"], go: true), ["herdr", "clean", "/r/wt/a", "--go"])
     }
 }

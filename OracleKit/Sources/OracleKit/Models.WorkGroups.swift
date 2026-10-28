@@ -58,4 +58,8 @@ public struct WorkGroups: Equatable, Sendable {
     /// The stopped session's buttons: where Resume lands is part of its name.
     public static func resumeLabel(_ n: Int, into target: String) -> String { "Resume \(n) in \(target)" }
     public static func startLabel(_ session: String) -> String { "Start \(session)" }
+    /// COLD folded to one line.
+    public static func coldLine(_ n: Int) -> String {
+        "\(n) worktree\(n == 1 ? "" : "s") with no session to resume · Review cleanup"
+    }
 }
