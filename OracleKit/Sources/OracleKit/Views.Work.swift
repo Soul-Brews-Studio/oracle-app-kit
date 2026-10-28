@@ -89,13 +89,16 @@ struct WorkView: View {
         .navigationTitle("Work")
         .confirmationDialog("Clean up \(cleaning?.folder ?? "")?", isPresented: Binding(get: { cleaning != nil }, set: { if !$0 { cleaning = nil } }),
                             titleVisibility: .visible) {
-            Button("Clean up — run the plan", role: .destructive) {
-                if let w = cleaning { act { await WorkFormat.clean([w.path], go: true) } }
+            // the destructive button only when the plan says it removes exactly this worktree
+            if let w = cleaning, WorkFormat.planRemoves(cleanPlan, path: w.path) {
+                Button("Clean up — run the plan", role: .destructive) { act { await WorkFormat.cleanIfStillPlanned(w.path) } }
             }
             Button("Copy the command") { if let w = cleaning { WorkFormat.copy(WorkFormat.cleanCommand([w.path], go: true)) } }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text(cleanPlan.isEmpty ? "maw herdr clean did not answer with a plan." : cleanPlan)
+            let removes = cleaning.map { WorkFormat.planRemoves(cleanPlan, path: $0.path) } ?? false
+            Text(cleanPlan.isEmpty ? "maw herdr clean did not answer with a plan, so nothing can be removed from here."
+                 : removes ? cleanPlan : "The plan keeps this worktree, so nothing is removed:\n\n" + cleanPlan)
         }
     }
 
@@ -115,7 +118,7 @@ struct WorkView: View {
                     act { await HerdrControl.open(worktree: w.path, repo: w.repoRoot ?? c.localPath,
                                                   sessionId: w.isMain || w.isBody ? w.resumeId : nil) }
                 },
-                clean: { review(w) })
+                clean: WorkFormat.canClean(w) ? { review(w) } : nil)
     }
 
     /// Clean up…: the dry-run plan first (`maw herdr clean <path>` changes nothing), then the confirm runs it with --go.
@@ -445,7 +448,27 @@ enum WorkFormat {
     static func cleanArgs(_ paths: [String], go: Bool) -> [String] {
         ["herdr", "clean"] + paths + (go ? ["--go"] : [])
     }
+    /// Only a cold task worktree may be cleaned up: never the main checkout, never a team body (removing one would
+    /// take its gitignored CLAUDE.local.md, the link to the oracle, with it).
+    static func canClean(_ w: WorkItem) -> Bool { w.state == .cold && !w.isMain && !w.isBody }
+
+    /// True when a `maw herdr clean <path>` plan removes exactly that worktree: a line
+    /// `would  remove worktree <label> (<path>)`. A `kept` line, another path, or no plan at all is false.
+    static func planRemoves(_ plan: String, path: String) -> Bool {
+        plan.split(whereSeparator: \.isNewline).contains { raw in
+            let l = raw.trimmingCharacters(in: .whitespaces)
+            return l.hasPrefix("would") && l.contains(" remove worktree ") && l.hasSuffix("(" + path + ")")
+        }
+    }
+
     #if os(macOS)
+    /// The confirmed Clean up: plan again first, and run --go only when the plan still removes this worktree.
+    static func cleanIfStillPlanned(_ path: String) async -> String? {
+        let plan = await Shell.run("maw", cleanArgs([path], go: false), timeout: 30) ?? ""
+        guard planRemoves(plan, path: path) else { return "The plan changed; nothing removed. Now:\n" + plan }
+        return await clean([path], go: true)
+    }
+
     /// Run the cleanup for real (--go): nil when it worked, else what to run by hand.
     static func clean(_ paths: [String], go: Bool) async -> String? {
         await Shell.run("maw", cleanArgs(paths, go: go), timeout: 120) == nil ? "maw herdr clean failed — run:  \(cleanCommand(paths, go: go))" : nil

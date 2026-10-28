@@ -89,4 +89,38 @@ final class WorkGroupsTests: XCTestCase {
         XCTAssertEqual(WorkFormat.cleanArgs(["/r/wt/a"], go: false), ["herdr", "clean", "/r/wt/a"])
         XCTAssertEqual(WorkFormat.cleanArgs(["/r/wt/a"], go: true), ["herdr", "clean", "/r/wt/a", "--go"])
     }
+
+    /// Clean up… only on a cold task worktree: never main, never a team body, never one that can still resume.
+    func testOnlyAColdTaskWorktreeCanBeCleaned() {
+        var body = item("/t/team/wt/alpha", state: "cold"); body.isBody = true
+        let main = WorkItem(path: "/r/home", isMain: true, slug: "home", folder: "home", branch: "main", born: nil, issue: nil, pr: nil,
+                            mawState: "cold", panes: [], resumeId: nil)
+        XCTAssertFalse(WorkFormat.canClean(body))
+        XCTAssertFalse(WorkFormat.canClean(main))
+        XCTAssertTrue(WorkFormat.canClean(item("/r/home/wt/task", state: "cold")))
+        XCTAssertFalse(WorkFormat.canClean(item("/r/home/wt/task", state: "resumable", resumeId: "c")))
+    }
+
+    /// The destructive button only when the dry-run plan removes exactly that path (samples from `maw herdr clean`).
+    func testPlanRemovesReadsTheDryRun() {
+        let path = "/r/repo/wt/task-alpha-6oct-tue2026"
+        let removes = """
+          would  remove worktree task-alpha-6oct-tue2026 (\(path))
+                 HEAD is in origin/main
+                 $ git -C /r/repo worktree remove \(path)
+
+          1 action planned, 0 kept — plan only, nothing was changed
+        """
+        let keeps = """
+          kept   task-beta-7oct-wed2026  \(path)
+                 git has it locked
+                   git -C /r/repo worktree unlock \(path)
+          nothing to clean (1 kept)
+        """
+        XCTAssertTrue(WorkFormat.planRemoves(removes, path: path))
+        XCTAssertFalse(WorkFormat.planRemoves(keeps, path: path))
+        XCTAssertFalse(WorkFormat.planRemoves("", path: path))
+        XCTAssertFalse(WorkFormat.planRemoves(removes, path: "/r/repo/wt/task-alpha"))          // another path
+        XCTAssertFalse(WorkFormat.planRemoves(removes, path: "/r/repo/wt/task-alpha-6oct-tue2026-2"))
+    }
 }
