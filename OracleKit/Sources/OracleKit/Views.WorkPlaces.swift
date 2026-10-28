@@ -34,14 +34,14 @@ struct SessionHeader: View {
                 Spacer(minLength: 8)
                 if !p.running, !toResume.isEmpty {
                     Button(busy ? "Resuming…" : WorkGroups.resumeLabel(toResume.count, into: target)) { resume(toResume, into: target) }
-                        .buttonStyle(.borderedProminent).tint(accent).controlSize(.small).disabled(busy)
+                        .buttonStyle(.borderedProminent).tint(accent).controlSize(.small).disabled(busy).handCursor()
                         .help("Bring back only \(name)'s \(toResume.count) conversation(s), each exactly its own, into \(target)")
                     Button(WorkGroups.startLabel(p.session) + "…") { starting = true }
-                        .buttonStyle(.bordered).controlSize(.small).disabled(busy)
+                        .buttonStyle(.bordered).controlSize(.small).disabled(busy).handCursor()
                         .help("Start \(p.session) itself: they come back in their own spaces, with its other oracles")
                 } else if !mine.isEmpty {
                     Button(busy ? "Stopping…" : "Stop \(name) · \(mine.count)") { stoppingMine = true }
-                        .buttonStyle(.bordered).tint(accent).controlSize(.small).disabled(busy)
+                        .buttonStyle(.bordered).tint(accent).controlSize(.small).disabled(busy).handCursor()
                         .help("Close only \(name)'s panes in \(p.session); the session keeps running for everything else")
                 }
             }

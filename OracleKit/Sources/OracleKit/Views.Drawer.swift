@@ -47,7 +47,7 @@ struct HeyComposer: View {
                     Text(chosen.map { "to \(WorkFormat.pane($0.place, home: WorkFormat.homeSession(store.activity))) · \($0.status)" } ?? "no agent pane open")
                         .font(.caption)
                 }
-                .menuStyle(.borderlessButton).fixedSize().disabled(panes.isEmpty)
+                .menuStyle(.borderlessButton).fixedSize().disabled(panes.isEmpty).handCursor()
                 if let note { Text(note).font(.caption).foregroundStyle(note.hasPrefix("sent") ? Color.secondary : Color.orange).textSelection(.enabled).lineLimit(2) }
                 Spacer()
                 Text("⌘↩ to send").font(.caption).foregroundStyle(.tertiary)
