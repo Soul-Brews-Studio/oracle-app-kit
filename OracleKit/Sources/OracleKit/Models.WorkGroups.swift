@@ -15,6 +15,29 @@ public struct WorkGroups: Equatable, Sendable {
         public let place: SessionPlace
         public let toResume: [SavedAgent]   // its saved conversations not live anywhere: what Resume brings back
         public let rows: [WorkItem]         // the worktrees those conversations belong to
+        public var extras: [Extra] = []     // the conversations no row of its own shows: rows + extras = toResume
+    }
+    /// A conversation a stopped session resumes that has no row under it: one quiet line, so Resume's count is seen.
+    public struct Extra: Identifiable, Equatable, Sendable {
+        public enum Reason: Equatable, Sendable {
+            case listedUnder(String)        // its worktree is a row of that group (a session, or LIVE)
+            case folderGone                 // no worktree holds its folder
+        }
+        public var id: String { agent.sessionId }
+        public let agent: SavedAgent
+        public let reason: Reason
+        /// its agent's name, else its folder's name, else the space it was saved in
+        public var label: String {
+            if !agent.name.isEmpty { return agent.name }
+            let leaf = (agent.cwd as NSString).lastPathComponent
+            return leaf.isEmpty ? agent.space : leaf
+        }
+        public var line: String {
+            switch reason {
+            case .listedUnder(let s): return "\(label) · listed under \(s)"
+            case .folderGone: return "\(label) · folder gone"
+            }
+        }
     }
     public var running: [Running] = []
     public var live: [WorkItem] = []        // live, but with no pane in a known session
@@ -23,28 +46,28 @@ public struct WorkGroups: Equatable, Sendable {
     public var cold: [WorkItem] = []
 
     public static func make(work: [WorkItem], places: [SessionPlace]) -> WorkGroups {
-        var g = WorkGroups(), taken = Set<String>()
+        var g = WorkGroups(), takenBy: [String: String] = [:]   // worktree → the group it is listed under
         let live = work.filter { $0.state <= .open }
         for p in places where p.running {
-            let mine = live.filter { w in !taken.contains(w.id) && w.panes.contains { $0.place.hasPrefix(p.session + ":") } }
-            taken.formUnion(mine.map(\.id))
+            let mine = live.filter { w in takenBy[w.id] == nil && w.panes.contains { $0.place.hasPrefix(p.session + ":") } }
+            for w in mine { takenBy[w.id] = p.session }
             if !mine.isEmpty { g.running.append(Running(place: p, live: mine)) }
         }
-        g.live = live.filter { !taken.contains($0.id) }
-        taken.formUnion(g.live.map(\.id))
-        let idle = work.filter { $0.state > .open }
+        g.live = live.filter { takenBy[$0.id] == nil }
+        for w in g.live { takenBy[w.id] = "LIVE" }
         for p in places where !p.running {
             let back = HerdrPlaces.toResume(p)
             guard !back.isEmpty else { continue }
-            var rows: [WorkItem] = []
+            var rows: [WorkItem] = [], extras: [Extra] = []
             for a in back {
-                guard let w = owner(of: a, in: idle), !taken.contains(w.id) else { continue }
-                taken.insert(w.id); rows.append(w)
+                guard let w = owner(of: a, in: work) else { extras.append(Extra(agent: a, reason: .folderGone)); continue }
+                if let by = takenBy[w.id] { extras.append(Extra(agent: a, reason: .listedUnder(by))); continue }
+                takenBy[w.id] = p.session; rows.append(w)
             }
-            g.stopped.append(Stopped(place: p, toResume: back, rows: rows))
+            g.stopped.append(Stopped(place: p, toResume: back, rows: rows, extras: extras))
         }
-        g.resumable = work.filter { $0.state == .resumable && !taken.contains($0.id) }
-        g.cold = work.filter { $0.state == .cold && !taken.contains($0.id) }
+        g.resumable = work.filter { $0.state == .resumable && takenBy[$0.id] == nil }
+        g.cold = work.filter { $0.state == .cold && takenBy[$0.id] == nil }
         return g
     }
 

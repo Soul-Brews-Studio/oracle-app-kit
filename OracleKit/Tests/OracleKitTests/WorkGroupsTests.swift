@@ -37,11 +37,31 @@ final class WorkGroupsTests: XCTestCase {
         XCTAssertEqual(g.stopped[0].rows.map(\.path), ["/r/wt/c", "/r/wt/d"])                 // by id, then by folder
         XCTAssertEqual(g.stopped[0].toResume.count, 3)                                        // an unmatched one still resumes
         XCTAssertEqual(g.stopped[1].rows.map(\.path), [])
+        // every conversation Resume brings back is seen: as a row, or as one line saying where it is
+        XCTAssertEqual(g.stopped[0].extras.map(\.line), ["tmp · folder gone"])
+        XCTAssertEqual(g.stopped[1].extras.map(\.reason), [.listedUnder("default")])
+        for s in g.stopped { XCTAssertEqual(s.rows.count + s.extras.count, s.toResume.count) }
         XCTAssertEqual(g.resumable.map(\.path), ["/r/wt/e"])
         XCTAssertEqual(g.cold.map(\.path), ["/r/wt/f"])
         let all = g.running.flatMap(\.live) + g.live + g.stopped.flatMap(\.rows) + g.resumable + g.cold
         XCTAssertEqual(all.count, Set(all.map(\.path)).count)                                // no worktree twice
         XCTAssertEqual(all.count, 6)
+    }
+
+    /// A stopped session whose conversation's worktree is a live card of a running session: named, not hidden.
+    func testAConversationListedElsewhereIsNamed() {
+        let main = item("/r/home", state: "running", panes: ["nexus:w1:p1"])
+        let places = [
+            SessionPlace(session: "nexus", running: true, savedAt: nil, spaces: ["home"], agents: []),
+            SessionPlace(session: "default", running: false, savedAt: nil, spaces: ["home"],
+                         agents: [SavedAgent(name: "", agent: "claude", sessionId: "old", space: "home", cwd: "/r/home"),
+                                  SavedAgent(name: "scout", agent: "claude", sessionId: "gone", space: "line", cwd: "/r/wt/gone")]),
+        ]
+        let s = WorkGroups.make(work: [main], places: places).stopped[0]
+        XCTAssertTrue(s.rows.isEmpty)
+        XCTAssertEqual(s.extras.map(\.reason), [.listedUnder("nexus"), .folderGone])
+        XCTAssertEqual(s.extras.map(\.line), ["home · listed under nexus", "scout · folder gone"])
+        XCTAssertEqual(s.rows.count + s.extras.count, s.toResume.count)
     }
 
     /// A conversation saved in a team body reopens under the body's own repo; the rest under home.

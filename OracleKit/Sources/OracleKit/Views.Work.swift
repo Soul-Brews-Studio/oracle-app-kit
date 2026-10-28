@@ -56,6 +56,11 @@ struct WorkView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         SessionHeader(store: store, place: s.place, toResume: s.toResume)
                         ForEach(s.rows) { treeRow($0) }
+                        // what Resume also brings back that has no row here: one quiet line each, no buttons
+                        ForEach(s.extras) { e in
+                            Text(e.line).font(.callout).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                                .padding(.vertical, 2).padding(.horizontal, 4)
+                        }
                     }
                 }
                 if !g.resumable.isEmpty {
