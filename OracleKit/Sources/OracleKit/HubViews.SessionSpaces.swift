@@ -50,7 +50,7 @@ struct SessionSpaces: View {
         if open?.id == sp.id { closeDrawer(); return }
         if open == nil {
             let dx = CGFloat(drawerWidth) + 1; grown += dx
-            DispatchQueue.main.async { Drawer.grow(by: dx) }
+            DispatchQueue.main.async { Drawer.open(by: dx) }
             esc = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { e in
                 if LiveTerminal.typing { return e }   // esc is the agent's while typing (⌘⎋ is this page's esc then)
                 if e.keyCode == 53, open != nil, full { withAnimation(.easeOut(duration: 0.15)) { full = false }; return nil }   // full screen first
@@ -63,7 +63,7 @@ struct SessionSpaces: View {
     private func closeDrawer() {
         guard open != nil || grown > 0 else { return }
         withAnimation(.easeOut(duration: 0.18)) { open = nil; full = false }
-        if grown > 0 { let dx = grown; grown = 0; DispatchQueue.main.async { Drawer.grow(by: -dx) } }
+        if grown > 0 { let dx = grown; grown = 0; DispatchQueue.main.async { Drawer.close(by: dx) } }
         if let m = esc { NSEvent.removeMonitor(m); esc = nil }
     }
 

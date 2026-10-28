@@ -227,6 +227,8 @@ let fitLog = Logger(subsystem: "co.laris.oracle.kit", category: "fit")
 @MainActor enum Drawer {
     /// Each window's frame before a fit: the next double-click goes back to it.
     private static var beforeFit: [Int: NSRect] = [:]
+    /// Each window's frame before a drawer opened and right after it grew: closing puts the first one back.
+    private static var beforeDrawer: [Int: (before: NSRect, after: NSRect)] = [:]
 
     /// The sidebar's width, measured from the window's split view (272 when there is none).
     static func sidebarWidth(in w: NSWindow) -> CGFloat {
@@ -274,18 +276,47 @@ let fitLog = Logger(subsystem: "co.laris.oracle.kit", category: "fit")
         return nil
     }
 
-    /// `leftward`: the window's right edge stays put and it grows to the left — what a drag on the drawer's left edge wants
-    static func grow(by dx: CGFloat, leftward: Bool = false, animate: Bool = true) {
-        guard let w = NSApp.keyWindow ?? NSApp.windows.first(where: { $0.isVisible && $0.canBecomeMain }) else { return }
-        var f = w.frame
+    private static var window: NSWindow? { NSApp.keyWindow ?? NSApp.windows.first(where: { $0.isVisible && $0.canBecomeMain }) }
+
+    /// `frame` grown (or shrunk) by `dx`, kept on the screen: no room on the right moves it left, never wider than the screen.
+    /// `leftward`: the right edge stays put and it grows to the left.
+    nonisolated static func grown(_ frame: NSRect, by dx: CGFloat, leftward: Bool = false, screen vis: NSRect?) -> NSRect {
+        var f = frame
         f.size.width += dx
         if leftward { f.origin.x -= dx }
-        if let vis = w.screen?.visibleFrame {
+        if let vis {
             if f.width > vis.width { f.size.width = vis.width }
             if f.maxX > vis.maxX { f.origin.x = max(vis.minX, vis.maxX - f.width) }   // no room on the right: open toward the left
             if f.minX < vis.minX { f.origin.x = vis.minX }
         }
+        return f
+    }
+
+    /// A drawer opens: the window grows by `dx`, and remembers where it was.
+    static func open(by dx: CGFloat) {
+        guard let w = window else { return }
+        let before = w.frame, after = grown(before, by: dx, screen: w.screen?.visibleFrame)
+        beforeDrawer[w.windowNumber] = (before, after)
+        w.setFrame(after, display: true, animate: true)
+    }
+
+    /// The drawer closes: the window goes back to where it was before it opened (grow moved it left at the screen edge,
+    /// or clamped its width). If it was moved or resized meanwhile, only the drawer's width is taken back, where it is now.
+    static func close(by dx: CGFloat, animate: Bool = true) {
+        guard let w = window else { return }
+        let saved = beforeDrawer.removeValue(forKey: w.windowNumber)
+        let f = closedFrame(before: saved?.before, after: saved?.after, current: w.frame, dx: dx, screen: w.screen?.visibleFrame)
         w.setFrame(f, display: true, animate: animate)
+    }
+
+    /// Where a closing drawer leaves the window: `before` when the window is still at `after` (nobody touched it),
+    /// else `current` less the drawer's width.
+    nonisolated static func closedFrame(before: NSRect?, after: NSRect?, current: NSRect, dx: CGFloat, screen: NSRect?) -> NSRect {
+        func same(_ a: NSRect, _ b: NSRect) -> Bool {
+            abs(a.minX - b.minX) <= 1 && abs(a.minY - b.minY) <= 1 && abs(a.width - b.width) <= 1 && abs(a.height - b.height) <= 1
+        }
+        if let before, let after, same(after, current) { return before }
+        return grown(current, by: -dx, screen: screen)
     }
 }
 
