@@ -58,7 +58,7 @@ final class TeamBodyTests: XCTestCase {
         let agents = [("s:w1:p1", home), ("s:w9:p1", body), ("s:w8:p1", team + "/wt/beta-oracle")]
         let acts = agents.filter { HerdrParse.belongs(AgentPane(session: "s", paneId: "", name: "", agent: "", status: "", cwd: $0.1, title: ""), roots: roots) }
             .map { OracleSnapshot.Activity(title: "", status: "idle", place: $0.0, cwd: $0.1) }
-        XCTAssertEqual(WorkPlaces.livePanes(acts, session: "s"), ["s:w1:p1", "s:w9:p1"])
+        XCTAssertEqual(SessionHeader.livePanes(acts, session: "s"), ["s:w1:p1", "s:w9:p1"])
         // a stopped session saved the body's agent; that conversation now runs in a body pane elsewhere
         let saved = #"{"version":1,"workspaces":[{"id":"a","custom_name":"","identity_cwd":"\#(body)","tabs":[{"panes":{"1":{"cwd":"\#(body)","#
             + #""agent_name":"alpha","agent_session":{"agent":"claude","kind":"id","value":"body-conv-1"}}}}]}]}"#

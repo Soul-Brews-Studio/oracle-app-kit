@@ -26,73 +26,48 @@ struct WorkView: View {
 
     var body: some View {
         let work = store.work
-        let live = work.filter { $0.state <= .open }
-        let resumable = work.filter { $0.state == .resumable }
-        let cold = work.filter { $0.state == .cold }
+        let g = WorkGroups.make(work: work, places: store.places)
         let next: [WorkParse.NextIssue] = work.isEmpty ? [] : WorkParse.unstarted(issues: store.issues, prs: store.prs, work: work)
         let twins = WorkParse.twins(store.activity)
         let home = WorkFormat.homeSession(store.activity)
         ScrollView {
             VStack(alignment: .leading, spacing: 26) {
                 WorkHero(acts: store.activity, color: c.color)
-                WorkPlaces(store: store)
                 if let e = actionError {
                     Text(e).font(.system(size: 11)).foregroundStyle(.orange).textSelection(.enabled)
                 }
-                if !live.isEmpty {
-                    block("LIVE", live.count) {
-                        ForEach(live) { w in
-                            LiveCard(item: w, config: c, twins: twins, home: home, copied: $copied, openPane: openPane,
-                                     close: { place in act { await HerdrControl.closePane(place: place) } },
-                                     shells: panesOf(w, store: store).filter { p in !w.panes.contains { $0.place == p } }) {
-                                #if os(macOS)
-                                store.bringToMain(w)
-                                if w.panes.contains(where: { $0.place == openPane.wrappedValue }) { openPane.wrappedValue = nil }   // bring here closes its drawer
-                                #endif
-                            }
-                        }
+                // live first: each running session over the cards whose panes are in it
+                ForEach(g.running) { r in
+                    VStack(alignment: .leading, spacing: 10) {
+                        SessionHeader(store: store, place: r.place)
+                        ForEach(r.live) { liveCard($0, twins: twins, home: home) }
                     }
                 }
-                if !resumable.isEmpty {
-                    block("RESUMABLE", resumable.count) {
+                if !g.live.isEmpty {
+                    VStack(alignment: .leading, spacing: 10) {
+                        if g.running.isEmpty { WorkFormat.header("LIVE", g.live.count) }
+                        ForEach(g.live) { liveCard($0, twins: twins, home: home) }
+                    }
+                }
+                // each stopped session over the worktrees its saved conversations belong to
+                ForEach(g.stopped) { s in
+                    VStack(alignment: .leading, spacing: 4) {
+                        SessionHeader(store: store, place: s.place, toResume: s.toResume)
+                        ForEach(s.rows) { treeRow($0) }
+                    }
+                }
+                if !g.resumable.isEmpty {
+                    block("RESUMABLE", g.resumable.count) {
                         VStack(alignment: .leading, spacing: 2) {
-                            ForEach(allResumable ? resumable : Array(resumable.prefix(6))) { w in
-                                TreeRow(item: w, config: c, copied: $copied,
-                                        // main: only with its exact claude id (ticket.sh resumes claude, not codex)
-                                        open: (w.isMain || w.isBody) && (w.resumeId == nil || w.resumeProvider == "codex") ? nil : {
-                                            act { await HerdrControl.open(worktree: w.path, repo: w.repoRoot ?? c.localPath,
-                                                                          sessionId: w.isMain || w.isBody ? w.resumeId : nil) }
-                                        })
-                            }
+                            ForEach(allResumable ? g.resumable : Array(g.resumable.prefix(6))) { treeRow($0) }
                         }
-                        if resumable.count > 6 {
-                            Button(allResumable ? "show less" : "\(resumable.count - 6) more") { allResumable.toggle() }.handCursor()
+                        if g.resumable.count > 6 {
+                            Button(allResumable ? "show less" : "\(g.resumable.count - 6) more") { allResumable.toggle() }.handCursor()
                                 .buttonStyle(.link).padding(.leading, 4)
                         }
                     }
                 }
-                if !cold.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack(spacing: 10) {
-                            Button { withAnimation(.snappy) { showCold.toggle() } } label: {
-                                HStack(spacing: 6) {
-                                    WorkFormat.header("COLD", cold.count, note: "no session to resume — clean them up")
-                                    Image(systemName: showCold ? "chevron.down" : "chevron.right")
-                                        .font(.caption2.bold()).foregroundStyle(.secondary)
-                                }.contentShape(Rectangle())
-                            }.buttonStyle(.plain).handCursor()
-                            // the plan only: maw herdr clean lists what it would remove; nothing changes without --go
-                            let plan = WorkFormat.cleanCommand(cold.map(\.path))
-                            Button(copiedPlan ? "plan copied" : "copy cleanup plan") { WorkFormat.copy(plan); copiedPlan = true }.handCursor()
-                                .buttonStyle(.link).font(.caption).help(plan)
-                        }
-                        if showCold {
-                            VStack(alignment: .leading, spacing: 2) {
-                                ForEach(cold) { TreeRow(item: $0, config: c, copied: $copied).opacity(0.7) }
-                            }
-                        }
-                    }
-                }
+                if !g.cold.isEmpty { coldBlock(g.cold) }
                 if !next.isEmpty {
                     block("NEXT", next.count, note: next.count == 1 ? "issue with no worktree yet" : "issues with no worktree yet") {
                         NextBox(next: next)
@@ -103,8 +78,49 @@ struct WorkView: View {
             .frame(maxWidth: 760, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .overlay { if work.isEmpty { emptyNote } }
+        .overlay { if work.isEmpty && g.stopped.isEmpty { emptyNote } }
         .navigationTitle("Work")
+    }
+
+    private func liveCard(_ w: WorkItem, twins: [String: String], home: String) -> some View {
+        LiveCard(item: w, config: c, twins: twins, home: home, copied: $copied, openPane: openPane,
+                 close: { place in act { await HerdrControl.closePane(place: place) } },
+                 shells: panesOf(w, store: store).filter { p in !w.panes.contains { $0.place == p } }) {
+            store.bringToMain(w)
+            if w.panes.contains(where: { $0.place == openPane.wrappedValue }) { openPane.wrappedValue = nil }   // bring here closes its drawer
+        }
+    }
+
+    private func treeRow(_ w: WorkItem) -> some View {
+        TreeRow(item: w, config: c, copied: $copied,
+                // main and bodies: only with their exact claude id (ticket.sh resumes claude, not codex)
+                open: (w.isMain || w.isBody) && (w.resumeId == nil || w.resumeProvider == "codex") ? nil : {
+                    act { await HerdrControl.open(worktree: w.path, repo: w.repoRoot ?? c.localPath,
+                                                  sessionId: w.isMain || w.isBody ? w.resumeId : nil) }
+                })
+    }
+
+    private func coldBlock(_ cold: [WorkItem]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                Button { withAnimation(.snappy) { showCold.toggle() } } label: {
+                    HStack(spacing: 6) {
+                        WorkFormat.header("COLD", cold.count, note: "no session to resume — clean them up")
+                        Image(systemName: showCold ? "chevron.down" : "chevron.right")
+                            .font(.caption2.bold()).foregroundStyle(.secondary)
+                    }.contentShape(Rectangle())
+                }.buttonStyle(.plain).handCursor()
+                // the plan only: maw herdr clean lists what it would remove; nothing changes without --go
+                let plan = WorkFormat.cleanCommand(cold.map(\.path))
+                Button(copiedPlan ? "plan copied" : "copy cleanup plan") { WorkFormat.copy(plan); copiedPlan = true }.handCursor()
+                    .buttonStyle(.link).font(.caption).help(plan)
+            }
+            if showCold {
+                VStack(alignment: .leading, spacing: 2) {
+                    ForEach(cold) { treeRow($0).opacity(0.7) }
+                }
+            }
+        }
     }
 
     private func block<Content: View>(_ title: String, _ n: Int, note: String = "",
@@ -118,7 +134,7 @@ struct WorkView: View {
     @ViewBuilder private var emptyNote: some View {
         #if os(macOS)
         if let p = store.places.first(where: { !$0.running }) {
-            Text("Nothing running here: \(p.session) is \(HerdrPlaces.stoppedSince(p.savedAt)). Start it above.").foregroundStyle(.secondary)
+            Text("Nothing running here: \(p.session) is \(HerdrPlaces.stoppedSince(p.savedAt)).").foregroundStyle(.secondary)
         } else {
             Text("Nothing from maw herdr ls for \(c.localPath)").foregroundStyle(.secondary)
         }
