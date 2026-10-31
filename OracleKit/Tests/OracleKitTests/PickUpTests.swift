@@ -69,4 +69,40 @@ final class PickUpTests: XCTestCase {
         let issues = [4, 5].map { GHItem(number: $0, title: "t\($0)", author: "nazt", updatedAt: nil, url: nil, isDraft: false, branch: nil, closes: []) }
         XCTAssertEqual(WorkParse.unstarted(issues: issues, prs: [], work: work).map(\.issue.number), [5])
     }
+
+    // MARK: auto-pickup
+
+    private func issue(_ n: Int) -> GHItem {
+        GHItem(number: n, title: "#\(n)", author: "nazt", updatedAt: nil, url: nil, isDraft: false)
+    }
+
+    func testAutoLeavesTheBacklogAlone() {
+        // the Issues page on 2026-10-31: 30 open, 28 without a worktree. Switching auto-pickup on must start 0 agents
+        let open = (130...157).map(issue)
+        let mark = PickUp.watermark(open)
+        XCTAssertEqual(mark, 157)
+        XCTAssertNil(PickUp.auto(issues: open, taken: [], tried: [], busy: false, after: mark))
+    }
+
+    func testAutoTakesOnlyIssuesOpenedAfterTheSwitch() {
+        let after = [issue(150), issue(158), issue(159)]
+        XCTAssertEqual(PickUp.auto(issues: after, taken: [], tried: [], busy: false, after: 157)?.number, 158)   // oldest first
+        // 158 now has a worktree: the next one is 159
+        XCTAssertEqual(PickUp.auto(issues: after, taken: [158], tried: [158], busy: false, after: 157)?.number, 159)
+    }
+
+    func testAutoTakesOneAtATimeAndNeverRetries() {
+        let after = [issue(158), issue(159)]
+        // a pick in flight: nothing else starts, so two agents cannot race for one herdr session
+        XCTAssertNil(PickUp.auto(issues: after, taken: [], tried: [158], busy: true, after: 157))
+        // 158 failed — it was tried, so the 20 s refresh does not start it again and again
+        XCTAssertEqual(PickUp.auto(issues: after, taken: [], tried: [158], busy: false, after: 157)?.number, 159)
+        XCTAssertNil(PickUp.auto(issues: after, taken: [], tried: [158, 159], busy: false, after: 157))
+    }
+
+    func testWatermarkOfAnEmptyPageIsZero() {
+        // no issues read yet: the watermark must not become "take everything" the moment the first list arrives
+        XCTAssertEqual(PickUp.watermark([]), 0)
+    }
+
 }
