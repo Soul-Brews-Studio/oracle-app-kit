@@ -309,7 +309,8 @@ public struct OracleRootView: View {
     /// open). Takes at most one issue, through the same `pickUp` a click uses — there is no second code path.
     private func autoPickUpTick() {
         let taken = Set(store.work.compactMap(\.issue))
-        let busy = picking.values.contains(.running)
+        // one at a time: the ticket script running, OR any issue's agent still working in its worktree
+        let busy = picking.values.contains(.running) || PickUp.working(store.work)
         let eligible = store.issues.filter { $0.number > autoPickUpAfter && !taken.contains($0.number) && !autoTried.contains($0.number) }
         // Every tick says what it saw and what it decided. "Nothing happened" has five different causes — switch off,
         // no issues read yet, all below the watermark, all already in a worktree, a pick in flight — and from outside

@@ -105,4 +105,33 @@ final class PickUpTests: XCTestCase {
         XCTAssertEqual(PickUp.watermark([]), 0)
     }
 
+
+    private func work(issue: Int?, status: String) -> WorkItem {
+        WorkItem(path: "/r/wt/i\(issue ?? 0)", isMain: false, slug: "s", folder: "f", branch: "b", born: nil,
+                 issue: issue, pr: nil, mawState: "running",
+                 panes: [OracleSnapshot.Activity(title: "t", status: status, place: "s:w1:p1")], resumeId: nil)
+    }
+
+    func testOneAtATimeWaitsForTheAgentNotTheScript() {
+        // Nat, 2026-11-01: "it should only one". A worktree whose agent is still working holds the whole queue
+        XCTAssertTrue(PickUp.working([work(issue: 170, status: "working")]))
+        let after = [issue(171), issue(172)]
+        XCTAssertNil(PickUp.auto(issues: after, taken: [170], tried: [170], busy: true, after: 0))
+    }
+
+    func testAFinishedAgentDoesNotHoldTheQueue() {
+        // done / blocked / idle mean it stopped working and is waiting on a human: the backlog must keep moving
+        for s in ["done", "blocked", "idle"] { XCTAssertFalse(PickUp.working([work(issue: 170, status: s)]), s) }
+        // a worktree with no issue is somebody else's work and never holds the line
+        XCTAssertFalse(PickUp.working([work(issue: nil, status: "working")]))
+        XCTAssertFalse(PickUp.working([]))
+    }
+
+    func testWatermarkZeroTakesTheWholeBacklog() {
+        // "start all": with the watermark at 0 every open issue is eligible, oldest first, still one at a time
+        let backlog = [issue(140), issue(141), issue(169)]
+        XCTAssertEqual(PickUp.auto(issues: backlog, taken: [], tried: [], busy: false, after: 0)?.number, 140)
+        XCTAssertNil(PickUp.auto(issues: backlog, taken: [], tried: [], busy: true, after: 0))
+    }
+
 }

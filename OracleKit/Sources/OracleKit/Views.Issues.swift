@@ -64,6 +64,9 @@ enum PickUp {
     ///   - `busy` — one at a time. A pick is in flight until its worktree appears in `taken`.
     ///   - `tried` — one attempt per issue per app run, so an issue that fails cannot loop on the 20 s refresh.
     /// Oldest first among what is left, so issues are taken in the order they were opened.
+    ///
+    /// `busy` is the whole brake now (Nat, 2026-11-01: "we dont like multiple like this, it should only one"):
+    /// see `working(_:)` — a pick waits for the previous agent to stop working, not merely for its worktree to exist.
     static func auto(issues: [GHItem], taken: Set<Int>, tried: Set<Int>, busy: Bool, after watermark: Int) -> GHItem? {
         guard !busy else { return nil }
         return issues.filter { $0.number > watermark && !taken.contains($0.number) && !tried.contains($0.number) }
@@ -71,7 +74,21 @@ enum PickUp {
     }
 
     /// The watermark to record when the switch is turned on: every issue open right now is backlog and is left alone.
+    /// Set it to 0 (Settings, or `defaults write <bundle> issues.autoPickUpAfter -int 0`) to work the backlog too.
     static func watermark(_ issues: [GHItem]) -> Int { issues.map(\.number).max() ?? 0 }
+
+    /// Is an issue's agent still working anywhere? This is what "one at a time" means.
+    ///
+    /// The earlier brake only held while the ticket SCRIPT ran — about six seconds — so the queue started the next
+    /// issue while the previous agent was still mid-task, and thirty issues became thirty live agents a few seconds
+    /// apart. Waiting on the agent instead makes the queue serial for real.
+    ///
+    /// An agent that is `done`, `blocked` or `idle` does NOT hold the queue: it has stopped working and is waiting
+    /// on a human, and a queue that stalled on every finished ticket would never reach the end of the backlog.
+    /// Any issue's worktree counts, not only the auto-picked ones, so a pick made by hand also holds the line.
+    static func working(_ work: [WorkItem]) -> Bool {
+        work.contains { $0.issue != nil && $0.panes.contains { $0.status == "working" } }
+    }
     #if os(macOS)
     /// `session` is the herdr server the oracle's panes live on (HERDR_SESSION for every herdr call the script makes).
     static func run(_ action: Action, issue n: Int, repo: String, session: String) async -> Outcome {
