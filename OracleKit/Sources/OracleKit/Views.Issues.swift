@@ -104,10 +104,30 @@ enum PickUp {
         return seen.panes.contains { $0.status == "working" }
     }
 
-    /// Has the issue the queue started finished starting, so the latch can be let go?
-    static func settled(_ live: Int, _ work: [WorkItem]) -> Bool {
+    /// Has the issue the queue started finished, so the latch can be let go?
+    ///
+    /// Measured 2026-11-01 15:40, the SECOND leak: #117 started at :07, its worktree was visible at :15, and the
+    /// queue took #119 immediately — the log said `live -` one tick after latching. `idle` is ambiguous. It means
+    /// "the agent stopped" AND "the agent has not begun", and a pane is the second kind for several seconds after
+    /// `herdr agent start` returns. Releasing on "seen and not working" therefore released on startup.
+    ///
+    /// So the latch needs positive evidence, not the absence of evidence:
+    ///   - `seenWorking` — the caller has observed this issue's pane `working` at least once. Until then only time
+    ///     can release it, never status.
+    ///   - `grace` — how long since the pick. An agent that never reaches `working` (it failed to launch, it asked
+    ///     a question immediately) must not wedge the queue for ever, so after the grace period a non-working pane
+    ///     does release it.
+    static func settled(_ live: Int, _ work: [WorkItem], seenWorking: Bool, since: Date?, grace: TimeInterval = 120,
+                        now: Date = Date()) -> Bool {
         guard let seen = work.first(where: { $0.issue == live }) else { return false }
-        return !seen.panes.contains { $0.status == "working" }
+        if seen.panes.contains(where: { $0.status == "working" }) { return false }   // still going: hold
+        if seenWorking { return true }                                               // worked, then stopped: done
+        return now.timeIntervalSince(since ?? now) >= grace                          // never worked: let it go late
+    }
+
+    /// Is this issue's pane working right now? The caller latches on this to remember `seenWorking`.
+    static func isWorking(_ issue: Int, _ work: [WorkItem]) -> Bool {
+        work.first { $0.issue == issue }?.panes.contains { $0.status == "working" } ?? false
     }
     #if os(macOS)
     /// `session` is the herdr server the oracle's panes live on (HERDR_SESSION for every herdr call the script makes).

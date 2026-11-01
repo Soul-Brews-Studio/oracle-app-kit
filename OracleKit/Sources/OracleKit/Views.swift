@@ -29,6 +29,8 @@ public struct OracleRootView: View {
     @AppStorage("issues.autoPickUpAfter") private var autoPickUpAfter = 0
     @State private var autoTried: Set<Int> = []   // auto-tried once each per app run, so a failing issue cannot loop
     @State private var autoLive: Int?             // the issue the queue started last; held until its agent is seen and stops
+    @State private var autoLiveSince: Date?       // when that pick was made — the grace period for an agent that never starts
+    @State private var autoLiveWorked = false     // its pane has been seen `working` at least once: positive evidence
     @State private var openPane: String?      // the ACTIVE pane in the drawer (message box + esc go to it)
     @State private var openPanes: [String] = []   // every pane in the drawer, stacked, at most 3 (Nat: "open 2nd and 3rd pane")
     @State private var escMonitor: Any?
@@ -317,7 +319,12 @@ public struct OracleRootView: View {
         // one at a time. The latch (autoLive) is what actually holds the line: an agent we just started is invisible
         // in `store.work` for a few seconds, and a successful pick refreshes the store, which fires this tick again
         // inside exactly that blind window. See PickUp.holds.
-        if let live = autoLive, PickUp.settled(live, store.work) { autoLive = nil }
+        if let live = autoLive {
+            if PickUp.isWorking(live, store.work) { autoLiveWorked = true }
+            if PickUp.settled(live, store.work, seenWorking: autoLiveWorked, since: autoLiveSince) {
+                autoLive = nil; autoLiveSince = nil; autoLiveWorked = false
+            }
+        }
         let busy = picking.values.contains(.running) || PickUp.holds(autoLive, store.work)
         let eligible = store.issues.filter { $0.number > autoPickUpAfter && !taken.contains($0.number) && !autoTried.contains($0.number) }
         // Every tick says what it saw and what it decided. "Nothing happened" has five different causes — switch off,
@@ -330,6 +337,7 @@ public struct OracleRootView: View {
         pickLog.notice("auto: taking issue #\(it.number, privacy: .public)")
         autoTried.insert(it.number)
         autoLive = it.number          // latched before the call: the next tick must not slip through
+        autoLiveSince = Date(); autoLiveWorked = false
         pickUp(it, .agent)
     }
 

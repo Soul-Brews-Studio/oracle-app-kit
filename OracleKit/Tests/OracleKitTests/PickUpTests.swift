@@ -146,17 +146,46 @@ final class PickUpTests: XCTestCase {
 
     func testTheLatchLetsGoWhenTheAgentStops() {
         for s in ["done", "blocked", "idle"] {
-            XCTAssertTrue(PickUp.settled(11, [work(issue: 11, status: s)]), s)
+            XCTAssertTrue(PickUp.settled(11, [work(issue: 11, status: s)], seenWorking: true, since: Date()), s)
             XCTAssertFalse(PickUp.holds(11, [work(issue: 11, status: s)]), s)
         }
-        XCTAssertFalse(PickUp.settled(11, []))                   // never settle on something not seen
-        XCTAssertFalse(PickUp.settled(11, [work(issue: 11, status: "working")]))
+        XCTAssertFalse(PickUp.settled(11, [], seenWorking: true, since: Date()))   // never settle on something not seen
+        XCTAssertFalse(PickUp.settled(11, [work(issue: 11, status: "working")], seenWorking: true, since: Date()))
         XCTAssertFalse(PickUp.holds(nil, []))                    // nothing started: the queue is free
     }
 
     func testAnyWorkingAgentStillHoldsEvenWithNoLatch() {
         // a pick made by hand holds the line too, latch or no latch
         XCTAssertTrue(PickUp.holds(nil, [work(issue: 153, status: "working")]))
+    }
+
+
+    func testAnIdlePaneRightAfterStartingDoesNotReleaseTheLatch() {
+        // the second leak, 2026-11-01 15:40: #117 started at :07, its worktree appeared at :15 still `idle`
+        // (claude had not begun), the latch released, and #119 went out at :15. `idle` means BOTH "not begun"
+        // and "stopped", so it cannot release anything on its own.
+        let justStarted = [work(issue: 117, status: "idle")]
+        XCTAssertFalse(PickUp.settled(117, justStarted, seenWorking: false, since: Date()))
+    }
+
+    func testTheLatchReleasesOnceTheAgentHasActuallyWorked() {
+        XCTAssertFalse(PickUp.settled(117, [work(issue: 117, status: "working")], seenWorking: true, since: Date()))
+        XCTAssertTrue(PickUp.settled(117, [work(issue: 117, status: "done")], seenWorking: true, since: Date()))
+    }
+
+    func testAnAgentThatNeverStartsReleasesAfterTheGrace() {
+        // it failed to launch, or asked a question before doing anything: the queue must not wedge for ever
+        let old = Date(timeIntervalSinceNow: -121)
+        XCTAssertFalse(PickUp.settled(117, [work(issue: 117, status: "idle")], seenWorking: false, since: Date()))
+        XCTAssertTrue(PickUp.settled(117, [work(issue: 117, status: "idle")], seenWorking: false, since: old))
+        // grace never overrides a pane that IS working
+        XCTAssertFalse(PickUp.settled(117, [work(issue: 117, status: "working")], seenWorking: false, since: old))
+    }
+
+    func testIsWorkingReadsOneIssue() {
+        XCTAssertTrue(PickUp.isWorking(117, [work(issue: 117, status: "working")]))
+        XCTAssertFalse(PickUp.isWorking(117, [work(issue: 117, status: "idle")]))
+        XCTAssertFalse(PickUp.isWorking(117, [work(issue: 23, status: "working")]))
     }
 
 }
