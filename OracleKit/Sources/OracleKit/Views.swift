@@ -287,13 +287,14 @@ public struct OracleRootView: View {
     #if os(macOS)
     /// Pick up (or open) an issue's agent: the script makes the worktree, its space and the agent; then Work shows it
     /// with the agent's pane open in the drawer, where the message box talks to it.
-    private func pickUp(_ it: GHItem, _ action: PickUp.Action) {
+    private func pickUp(_ it: GHItem, _ action: PickUp.Action, unattended: Bool = false) {
         guard picking[it.number] != .running else { return }
         picking[it.number] = .running
         let session = WorkFormat.homeSession(store.activity)
         Task { @MainActor in
-            pickLog.notice("run: \(String(describing: action), privacy: .public) issue #\(it.number, privacy: .public) in \(c.localPath, privacy: .public)")
-            switch await PickUp.run(action, issue: it.number, repo: c.localPath, session: session) {
+            let perm = unattended ? PickUp.unattendedPermission : nil
+            pickLog.notice("run: \(String(describing: action), privacy: .public) issue #\(it.number, privacy: .public) · permission \(perm ?? "default", privacy: .public) · in \(c.localPath, privacy: .public)")
+            switch await PickUp.run(action, issue: it.number, repo: c.localPath, session: session, permission: perm) {
             case .started(let place):     // the script says which herdr server the agent is on: trust that, not a guess
                 pickLog.notice("started: issue #\(it.number, privacy: .public) at \(place, privacy: .public)")
                 picking[it.number] = nil
@@ -338,7 +339,7 @@ public struct OracleRootView: View {
         autoTried.insert(it.number)
         autoLive = it.number          // latched before the call: the next tick must not slip through
         autoLiveSince = Date(); autoLiveWorked = false
-        pickUp(it, .agent)
+        pickUp(it, .agent, unattended: true)   // nobody is there to answer a prompt: see PickUp.unattendedPermission
     }
 
     /// The switch: turning it on records the watermark first, so the issues already on the page are backlog and are

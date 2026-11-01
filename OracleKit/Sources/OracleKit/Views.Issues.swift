@@ -31,10 +31,24 @@ enum PickUp {
     static func command(_ action: Action, issue n: Int) -> String {
         "maw herdr ticket " + words(action, issue: n).joined(separator: " ")
     }
+    /// What an UNATTENDED pick runs as (Nat, 2026-11-01, asked and answered explicitly).
+    ///
+    /// A hand-made pick keeps the default and asks before edits and commands. An auto-pick cannot ask anybody, so
+    /// it would sit at the first prompt for ever; the queue would be one issue long. Nat chose `bypassPermissions`
+    /// over `acceptEdits` knowing what it means here: the issue bodies in these repos are scraped social-media
+    /// posts, so an auto-picked agent acts on text written by strangers, unattended, on a Mac that holds the pass
+    /// vault, ssh keys and the tailnet. The worktree is the only boundary left, and it is not a sandbox.
+    static let unattendedPermission = "bypassPermissions"
+
     /// The script path, then the ticket arguments (`dropFirst()` gives what `maw herdr ticket` takes).
     /// `session` = the herdr server the oracle's panes live on; the script must not trust an inherited socket instead.
-    static func arguments(_ action: Action, issue n: Int, repo: String, session: String = "") -> [String] {
-        [script] + words(action, issue: n) + ["--repo", repo] + (session.isEmpty ? [] : ["--session", session]) + ["--json"]
+    /// `permission` is passed only for an unattended pick; a click leaves it nil and keeps the agent's own default.
+    static func arguments(_ action: Action, issue n: Int, repo: String, session: String = "",
+                          permission: String? = nil) -> [String] {
+        [script] + words(action, issue: n) + ["--repo", repo]
+            + (session.isEmpty ? [] : ["--session", session])
+            + (permission.map { ["--permission-mode", $0] } ?? [])
+            + ["--json"]
     }
     /// The script's one JSON line: where the agent is (`herdr` session + pane → a drawer place), a worktree that already
     /// exists without a live agent, or why not + the fix.
@@ -131,15 +145,15 @@ enum PickUp {
     }
     #if os(macOS)
     /// `session` is the herdr server the oracle's panes live on (HERDR_SESSION for every herdr call the script makes).
-    static func run(_ action: Action, issue n: Int, repo: String, session: String) async -> Outcome {
-        let args = Array(arguments(action, issue: n, repo: repo, session: session).dropFirst())
+    static func run(_ action: Action, issue n: Int, repo: String, session: String, permission: String? = nil) async -> Outcome {
+        let args = Array(arguments(action, issue: n, repo: repo, session: session, permission: permission).dropFirst())
         guard let r = await HerdrControl.ticket(args, timeout: 120) else {
             return .failed("neither `maw herdr ticket` nor the /herdr-ticket script answered\n"
                            + "git -C ~/.maw/plugins/herdr pull --ff-only   # maw-herdr-plugin with the ticket verb")
         }
         let o = outcome(status: r.status, json: r.out)
         // an issue that already has a worktree but no live agent: open its session instead
-        if o == .existing, action != .open { return await run(.open, issue: n, repo: repo, session: session) }
+        if o == .existing, action != .open { return await run(.open, issue: n, repo: repo, session: session, permission: permission) }
         return o
     }
     #endif

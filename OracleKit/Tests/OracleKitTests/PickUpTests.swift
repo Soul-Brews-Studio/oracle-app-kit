@@ -188,4 +188,20 @@ final class PickUpTests: XCTestCase {
         XCTAssertFalse(PickUp.isWorking(117, [work(issue: 23, status: "working")]))
     }
 
+
+    func testAClickKeepsTheAgentsOwnPermissions() {
+        // a human is sitting there: the agent asks before edits and commands, as it always has
+        XCTAssertEqual(PickUp.arguments(.agent, issue: 4, repo: "/r/m").dropFirst(),
+                       ["pick", "4", "--repo", "/r/m", "--json"])
+    }
+
+    func testAnUnattendedPickBypassesPermissions() {
+        // nobody can answer a prompt, so the queue would be one issue long without this (Nat chose it explicitly)
+        XCTAssertEqual(PickUp.unattendedPermission, "bypassPermissions")
+        XCTAssertEqual(PickUp.arguments(.agent, issue: 4, repo: "/r/m", session: "laris-co",
+                                        permission: PickUp.unattendedPermission).dropFirst(),
+                       ["pick", "4", "--repo", "/r/m", "--session", "laris-co",
+                        "--permission-mode", "bypassPermissions", "--json"])
+    }
+
 }
