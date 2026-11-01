@@ -22,6 +22,12 @@ public struct OracleRootView: View {
     @State private var draft: IssueDraft?
     @State private var heyText = ""
     @State private var picking: [Int: PickUp.Progress] = [:]   // Issues cards whose Pick up is running or failed
+    // Auto-pickup (Nat, 2026-10-31: "when create new issues then auto pickup? instead of manual?"). Off until asked
+    // for, because it starts a real agent in a real worktree. The watermark is the highest issue number that existed
+    // when it was switched on: the backlog stays untouched, only issues opened afterwards are taken.
+    @AppStorage("issues.autoPickUp") private var autoPickUp = false
+    @AppStorage("issues.autoPickUpAfter") private var autoPickUpAfter = 0
+    @State private var autoTried: Set<Int> = []   // auto-tried once each per app run, so a failing issue cannot loop
     @State private var openPane: String?      // the ACTIVE pane in the drawer (message box + esc go to it)
     @State private var openPanes: [String] = []   // every pane in the drawer, stacked, at most 3 (Nat: "open 2nd and 3rd pane")
     @State private var escMonitor: Any?
@@ -194,6 +200,7 @@ public struct OracleRootView: View {
                 // forward move itself
                 if travelling { travelling = false } else { history.visit(from: old ?? .status, to: s ?? .status) }
             }
+            .onChange(of: store.issues) { autoPickUpTick() }
             .onAppear { installFitMonitor(); installHistoryMonitor() }
             .onAppear {   // quit with the drawer open: the saved frame still holds the drawer's width — take it back
                 guard drawerGrown > 0 else { return }
@@ -292,6 +299,29 @@ public struct OracleRootView: View {
             }
         }
     }
+
+
+    /// Runs after every refresh that changed the issue list (every 20 s at most, and the Issues page need not be
+    /// open). Takes at most one issue, through the same `pickUp` a click uses — there is no second code path.
+    private func autoPickUpTick() {
+        guard autoPickUp else { return }
+        let taken = Set(store.work.compactMap(\.issue))
+        let busy = picking.values.contains(.running)
+        guard let it = PickUp.auto(issues: store.issues, taken: taken, tried: autoTried, busy: busy, after: autoPickUpAfter) else { return }
+        autoTried.insert(it.number)
+        pickUp(it, .agent)
+    }
+
+    /// The switch: turning it on records the watermark first, so the issues already on the page are backlog and are
+    /// never swept up, then looks once instead of waiting for the next refresh.
+    private var autoBinding: Binding<Bool> {
+        Binding(get: { autoPickUp },
+                set: { on in
+                    if on { autoPickUpAfter = PickUp.watermark(store.issues) }
+                    autoPickUp = on
+                    if on { autoPickUpTick() }
+                })
+    }
     #endif
 
     @ViewBuilder private var detail: some View {
@@ -307,7 +337,8 @@ public struct OracleRootView: View {
         case .inbox: InboxList(store: store)
         case .prs: GHList(kind: .prs, items: store.prs, work: store.work, accent: c.color, onSend: { heyText = Self.brief($0, pr: true) })
         case .issues: GHList(kind: .issues, items: store.issues, work: store.work, accent: c.color,
-                             onSend: { heyText = Self.brief($0, pr: false) }, onPick: { pickUp($0, $1) }, picking: picking)
+                             onSend: { heyText = Self.brief($0, pr: false) }, onPick: { pickUp($0, $1) }, picking: picking,
+                             auto: autoBinding)
         #endif
         case .memory:
             #if os(macOS)

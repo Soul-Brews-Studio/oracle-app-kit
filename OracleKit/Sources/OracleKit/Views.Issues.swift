@@ -46,6 +46,26 @@ enum PickUp {
         return .failed(([why] + (d["fix"] as? [String] ?? [])).joined(separator: "\n"))
     }
     enum Progress: Equatable { case running, failed(String) }
+
+    /// Auto-pickup: the app takes a new issue by itself, so an issue opened from a phone, a bot or the share sheet
+    /// has an agent on it without anyone clicking. This decides which ONE issue an unattended app takes next.
+    ///
+    /// Three brakes, because the day this was written the page's "No worktree" filter held 28 issues, and taking
+    /// them all at once would start 28 agents:
+    ///   - `after` — the highest issue number that existed when the switch was turned on. Only issues opened after
+    ///     that qualify, so switching it on does not swallow the backlog. Issue numbers only ever go up, so this
+    ///     needs no clock and survives a list that arrives out of order.
+    ///   - `busy` — one at a time. A pick is in flight until its worktree appears in `taken`.
+    ///   - `tried` — one attempt per issue per app run, so an issue that fails cannot loop on the 20 s refresh.
+    /// Oldest first among what is left, so issues are taken in the order they were opened.
+    static func auto(issues: [GHItem], taken: Set<Int>, tried: Set<Int>, busy: Bool, after watermark: Int) -> GHItem? {
+        guard !busy else { return nil }
+        return issues.filter { $0.number > watermark && !taken.contains($0.number) && !tried.contains($0.number) }
+                     .min { $0.number < $1.number }
+    }
+
+    /// The watermark to record when the switch is turned on: every issue open right now is backlog and is left alone.
+    static func watermark(_ issues: [GHItem]) -> Int { issues.map(\.number).max() ?? 0 }
     #if os(macOS)
     /// `session` is the herdr server the oracle's panes live on (HERDR_SESSION for every herdr call the script makes).
     static func run(_ action: Action, issue n: Int, repo: String, session: String) async -> Outcome {
@@ -78,6 +98,9 @@ struct GHList: View {
     /// Runs a PickUp action for an issue (Mac only: the phone runs no scripts); `picking` marks cards starting or failed.
     var onPick: ((GHItem, PickUp.Action) -> Void)? = nil
     var picking: [Int: PickUp.Progress] = [:]
+    /// The auto-pickup switch, next to the filter. Issues page on the Mac only — nil everywhere else, and the row
+    /// is not drawn. Setting it records the watermark, which is why it is a Binding and not an @AppStorage here.
+    var auto: Binding<Bool>? = nil
     @State private var filter = 0
     var body: some View {
         let groups = self.groups
@@ -96,6 +119,11 @@ struct GHList: View {
                     ForEach(groups.indices, id: \.self) { i in Text("\(groups[i].name) · \(groups[i].items.count)").tag(i) }
                 }
                 .pickerStyle(.segmented).labelsHidden().fixedSize()
+                if let auto {
+                    Toggle(isOn: auto) { Text("Pick up new issues by myself") }
+                        .toggleStyle(.switch).controlSize(.small)
+                        .help("A new issue gets a worktree and an agent without a click. The issues open right now are left alone; one at a time.")
+                }
                 #endif
                 VStack(spacing: 8) {
                     ForEach(rows) { it in
