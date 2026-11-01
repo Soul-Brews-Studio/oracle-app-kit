@@ -28,6 +28,7 @@ public struct OracleRootView: View {
     @AppStorage("issues.autoPickUp") private var autoPickUp = false
     @AppStorage("issues.autoPickUpAfter") private var autoPickUpAfter = 0
     @State private var autoTried: Set<Int> = []   // auto-tried once each per app run, so a failing issue cannot loop
+    @State private var autoLive: Int?             // the issue the queue started last; held until its agent is seen and stops
     @State private var openPane: String?      // the ACTIVE pane in the drawer (message box + esc go to it)
     @State private var openPanes: [String] = []   // every pane in the drawer, stacked, at most 3 (Nat: "open 2nd and 3rd pane")
     @State private var escMonitor: Any?
@@ -309,18 +310,22 @@ public struct OracleRootView: View {
     /// open). Takes at most one issue, through the same `pickUp` a click uses — there is no second code path.
     private func autoPickUpTick() {
         let taken = Set(store.work.compactMap(\.issue))
-        // one at a time: the ticket script running, OR any issue's agent still working in its worktree
-        let busy = picking.values.contains(.running) || PickUp.working(store.work)
+        // one at a time. The latch (autoLive) is what actually holds the line: an agent we just started is invisible
+        // in `store.work` for a few seconds, and a successful pick refreshes the store, which fires this tick again
+        // inside exactly that blind window. See PickUp.holds.
+        if let live = autoLive, PickUp.settled(live, store.work) { autoLive = nil }
+        let busy = picking.values.contains(.running) || PickUp.holds(autoLive, store.work)
         let eligible = store.issues.filter { $0.number > autoPickUpAfter && !taken.contains($0.number) && !autoTried.contains($0.number) }
         // Every tick says what it saw and what it decided. "Nothing happened" has five different causes — switch off,
         // no issues read yet, all below the watermark, all already in a worktree, a pick in flight — and from outside
         // the app they are indistinguishable. One line per tick makes them one glance apart.
-        let why = "tick: switch \(autoPickUp ? "on" : "off") · issues \(store.issues.count) · after #\(autoPickUpAfter) · worktrees \(taken.count) · tried \(autoTried.count) · busy \(busy ? "yes" : "no") · eligible \(eligible.count)"
+        let why = "tick: switch \(autoPickUp ? "on" : "off") · issues \(store.issues.count) · after #\(autoPickUpAfter) · worktrees \(taken.count) · tried \(autoTried.count) · live \(autoLive.map { "#\($0)" } ?? "-") · busy \(busy ? "yes" : "no") · eligible \(eligible.count)"
         pickLog.notice("\(why, privacy: .public)")
         guard autoPickUp else { return }
         guard let it = PickUp.auto(issues: store.issues, taken: taken, tried: autoTried, busy: busy, after: autoPickUpAfter) else { return }
         pickLog.notice("auto: taking issue #\(it.number, privacy: .public)")
         autoTried.insert(it.number)
+        autoLive = it.number          // latched before the call: the next tick must not slip through
         pickUp(it, .agent)
     }
 

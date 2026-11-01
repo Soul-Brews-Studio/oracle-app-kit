@@ -134,4 +134,29 @@ final class PickUpTests: XCTestCase {
         XCTAssertNil(PickUp.auto(issues: backlog, taken: [], tried: [], busy: true, after: 0))
     }
 
+
+    func testTheLatchHoldsWhileTheStartedAgentIsStillInvisible() {
+        // the real failure, 2026-11-01 15:27: #11 started at :32, #23 at :39, #27 at :48 — three agents, 8s apart.
+        // `work` had not caught up, so the old brake read "not working" and let the next pick through.
+        XCTAssertFalse(PickUp.working([]))                       // what the old brake saw
+        XCTAssertTrue(PickUp.holds(11, []))                      // what the latch sees: started, not visible yet
+        // visible but not started yet (the pane exists, claude has not begun)
+        XCTAssertTrue(PickUp.holds(11, [work(issue: 11, status: "working")]))
+    }
+
+    func testTheLatchLetsGoWhenTheAgentStops() {
+        for s in ["done", "blocked", "idle"] {
+            XCTAssertTrue(PickUp.settled(11, [work(issue: 11, status: s)]), s)
+            XCTAssertFalse(PickUp.holds(11, [work(issue: 11, status: s)]), s)
+        }
+        XCTAssertFalse(PickUp.settled(11, []))                   // never settle on something not seen
+        XCTAssertFalse(PickUp.settled(11, [work(issue: 11, status: "working")]))
+        XCTAssertFalse(PickUp.holds(nil, []))                    // nothing started: the queue is free
+    }
+
+    func testAnyWorkingAgentStillHoldsEvenWithNoLatch() {
+        // a pick made by hand holds the line too, latch or no latch
+        XCTAssertTrue(PickUp.holds(nil, [work(issue: 153, status: "working")]))
+    }
+
 }

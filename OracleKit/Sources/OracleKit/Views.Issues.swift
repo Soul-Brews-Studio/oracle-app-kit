@@ -77,17 +77,37 @@ enum PickUp {
     /// Set it to 0 (Settings, or `defaults write <bundle> issues.autoPickUpAfter -int 0`) to work the backlog too.
     static func watermark(_ issues: [GHItem]) -> Int { issues.map(\.number).max() ?? 0 }
 
-    /// Is an issue's agent still working anywhere? This is what "one at a time" means.
-    ///
-    /// The earlier brake only held while the ticket SCRIPT ran — about six seconds — so the queue started the next
-    /// issue while the previous agent was still mid-task, and thirty issues became thirty live agents a few seconds
-    /// apart. Waiting on the agent instead makes the queue serial for real.
+    /// Is an issue's agent still working anywhere? Part of "one at a time", but NOT on its own — see `holds(_:_:)`.
     ///
     /// An agent that is `done`, `blocked` or `idle` does NOT hold the queue: it has stopped working and is waiting
     /// on a human, and a queue that stalled on every finished ticket would never reach the end of the backlog.
     /// Any issue's worktree counts, not only the auto-picked ones, so a pick made by hand also holds the line.
     static func working(_ work: [WorkItem]) -> Bool {
         work.contains { $0.issue != nil && $0.panes.contains { $0.status == "working" } }
+    }
+
+    /// Does the queue have to wait? `live` is the issue the queue started last, remembered by the caller.
+    ///
+    /// Measured 2026-11-01: three agents started 8 seconds apart (#11, #23, #27) with the switch set to one at a
+    /// time. `working(_:)` alone cannot hold the line, because it reads `store.work`, a snapshot taken every 20
+    /// seconds, and a just-started agent is absent from it — and then `idle` — for several seconds before it turns
+    /// `working`. Worse, a successful pick refreshes the store, which changes the issue list, which fires the next
+    /// tick, so the queue re-fired at exactly the moment it was guaranteed to be blind.
+    ///
+    /// So the brake is a LATCH, not a poll: once an issue is started, the queue holds until that issue's worktree
+    /// has actually been SEEN in `work` and is no longer working. "Not seen yet" counts as busy, which is the whole
+    /// point — the window that leaked is now the window that holds.
+    static func holds(_ live: Int?, _ work: [WorkItem]) -> Bool {
+        if working(work) { return true }
+        guard let live else { return false }
+        guard let seen = work.first(where: { $0.issue == live }) else { return true }   // started, not yet visible
+        return seen.panes.contains { $0.status == "working" }
+    }
+
+    /// Has the issue the queue started finished starting, so the latch can be let go?
+    static func settled(_ live: Int, _ work: [WorkItem]) -> Bool {
+        guard let seen = work.first(where: { $0.issue == live }) else { return false }
+        return !seen.panes.contains { $0.status == "working" }
     }
     #if os(macOS)
     /// `session` is the herdr server the oracle's panes live on (HERDR_SESSION for every herdr call the script makes).
@@ -191,7 +211,16 @@ struct GHList: View {
             switch picking[it.number] {
             case .running: return ("starting…", accent)
             case .failed: return ("couldn't start", .red)
-            case nil: return tree(it) != nil ? ("in a worktree", .green) : ("no worktree yet", accent)
+            case nil:
+                // what the agent is DOING, not merely that a folder exists (Nat, 2026-11-01: "this should show working")
+                guard let w = tree(it) else { return ("no worktree yet", accent) }
+                switch w.state {
+                case .working:   return ("working", .green)
+                case .needsYou:  return ("needs you", .orange)
+                case .open:      return ("idle", Color.secondary)
+                case .resumable: return ("resumable", Color.secondary.opacity(0.7))
+                case .cold:      return ("in a worktree", Color.secondary.opacity(0.6))
+                }
             }
         }
     }
