@@ -285,16 +285,20 @@ public struct OracleRootView: View {
         picking[it.number] = .running
         let session = WorkFormat.homeSession(store.activity)
         Task { @MainActor in
+            pickLog.notice("run: \(String(describing: action), privacy: .public) issue #\(it.number, privacy: .public) in \(c.localPath, privacy: .public)")
             switch await PickUp.run(action, issue: it.number, repo: c.localPath, session: session) {
             case .started(let place):     // the script says which herdr server the agent is on: trust that, not a guess
+                pickLog.notice("started: issue #\(it.number, privacy: .public) at \(place, privacy: .public)")
                 picking[it.number] = nil
                 await store.refresh()
                 section = .status
                 openPane = place
             case .existing:
+                pickLog.notice("existing worktree: issue #\(it.number, privacy: .public)")
                 picking[it.number] = nil
                 await store.refresh()
             case .failed(let why):
+                pickLog.error("failed: issue #\(it.number, privacy: .public) — \(why, privacy: .public)")
                 picking[it.number] = .failed(why)
             }
         }
@@ -304,10 +308,17 @@ public struct OracleRootView: View {
     /// Runs after every refresh that changed the issue list (every 20 s at most, and the Issues page need not be
     /// open). Takes at most one issue, through the same `pickUp` a click uses — there is no second code path.
     private func autoPickUpTick() {
-        guard autoPickUp else { return }
         let taken = Set(store.work.compactMap(\.issue))
         let busy = picking.values.contains(.running)
+        let eligible = store.issues.filter { $0.number > autoPickUpAfter && !taken.contains($0.number) && !autoTried.contains($0.number) }
+        // Every tick says what it saw and what it decided. "Nothing happened" has five different causes — switch off,
+        // no issues read yet, all below the watermark, all already in a worktree, a pick in flight — and from outside
+        // the app they are indistinguishable. One line per tick makes them one glance apart.
+        let why = "tick: switch \(autoPickUp ? "on" : "off") · issues \(store.issues.count) · after #\(autoPickUpAfter) · worktrees \(taken.count) · tried \(autoTried.count) · busy \(busy ? "yes" : "no") · eligible \(eligible.count)"
+        pickLog.notice("\(why, privacy: .public)")
+        guard autoPickUp else { return }
         guard let it = PickUp.auto(issues: store.issues, taken: taken, tried: autoTried, busy: busy, after: autoPickUpAfter) else { return }
+        pickLog.notice("auto: taking issue #\(it.number, privacy: .public)")
         autoTried.insert(it.number)
         pickUp(it, .agent)
     }
@@ -319,6 +330,7 @@ public struct OracleRootView: View {
                 set: { on in
                     if on { autoPickUpAfter = PickUp.watermark(store.issues) }
                     autoPickUp = on
+                    pickLog.notice("switch \(on ? "on" : "off", privacy: .public), watermark #\(self.autoPickUpAfter, privacy: .public)")
                     if on { autoPickUpTick() }
                 })
     }

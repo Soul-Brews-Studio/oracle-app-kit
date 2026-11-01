@@ -1,4 +1,10 @@
 import SwiftUI
+import os
+
+/// Auto-pickup's own log. Read it with:
+///   log stream --predicate 'subsystem == "co.laris.oracle.kit" && category == "pickup"' --info
+///   log show  --predicate 'subsystem == "co.laris.oracle.kit" && category == "pickup"' --last 1h --info
+let pickLog = Logger(subsystem: "co.laris.oracle.kit", category: "pickup")
 
 /// Picking up an issue on the Issues page. The app runs /herdr-ticket's script itself — no agent in between, no
 /// message to send — so seconds after the click the worktree (named from the issue), its herdr space and a STATEFUL
