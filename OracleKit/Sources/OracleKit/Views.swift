@@ -201,7 +201,11 @@ public struct OracleRootView: View {
                 // forward move itself
                 if travelling { travelling = false } else { history.visit(from: old ?? .status, to: s ?? .status) }
             }
-            .onChange(of: store.issues) { autoPickUpTick() }
+            // Every refresh, not only when the issue list changes. A backlog is by definition a list that is NOT
+            // changing, so keying the queue to `store.issues` meant it only ever ran when a NEW issue arrived —
+            // "start all" would sit still forever. `lastRefresh` moves on every answered refresh (~20 s), which is
+            // also when an agent's status changes, so this is both the queue's heartbeat and the latch's release.
+            .onChange(of: store.lastRefresh) { autoPickUpTick() }
             .onAppear { installFitMonitor(); installHistoryMonitor() }
             .onAppear {   // quit with the drawer open: the saved frame still holds the drawer's width — take it back
                 guard drawerGrown > 0 else { return }
