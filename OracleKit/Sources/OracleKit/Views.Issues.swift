@@ -1,4 +1,10 @@
 import SwiftUI
+import os
+
+/// Auto-pickup's own log. Read it with:
+///   log stream --predicate 'subsystem == "co.laris.oracle.kit" && category == "pickup"' --info
+///   log show  --predicate 'subsystem == "co.laris.oracle.kit" && category == "pickup"' --last 1h --info
+let pickLog = Logger(subsystem: "co.laris.oracle.kit", category: "pickup")
 
 /// Picking up an issue on the Issues page. The app runs /herdr-ticket's script itself — no agent in between, no
 /// message to send — so seconds after the click the worktree (named from the issue), its herdr space and a STATEFUL
@@ -25,10 +31,24 @@ enum PickUp {
     static func command(_ action: Action, issue n: Int) -> String {
         "maw herdr ticket " + words(action, issue: n).joined(separator: " ")
     }
+    /// What an UNATTENDED pick runs as (Nat, 2026-11-01, asked and answered explicitly).
+    ///
+    /// A hand-made pick keeps the default and asks before edits and commands. An auto-pick cannot ask anybody, so
+    /// it would sit at the first prompt for ever; the queue would be one issue long. Nat chose `bypassPermissions`
+    /// over `acceptEdits` knowing what it means here: the issue bodies in these repos are scraped social-media
+    /// posts, so an auto-picked agent acts on text written by strangers, unattended, on a Mac that holds the pass
+    /// vault, ssh keys and the tailnet. The worktree is the only boundary left, and it is not a sandbox.
+    static let unattendedPermission = "bypassPermissions"
+
     /// The script path, then the ticket arguments (`dropFirst()` gives what `maw herdr ticket` takes).
     /// `session` = the herdr server the oracle's panes live on; the script must not trust an inherited socket instead.
-    static func arguments(_ action: Action, issue n: Int, repo: String, session: String = "") -> [String] {
-        [script] + words(action, issue: n) + ["--repo", repo] + (session.isEmpty ? [] : ["--session", session]) + ["--json"]
+    /// `permission` is passed only for an unattended pick; a click leaves it nil and keeps the agent's own default.
+    static func arguments(_ action: Action, issue n: Int, repo: String, session: String = "",
+                          permission: String? = nil) -> [String] {
+        [script] + words(action, issue: n) + ["--repo", repo]
+            + (session.isEmpty ? [] : ["--session", session])
+            + (permission.map { ["--permission-mode", $0] } ?? [])
+            + ["--json"]
     }
     /// The script's one JSON line: where the agent is (`herdr` session + pane → a drawer place), a worktree that already
     /// exists without a live agent, or why not + the fix.
@@ -58,6 +78,9 @@ enum PickUp {
     ///   - `busy` — one at a time. A pick is in flight until its worktree appears in `taken`.
     ///   - `tried` — one attempt per issue per app run, so an issue that fails cannot loop on the 20 s refresh.
     /// Oldest first among what is left, so issues are taken in the order they were opened.
+    ///
+    /// `busy` is the whole brake now (Nat, 2026-11-01: "we dont like multiple like this, it should only one"):
+    /// see `working(_:)` — a pick waits for the previous agent to stop working, not merely for its worktree to exist.
     static func auto(issues: [GHItem], taken: Set<Int>, tried: Set<Int>, busy: Bool, after watermark: Int) -> GHItem? {
         guard !busy else { return nil }
         return issues.filter { $0.number > watermark && !taken.contains($0.number) && !tried.contains($0.number) }
@@ -65,18 +88,72 @@ enum PickUp {
     }
 
     /// The watermark to record when the switch is turned on: every issue open right now is backlog and is left alone.
+    /// Set it to 0 (Settings, or `defaults write <bundle> issues.autoPickUpAfter -int 0`) to work the backlog too.
     static func watermark(_ issues: [GHItem]) -> Int { issues.map(\.number).max() ?? 0 }
+
+    /// Is an issue's agent still working anywhere? Part of "one at a time", but NOT on its own — see `holds(_:_:)`.
+    ///
+    /// An agent that is `done`, `blocked` or `idle` does NOT hold the queue: it has stopped working and is waiting
+    /// on a human, and a queue that stalled on every finished ticket would never reach the end of the backlog.
+    /// Any issue's worktree counts, not only the auto-picked ones, so a pick made by hand also holds the line.
+    static func working(_ work: [WorkItem]) -> Bool {
+        work.contains { $0.issue != nil && $0.panes.contains { $0.status == "working" } }
+    }
+
+    /// Does the queue have to wait? `live` is the issue the queue started last, remembered by the caller.
+    ///
+    /// Measured 2026-11-01: three agents started 8 seconds apart (#11, #23, #27) with the switch set to one at a
+    /// time. `working(_:)` alone cannot hold the line, because it reads `store.work`, a snapshot taken every 20
+    /// seconds, and a just-started agent is absent from it — and then `idle` — for several seconds before it turns
+    /// `working`. Worse, a successful pick refreshes the store, which changes the issue list, which fires the next
+    /// tick, so the queue re-fired at exactly the moment it was guaranteed to be blind.
+    ///
+    /// So the brake is a LATCH, not a poll: once an issue is started, the queue holds until that issue's worktree
+    /// has actually been SEEN in `work` and is no longer working. "Not seen yet" counts as busy, which is the whole
+    /// point — the window that leaked is now the window that holds.
+    static func holds(_ live: Int?, _ work: [WorkItem]) -> Bool {
+        if working(work) { return true }
+        guard let live else { return false }
+        guard let seen = work.first(where: { $0.issue == live }) else { return true }   // started, not yet visible
+        return seen.panes.contains { $0.status == "working" }
+    }
+
+    /// Has the issue the queue started finished, so the latch can be let go?
+    ///
+    /// Measured 2026-11-01 15:40, the SECOND leak: #117 started at :07, its worktree was visible at :15, and the
+    /// queue took #119 immediately — the log said `live -` one tick after latching. `idle` is ambiguous. It means
+    /// "the agent stopped" AND "the agent has not begun", and a pane is the second kind for several seconds after
+    /// `herdr agent start` returns. Releasing on "seen and not working" therefore released on startup.
+    ///
+    /// So the latch needs positive evidence, not the absence of evidence:
+    ///   - `seenWorking` — the caller has observed this issue's pane `working` at least once. Until then only time
+    ///     can release it, never status.
+    ///   - `grace` — how long since the pick. An agent that never reaches `working` (it failed to launch, it asked
+    ///     a question immediately) must not wedge the queue for ever, so after the grace period a non-working pane
+    ///     does release it.
+    static func settled(_ live: Int, _ work: [WorkItem], seenWorking: Bool, since: Date?, grace: TimeInterval = 120,
+                        now: Date = Date()) -> Bool {
+        guard let seen = work.first(where: { $0.issue == live }) else { return false }
+        if seen.panes.contains(where: { $0.status == "working" }) { return false }   // still going: hold
+        if seenWorking { return true }                                               // worked, then stopped: done
+        return now.timeIntervalSince(since ?? now) >= grace                          // never worked: let it go late
+    }
+
+    /// Is this issue's pane working right now? The caller latches on this to remember `seenWorking`.
+    static func isWorking(_ issue: Int, _ work: [WorkItem]) -> Bool {
+        work.first { $0.issue == issue }?.panes.contains { $0.status == "working" } ?? false
+    }
     #if os(macOS)
     /// `session` is the herdr server the oracle's panes live on (HERDR_SESSION for every herdr call the script makes).
-    static func run(_ action: Action, issue n: Int, repo: String, session: String) async -> Outcome {
-        let args = Array(arguments(action, issue: n, repo: repo, session: session).dropFirst())
+    static func run(_ action: Action, issue n: Int, repo: String, session: String, permission: String? = nil) async -> Outcome {
+        let args = Array(arguments(action, issue: n, repo: repo, session: session, permission: permission).dropFirst())
         guard let r = await HerdrControl.ticket(args, timeout: 120) else {
             return .failed("neither `maw herdr ticket` nor the /herdr-ticket script answered\n"
                            + "git -C ~/.maw/plugins/herdr pull --ff-only   # maw-herdr-plugin with the ticket verb")
         }
         let o = outcome(status: r.status, json: r.out)
         // an issue that already has a worktree but no live agent: open its session instead
-        if o == .existing, action != .open { return await run(.open, issue: n, repo: repo, session: session) }
+        if o == .existing, action != .open { return await run(.open, issue: n, repo: repo, session: session, permission: permission) }
         return o
     }
     #endif
@@ -168,7 +245,16 @@ struct GHList: View {
             switch picking[it.number] {
             case .running: return ("starting…", accent)
             case .failed: return ("couldn't start", .red)
-            case nil: return tree(it) != nil ? ("in a worktree", .green) : ("no worktree yet", accent)
+            case nil:
+                // what the agent is DOING, not merely that a folder exists (Nat, 2026-11-01: "this should show working")
+                guard let w = tree(it) else { return ("no worktree yet", accent) }
+                switch w.state {
+                case .working:   return ("working", .green)
+                case .needsYou:  return ("needs you", .orange)
+                case .open:      return ("idle", Color.secondary)
+                case .resumable: return ("resumable", Color.secondary.opacity(0.7))
+                case .cold:      return ("in a worktree", Color.secondary.opacity(0.6))
+                }
             }
         }
     }

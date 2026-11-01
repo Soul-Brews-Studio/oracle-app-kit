@@ -105,4 +105,103 @@ final class PickUpTests: XCTestCase {
         XCTAssertEqual(PickUp.watermark([]), 0)
     }
 
+
+    private func work(issue: Int?, status: String) -> WorkItem {
+        WorkItem(path: "/r/wt/i\(issue ?? 0)", isMain: false, slug: "s", folder: "f", branch: "b", born: nil,
+                 issue: issue, pr: nil, mawState: "running",
+                 panes: [OracleSnapshot.Activity(title: "t", status: status, place: "s:w1:p1")], resumeId: nil)
+    }
+
+    func testOneAtATimeWaitsForTheAgentNotTheScript() {
+        // Nat, 2026-11-01: "it should only one". A worktree whose agent is still working holds the whole queue
+        XCTAssertTrue(PickUp.working([work(issue: 170, status: "working")]))
+        let after = [issue(171), issue(172)]
+        XCTAssertNil(PickUp.auto(issues: after, taken: [170], tried: [170], busy: true, after: 0))
+    }
+
+    func testAFinishedAgentDoesNotHoldTheQueue() {
+        // done / blocked / idle mean it stopped working and is waiting on a human: the backlog must keep moving
+        for s in ["done", "blocked", "idle"] { XCTAssertFalse(PickUp.working([work(issue: 170, status: s)]), s) }
+        // a worktree with no issue is somebody else's work and never holds the line
+        XCTAssertFalse(PickUp.working([work(issue: nil, status: "working")]))
+        XCTAssertFalse(PickUp.working([]))
+    }
+
+    func testWatermarkZeroTakesTheWholeBacklog() {
+        // "start all": with the watermark at 0 every open issue is eligible, oldest first, still one at a time
+        let backlog = [issue(140), issue(141), issue(169)]
+        XCTAssertEqual(PickUp.auto(issues: backlog, taken: [], tried: [], busy: false, after: 0)?.number, 140)
+        XCTAssertNil(PickUp.auto(issues: backlog, taken: [], tried: [], busy: true, after: 0))
+    }
+
+
+    func testTheLatchHoldsWhileTheStartedAgentIsStillInvisible() {
+        // the real failure, 2026-11-01 15:27: #11 started at :32, #23 at :39, #27 at :48 — three agents, 8s apart.
+        // `work` had not caught up, so the old brake read "not working" and let the next pick through.
+        XCTAssertFalse(PickUp.working([]))                       // what the old brake saw
+        XCTAssertTrue(PickUp.holds(11, []))                      // what the latch sees: started, not visible yet
+        // visible but not started yet (the pane exists, claude has not begun)
+        XCTAssertTrue(PickUp.holds(11, [work(issue: 11, status: "working")]))
+    }
+
+    func testTheLatchLetsGoWhenTheAgentStops() {
+        for s in ["done", "blocked", "idle"] {
+            XCTAssertTrue(PickUp.settled(11, [work(issue: 11, status: s)], seenWorking: true, since: Date()), s)
+            XCTAssertFalse(PickUp.holds(11, [work(issue: 11, status: s)]), s)
+        }
+        XCTAssertFalse(PickUp.settled(11, [], seenWorking: true, since: Date()))   // never settle on something not seen
+        XCTAssertFalse(PickUp.settled(11, [work(issue: 11, status: "working")], seenWorking: true, since: Date()))
+        XCTAssertFalse(PickUp.holds(nil, []))                    // nothing started: the queue is free
+    }
+
+    func testAnyWorkingAgentStillHoldsEvenWithNoLatch() {
+        // a pick made by hand holds the line too, latch or no latch
+        XCTAssertTrue(PickUp.holds(nil, [work(issue: 153, status: "working")]))
+    }
+
+
+    func testAnIdlePaneRightAfterStartingDoesNotReleaseTheLatch() {
+        // the second leak, 2026-11-01 15:40: #117 started at :07, its worktree appeared at :15 still `idle`
+        // (claude had not begun), the latch released, and #119 went out at :15. `idle` means BOTH "not begun"
+        // and "stopped", so it cannot release anything on its own.
+        let justStarted = [work(issue: 117, status: "idle")]
+        XCTAssertFalse(PickUp.settled(117, justStarted, seenWorking: false, since: Date()))
+    }
+
+    func testTheLatchReleasesOnceTheAgentHasActuallyWorked() {
+        XCTAssertFalse(PickUp.settled(117, [work(issue: 117, status: "working")], seenWorking: true, since: Date()))
+        XCTAssertTrue(PickUp.settled(117, [work(issue: 117, status: "done")], seenWorking: true, since: Date()))
+    }
+
+    func testAnAgentThatNeverStartsReleasesAfterTheGrace() {
+        // it failed to launch, or asked a question before doing anything: the queue must not wedge for ever
+        let old = Date(timeIntervalSinceNow: -121)
+        XCTAssertFalse(PickUp.settled(117, [work(issue: 117, status: "idle")], seenWorking: false, since: Date()))
+        XCTAssertTrue(PickUp.settled(117, [work(issue: 117, status: "idle")], seenWorking: false, since: old))
+        // grace never overrides a pane that IS working
+        XCTAssertFalse(PickUp.settled(117, [work(issue: 117, status: "working")], seenWorking: false, since: old))
+    }
+
+    func testIsWorkingReadsOneIssue() {
+        XCTAssertTrue(PickUp.isWorking(117, [work(issue: 117, status: "working")]))
+        XCTAssertFalse(PickUp.isWorking(117, [work(issue: 117, status: "idle")]))
+        XCTAssertFalse(PickUp.isWorking(117, [work(issue: 23, status: "working")]))
+    }
+
+
+    func testAClickKeepsTheAgentsOwnPermissions() {
+        // a human is sitting there: the agent asks before edits and commands, as it always has
+        XCTAssertEqual(PickUp.arguments(.agent, issue: 4, repo: "/r/m").dropFirst(),
+                       ["pick", "4", "--repo", "/r/m", "--json"])
+    }
+
+    func testAnUnattendedPickBypassesPermissions() {
+        // nobody can answer a prompt, so the queue would be one issue long without this (Nat chose it explicitly)
+        XCTAssertEqual(PickUp.unattendedPermission, "bypassPermissions")
+        XCTAssertEqual(PickUp.arguments(.agent, issue: 4, repo: "/r/m", session: "laris-co",
+                                        permission: PickUp.unattendedPermission).dropFirst(),
+                       ["pick", "4", "--repo", "/r/m", "--session", "laris-co",
+                        "--permission-mode", "bypassPermissions", "--json"])
+    }
+
 }

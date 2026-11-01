@@ -28,6 +28,9 @@ public struct OracleRootView: View {
     @AppStorage("issues.autoPickUp") private var autoPickUp = false
     @AppStorage("issues.autoPickUpAfter") private var autoPickUpAfter = 0
     @State private var autoTried: Set<Int> = []   // auto-tried once each per app run, so a failing issue cannot loop
+    @State private var autoLive: Int?             // the issue the queue started last; held until its agent is seen and stops
+    @State private var autoLiveSince: Date?       // when that pick was made — the grace period for an agent that never starts
+    @State private var autoLiveWorked = false     // its pane has been seen `working` at least once: positive evidence
     @State private var openPane: String?      // the ACTIVE pane in the drawer (message box + esc go to it)
     @State private var openPanes: [String] = []   // every pane in the drawer, stacked, at most 3 (Nat: "open 2nd and 3rd pane")
     @State private var escMonitor: Any?
@@ -200,7 +203,11 @@ public struct OracleRootView: View {
                 // forward move itself
                 if travelling { travelling = false } else { history.visit(from: old ?? .status, to: s ?? .status) }
             }
-            .onChange(of: store.issues) { autoPickUpTick() }
+            // Every refresh, not only when the issue list changes. A backlog is by definition a list that is NOT
+            // changing, so keying the queue to `store.issues` meant it only ever ran when a NEW issue arrived —
+            // "start all" would sit still forever. `lastRefresh` moves on every answered refresh (~20 s), which is
+            // also when an agent's status changes, so this is both the queue's heartbeat and the latch's release.
+            .onChange(of: store.lastRefresh) { autoPickUpTick() }
             .onAppear { installFitMonitor(); installHistoryMonitor() }
             .onAppear {   // quit with the drawer open: the saved frame still holds the drawer's width — take it back
                 guard drawerGrown > 0 else { return }
@@ -280,21 +287,26 @@ public struct OracleRootView: View {
     #if os(macOS)
     /// Pick up (or open) an issue's agent: the script makes the worktree, its space and the agent; then Work shows it
     /// with the agent's pane open in the drawer, where the message box talks to it.
-    private func pickUp(_ it: GHItem, _ action: PickUp.Action) {
+    private func pickUp(_ it: GHItem, _ action: PickUp.Action, unattended: Bool = false) {
         guard picking[it.number] != .running else { return }
         picking[it.number] = .running
         let session = WorkFormat.homeSession(store.activity)
         Task { @MainActor in
-            switch await PickUp.run(action, issue: it.number, repo: c.localPath, session: session) {
+            let perm = unattended ? PickUp.unattendedPermission : nil
+            pickLog.notice("run: \(String(describing: action), privacy: .public) issue #\(it.number, privacy: .public) · permission \(perm ?? "default", privacy: .public) · in \(c.localPath, privacy: .public)")
+            switch await PickUp.run(action, issue: it.number, repo: c.localPath, session: session, permission: perm) {
             case .started(let place):     // the script says which herdr server the agent is on: trust that, not a guess
+                pickLog.notice("started: issue #\(it.number, privacy: .public) at \(place, privacy: .public)")
                 picking[it.number] = nil
                 await store.refresh()
                 section = .status
                 openPane = place
             case .existing:
+                pickLog.notice("existing worktree: issue #\(it.number, privacy: .public)")
                 picking[it.number] = nil
                 await store.refresh()
             case .failed(let why):
+                pickLog.error("failed: issue #\(it.number, privacy: .public) — \(why, privacy: .public)")
                 picking[it.number] = .failed(why)
             }
         }
@@ -304,12 +316,30 @@ public struct OracleRootView: View {
     /// Runs after every refresh that changed the issue list (every 20 s at most, and the Issues page need not be
     /// open). Takes at most one issue, through the same `pickUp` a click uses — there is no second code path.
     private func autoPickUpTick() {
-        guard autoPickUp else { return }
         let taken = Set(store.work.compactMap(\.issue))
-        let busy = picking.values.contains(.running)
+        // one at a time. The latch (autoLive) is what actually holds the line: an agent we just started is invisible
+        // in `store.work` for a few seconds, and a successful pick refreshes the store, which fires this tick again
+        // inside exactly that blind window. See PickUp.holds.
+        if let live = autoLive {
+            if PickUp.isWorking(live, store.work) { autoLiveWorked = true }
+            if PickUp.settled(live, store.work, seenWorking: autoLiveWorked, since: autoLiveSince) {
+                autoLive = nil; autoLiveSince = nil; autoLiveWorked = false
+            }
+        }
+        let busy = picking.values.contains(.running) || PickUp.holds(autoLive, store.work)
+        let eligible = store.issues.filter { $0.number > autoPickUpAfter && !taken.contains($0.number) && !autoTried.contains($0.number) }
+        // Every tick says what it saw and what it decided. "Nothing happened" has five different causes — switch off,
+        // no issues read yet, all below the watermark, all already in a worktree, a pick in flight — and from outside
+        // the app they are indistinguishable. One line per tick makes them one glance apart.
+        let why = "tick: switch \(autoPickUp ? "on" : "off") · issues \(store.issues.count) · after #\(autoPickUpAfter) · worktrees \(taken.count) · tried \(autoTried.count) · live \(autoLive.map { "#\($0)" } ?? "-") · busy \(busy ? "yes" : "no") · eligible \(eligible.count)"
+        pickLog.notice("\(why, privacy: .public)")
+        guard autoPickUp else { return }
         guard let it = PickUp.auto(issues: store.issues, taken: taken, tried: autoTried, busy: busy, after: autoPickUpAfter) else { return }
+        pickLog.notice("auto: taking issue #\(it.number, privacy: .public)")
         autoTried.insert(it.number)
-        pickUp(it, .agent)
+        autoLive = it.number          // latched before the call: the next tick must not slip through
+        autoLiveSince = Date(); autoLiveWorked = false
+        pickUp(it, .agent, unattended: true)   // nobody is there to answer a prompt: see PickUp.unattendedPermission
     }
 
     /// The switch: turning it on records the watermark first, so the issues already on the page are backlog and are
@@ -319,6 +349,7 @@ public struct OracleRootView: View {
                 set: { on in
                     if on { autoPickUpAfter = PickUp.watermark(store.issues) }
                     autoPickUp = on
+                    pickLog.notice("switch \(on ? "on" : "off", privacy: .public), watermark #\(self.autoPickUpAfter, privacy: .public)")
                     if on { autoPickUpTick() }
                 })
     }
