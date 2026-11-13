@@ -24,20 +24,24 @@
 
 /* Begin PBXBuildFile section */
 		005680E97630FA53D636B870 /* MaeonWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = C72AAC7252E69FA1E9768382 /* MaeonWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		00D854E25CEAA4364811095A /* MapLayoutUMAP in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = B1F48801AA487BB121DFEFF7 /* MapLayoutUMAP */; };
 		024D75BDE17B9DC54ACB3340 /* ANEEmbedCore in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = 57446418B6171CBD1DB652B2 /* ANEEmbedCore */; };
 		025889D96BA689F33FB964F7 /* OracleTerminal in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = 4407B8E41239A984FDFAFE71 /* OracleTerminal */; };
-		02B5293ADA898D25AA332E43 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B73E46A6A0FCAB56C42BD854 /* ShareViewController.swift */; };
 		05DAAADEDF82BFF4F279342B /* MapLayoutEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 976327A7B1A9B72817DDDF05 /* MapLayoutEngine.swift */; };
 		091BEE0D68A43B394B3E9332 /* BundledANE.swift in Sources */ = {isa = PBXBuildFile; fileRef = 334B42F2652061E9832A4410 /* BundledANE.swift */; };
 		0B250C1843C4CAF984D3C87F /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = BF28BFF93E30F2016054C7FC /* OracleKit */; };
 		0CE7AD6783E511A241CCE8B9 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9747F85F8B3132BD641525AE /* Assets.xcassets */; };
 		0D487E50736045C5885122E0 /* OracleTerminal in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = 09F179C93C148ACF8E9B84EE /* OracleTerminal */; };
+		0DAD139432EEC0E242DAA8F8 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83410D2A9D218C5941B0519C /* ShareViewController.swift */; };
 		0E2BA2D4130B1BF12FFE5AAA /* NexusShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 35FAA94347FA173BC06C86F8 /* NexusShare.appex */; platformFilters = (macos, ); settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		0EFC79AC801F8CCC1FF44886 /* Relic5Extras.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8471EA082E2B8253F5DDC8A7 /* Relic5Extras.swift */; };
 		1148DEEEBB89E368A9D864BA /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 468221B2146BCBCC791C3B0B /* SwiftUI.framework */; };
 		1219A0F40327E57A5C962C60 /* NexusConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = E596680FCB92D58641782D23 /* NexusConfig.swift */; };
 		135BC6904B6A6EF518DD7C74 /* NeoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA7B638D3B556C915C153B1E /* NeoApp.swift */; };
 		14121225B4A0A4700D2B624A /* MaeonApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD9F8A6B8EE09EC9A7C4D28B /* MaeonApp.swift */; };
+		15ECBF2454F61AD80361F887 /* Relic5Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F3642A072E8317653BFCAB9 /* Relic5Config.swift */; };
 		172E589132DADC7B3DD19523 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB009D7260C21CFEE11FBF5D /* ShareViewController.swift */; };
+		175C6B46AFE1D93513018A23 /* OracleTerminal in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = FCCC82E7FC2E5D586F3DF465 /* OracleTerminal */; };
 		183930EB9CC6C46A392574DD /* NeoShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 47078A7D50C0767AD1B9544E /* NeoShare.appex */; platformFilters = (macos, ); settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		1EE4557C4D5606CCE8356D5F /* TranscriberConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A5BE6E4F22C177237B52D8F /* TranscriberConfig.swift */; };
 		22E9384588A9A57AB8C2E107 /* AthenaConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C34FED5257B206064C6E7E7 /* AthenaConfig.swift */; };
@@ -46,9 +50,15 @@
 		2668904C7E52D602BD0C6ABF /* NexusConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = E596680FCB92D58641782D23 /* NexusConfig.swift */; };
 		28DB35411068C9183ACED520 /* ANEEmbedCore in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = 0685DCF1BE1B74274BB725CB /* ANEEmbedCore */; };
 		2B9BC0A1DF0BE48BE8AFCF81 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97CF4DEE1C0D84FB0133816A /* Assets.xcassets */; };
+		2C95A65EC64F48262015B756 /* Relic5App.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78DC85D92AC78AB9805AA7B2 /* Relic5App.swift */; };
 		2E2A3EFDEA38B59223B05B4A /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E220E57022CA2B7EB0FD203 /* WidgetKit.framework */; };
 		306ABC4093492BD88187F36E /* spike-neo-48950.png in Resources */ = {isa = PBXBuildFile; fileRef = D88FC1580C3824256A7117F8 /* spike-neo-48950.png */; };
 		31D75B942510C4C57DD17DD1 /* MaeonShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 995C2678DB4A126191A4CEF9 /* MaeonShare.appex */; platformFilters = (macos, ); settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		37EFB973832B4ECC7A94F059 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B73E46A6A0FCAB56C42BD854 /* ShareViewController.swift */; };
+		3833ECCE4B9F62760541EA00 /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = A923227A0B5FAE61CDDFACA7 /* OracleKit */; };
+		398994233122D09AF561699D /* BundledANE.swift in Sources */ = {isa = PBXBuildFile; fileRef = 334B42F2652061E9832A4410 /* BundledANE.swift */; };
+		3A405375EC41053E17B76892 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 468221B2146BCBCC791C3B0B /* SwiftUI.framework */; };
+		3A91C0FCF4B2BEAC78ACBED0 /* ANEEmbedCore in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = 4A914614252BE305AC68BA55 /* ANEEmbedCore */; };
 		3AE4FE4DDBDBE412943503A5 /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = A7E848DEEF3A01116202F366 /* OracleKit */; };
 		3B644CA804D8F0783F6696AA /* PulseConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = B137A3369CF3DC8269C32453 /* PulseConfig.swift */; };
 		3B76FA783180274DC3FF3684 /* PulseWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = BE742AC8F1D736B0152CD64B /* PulseWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -65,7 +75,10 @@
 		4D873E55B912A714615E4FCF /* PulseWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 935A69762DBD19A005AFE22F /* PulseWidget.swift */; };
 		53B755FA4FF9B222A9140E10 /* MapLayoutEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 976327A7B1A9B72817DDDF05 /* MapLayoutEngine.swift */; };
 		53CA0DD7DC807DAC6EF36E9B /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E220E57022CA2B7EB0FD203 /* WidgetKit.framework */; };
+		540BB858D81D7863C13E8474 /* Relic5Widget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53AB56B9D7EE84E43B3FD0E0 /* Relic5Widget.swift */; };
+		545A5BB889056651872FC97F /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = 4139DFAC47C5AA9CAC09737D /* OracleKit */; };
 		548EF9C7581D38F5E84BCD66 /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = AA25C26D192E25E4550F953D /* OracleKit */; };
+		57CF534217C48552670CFFE6 /* Relic5Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F3642A072E8317653BFCAB9 /* Relic5Config.swift */; };
 		5933050FCD2F5F059D3C4263 /* BundledANE.swift in Sources */ = {isa = PBXBuildFile; fileRef = 334B42F2652061E9832A4410 /* BundledANE.swift */; };
 		59B26BEE9BCEFC70F0E9AEAB /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = B0F5F3BACE628CD6D829BFDE /* OracleKit */; };
 		5BB05E053370D69F3D537F60 /* MapSpikeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F81A043C03E0EBA50048E1B1 /* MapSpikeApp.swift */; };
@@ -83,14 +96,17 @@
 		72386EC7DD3161606709A77E /* MapLayoutEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 976327A7B1A9B72817DDDF05 /* MapLayoutEngine.swift */; };
 		7391585B9AFA310F221169CD /* MaeonConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13D18AF5648F5F829736B758 /* MaeonConfig.swift */; };
 		73E22A1958C820F3D01B8701 /* AthenaApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5272A6BAC2792D93DFD2BDF8 /* AthenaApp.swift */; };
+		74EE0623431B19A4D02E6FA8 /* MapLayoutEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 976327A7B1A9B72817DDDF05 /* MapLayoutEngine.swift */; };
 		75089C0F395B1B7315F0153F /* TranscriberApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 979870D249A91A4A8564B3BA /* TranscriberApp.swift */; };
 		774010703A7D32F8774770EC /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = DF2EE418027BEF38CB54B90C /* OracleKit */; };
+		7887DBFDFC4472F11A44E097 /* Relic5Widget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 5EE0CC2F82E8D9F6FC48A8C9 /* Relic5Widget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		78946F22CF1780C0946CF7AF /* AthenaConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C34FED5257B206064C6E7E7 /* AthenaConfig.swift */; };
 		7A04E56E49B8F712203B424D /* MaeonConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13D18AF5648F5F829736B758 /* MaeonConfig.swift */; };
 		7C447707E6EFA415C2620730 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 90BF0F508DBC77E53A7F9A0F /* Assets.xcassets */; };
 		7CACEE54F8C86285C3DEDDB0 /* MaeonConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13D18AF5648F5F829736B758 /* MaeonConfig.swift */; };
 		7E7FEEA734353F7C28425E05 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 464E48710AE91C739C8B1105 /* Assets.xcassets */; };
 		81B740EF69BBBEAB1B99740D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FE480FFFEE4B266EB37C8F5F /* Assets.xcassets */; };
+		81C071BBC3640D2FDA294FD8 /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = 84583FC1D3C41B599ECC14CC /* OracleKit */; };
 		8499F93EF566A879CF5EBA84 /* BundledANE.swift in Sources */ = {isa = PBXBuildFile; fileRef = 334B42F2652061E9832A4410 /* BundledANE.swift */; };
 		8505E97A8977FEE81E2CB5D9 /* NeoExtras.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85CC7A862B4A57539A3EC547 /* NeoExtras.swift */; };
 		855583E89CD91369626669E4 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F762055589FA7E2843A61347 /* Assets.xcassets */; };
@@ -122,6 +138,7 @@
 		AD100AE0B627E845224A7B75 /* TranscriberShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 38D751FC3FD0C9EAF8F65E0C /* TranscriberShare.appex */; platformFilters = (macos, ); settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		AE05EF8BE30A73E01BB3C48B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B0F1BA54F31418614A0A138E /* Assets.xcassets */; };
 		AE5EC90D98A29046A4294CD9 /* MapLayoutEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 976327A7B1A9B72817DDDF05 /* MapLayoutEngine.swift */; };
+		AEF9569148209A3ECB30EFA9 /* Relic5Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F3642A072E8317653BFCAB9 /* Relic5Config.swift */; };
 		B0233F4583F0D53D569DE5DF /* OracleTerminal in Frameworks */ = {isa = PBXBuildFile; productRef = C2E19590487A24ABC285AFA0 /* OracleTerminal */; };
 		B06309C44C8E11A1C90E9075 /* AthenaConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C34FED5257B206064C6E7E7 /* AthenaConfig.swift */; };
 		BAE759336198B049B1ECA39A /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D886FFA13B5C28908F463CE /* ShareViewController.swift */; };
@@ -135,6 +152,7 @@
 		CF7B1BE232CD2BB414E927AF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 907F6BD4CB49E2095191A779 /* Assets.xcassets */; };
 		D20923F2F64BFC4625E6430F /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B808BF656870F447CB17688 /* ShareViewController.swift */; };
 		D27DFE321EA7FB51C6576379 /* MapLayoutEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 976327A7B1A9B72817DDDF05 /* MapLayoutEngine.swift */; };
+		D2EEA41A5FA9A59118C8A914 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 09DB6D1FD4B4569DFC28FDE9 /* Assets.xcassets */; };
 		D60C5A99551B4457FF12EE32 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 468221B2146BCBCC791C3B0B /* SwiftUI.framework */; };
 		D663B860B510852E1D758CEA /* MapLayoutUMAP in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = 5323E2879BF88EFEE7550670 /* MapLayoutUMAP */; };
 		D768A2765421CF790B524344 /* AthenaShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = FE8FD0D33704B406B0097DE9 /* AthenaShare.appex */; platformFilters = (macos, ); settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -144,6 +162,7 @@
 		DC731DC43E687CE88F0053B8 /* TranscriberExtras.swift in Sources */ = {isa = PBXBuildFile; fileRef = D55D651400F5067BBEE3378D /* TranscriberExtras.swift */; };
 		DF81AAE88BAF2C34DC049621 /* BundledANE.swift in Sources */ = {isa = PBXBuildFile; fileRef = 334B42F2652061E9832A4410 /* BundledANE.swift */; };
 		E0835DAA39191350E3DB951A /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 468221B2146BCBCC791C3B0B /* SwiftUI.framework */; };
+		E17239D7D49EFEB958BDD8DC /* Relic5Share.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 351B3FEE1D80D818A4AC691F /* Relic5Share.appex */; platformFilters = (macos, ); settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		E1DAE08F0390A9AE8DCCA5BA /* MapLayoutUMAP in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = D39A71B81546A041AFC23AFF /* MapLayoutUMAP */; };
 		E237B244B33315B46DB5A310 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 468221B2146BCBCC791C3B0B /* SwiftUI.framework */; };
 		E34688015F45948EA7A17D16 /* BundledANE.swift in Sources */ = {isa = PBXBuildFile; fileRef = 334B42F2652061E9832A4410 /* BundledANE.swift */; };
@@ -151,6 +170,7 @@
 		E73105C73F8AAB325D00F325 /* PulseConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = B137A3369CF3DC8269C32453 /* PulseConfig.swift */; };
 		E742B9D4AF1468C14735954D /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = FECEC892500CEA279D83D81D /* OracleKit */; };
 		E8A3A16D817D60163122763D /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = AEBF2F4341D4B8211B87EB8D /* OracleKit */; };
+		ED3D64E3F0E2125AE346C29A /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E220E57022CA2B7EB0FD203 /* WidgetKit.framework */; };
 		EDC954BB53A1938A2913FFC4 /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = 84774326CBC858F01F5A8C1F /* OracleKit */; };
 		F6F011408161109B7E916D6F /* TranscriberConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A5BE6E4F22C177237B52D8F /* TranscriberConfig.swift */; };
 		F8228D81F465A09EA1BA458B /* OracleKit in Frameworks */ = {isa = PBXBuildFile; productRef = 77D9A445400656D39EA0578E /* OracleKit */; };
@@ -196,6 +216,13 @@
 			remoteGlobalIDString = 41C38EED842B68CD72BCC006;
 			remoteInfo = AthenaShare;
 		};
+		3DC265C653CEE4528290A02D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 430DB4AF39A44099EA106CF8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 66AE9A2BF807D63B4AF62FDE;
+			remoteInfo = CalVer;
+		};
 		47299C0C9F82B97306F3FFB8 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 430DB4AF39A44099EA106CF8 /* Project object */;
@@ -238,7 +265,21 @@
 			remoteGlobalIDString = 66AE9A2BF807D63B4AF62FDE;
 			remoteInfo = CalVer;
 		};
+		67657B2A66E1F9FDC533E896 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 430DB4AF39A44099EA106CF8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 66049DD16D8DB81A0C70695A;
+			remoteInfo = Relic5Widget;
+		};
 		781B0C313D195006735E1DFE /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 430DB4AF39A44099EA106CF8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 66AE9A2BF807D63B4AF62FDE;
+			remoteInfo = CalVer;
+		};
+		7F77E26EEDCBD01309F92718 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 430DB4AF39A44099EA106CF8 /* Project object */;
 			proxyType = 1;
@@ -336,6 +377,13 @@
 			remoteGlobalIDString = 66AE9A2BF807D63B4AF62FDE;
 			remoteInfo = CalVer;
 		};
+		CFDCBF9CAC7EE55DDAF1D056 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 430DB4AF39A44099EA106CF8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 66AE9A2BF807D63B4AF62FDE;
+			remoteInfo = CalVer;
+		};
 		DA8026F5E2C060F4465CFA81 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 430DB4AF39A44099EA106CF8 /* Project object */;
@@ -370,6 +418,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 66AE9A2BF807D63B4AF62FDE;
 			remoteInfo = CalVer;
+		};
+		FE1305607AEF8F723781FCAA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 430DB4AF39A44099EA106CF8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BD2B29CE3A9A0A9D1422E654;
+			remoteInfo = Relic5Share;
 		};
 		FEB6389F25835D3E9640CFCB /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -417,6 +472,18 @@
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		6A70C680F18480E7368771AE /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				7887DBFDFC4472F11A44E097 /* Relic5Widget.appex in Embed Foundation Extensions */,
+				E17239D7D49EFEB958BDD8DC /* Relic5Share.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		909BE614C6735AF392A4B699 /* Embed Foundation Extensions */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -457,8 +524,10 @@
 
 /* Begin PBXFileReference section */
 		03555D2BE97613AFC8E9C4D2 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		09DB6D1FD4B4569DFC28FDE9 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		0D02737C18CEE930435DDAD1 /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		13D18AF5648F5F829736B758 /* MaeonConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MaeonConfig.swift; sourceTree = "<group>"; };
+		1B15A9E55AC59219FA57EDD0 /* Relic5.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Relic5.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1D886FFA13B5C28908F463CE /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		1F13410DB812353A44FCE45E /* PulseExtras.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PulseExtras.swift; sourceTree = "<group>"; };
 		1FC24FF95F7988B14813C430 /* HubApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HubApp.swift; sourceTree = "<group>"; };
@@ -469,6 +538,7 @@
 		2F9435995D0B258D270E2BB0 /* Transcriber.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Transcriber.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		334B42F2652061E9832A4410 /* BundledANE.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BundledANE.swift; sourceTree = "<group>"; };
 		33D307D5CF34490C5E34FD95 /* Neo.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Neo.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		351B3FEE1D80D818A4AC691F /* Relic5Share.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = Relic5Share.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		35FAA94347FA173BC06C86F8 /* NexusShare.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = NexusShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		38D751FC3FD0C9EAF8F65E0C /* TranscriberShare.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = TranscriberShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		3D0E66039AC6C174A076DB9F /* Oracles.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Oracles.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -481,12 +551,18 @@
 		51211FE71CFD59589F587DAB /* TranscriberWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriberWidget.swift; sourceTree = "<group>"; };
 		5211C7221AC8D5AC6F908583 /* MapSpikeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapSpikeView.swift; sourceTree = "<group>"; };
 		5272A6BAC2792D93DFD2BDF8 /* AthenaApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AthenaApp.swift; sourceTree = "<group>"; };
+		53AB56B9D7EE84E43B3FD0E0 /* Relic5Widget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Relic5Widget.swift; sourceTree = "<group>"; };
 		5AEE109FB99598734E3D1A78 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		5E220E57022CA2B7EB0FD203 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		5EDEF2C3DE3B2B9562C67750 /* AthenaWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AthenaWidget.swift; sourceTree = "<group>"; };
 		5EDFE877D27D8F8E8ECC5030 /* NeoWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = NeoWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		5EE0CC2F82E8D9F6FC48A8C9 /* Relic5Widget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = Relic5Widget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		78DC85D92AC78AB9805AA7B2 /* Relic5App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Relic5App.swift; sourceTree = "<group>"; };
+		7F3642A072E8317653BFCAB9 /* Relic5Config.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Relic5Config.swift; sourceTree = "<group>"; };
 		81315A196BFF69192EF075E3 /* OracleTerminal */ = {isa = PBXFileReference; lastKnownFileType = folder; name = OracleTerminal; path = OracleTerminal; sourceTree = SOURCE_ROOT; };
+		83410D2A9D218C5941B0519C /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		83F5B866C705325F7C2918CF /* NexusWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = NexusWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		8471EA082E2B8253F5DDC8A7 /* Relic5Extras.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Relic5Extras.swift; sourceTree = "<group>"; };
 		85CC7A862B4A57539A3EC547 /* NeoExtras.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NeoExtras.swift; sourceTree = "<group>"; };
 		8B246EA4CF69BB730784F4D5 /* TranscriberWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = TranscriberWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		8B808BF656870F447CB17688 /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
@@ -561,6 +637,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		2969F84CC96228CF688D43A1 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3833ECCE4B9F62760541EA00 /* OracleKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		2B07F1976DCD80EC3F78A307 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -580,6 +664,27 @@
 				42B51E73231E485B620DEC4A /* ANEEmbedCore in Frameworks */,
 				44941594C719B322FEC6A5EF /* MapLayoutUMAP in Frameworks */,
 				0D487E50736045C5885122E0 /* OracleTerminal in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6D01EB67386FA455E4DFC07C /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				545A5BB889056651872FC97F /* OracleKit in Frameworks */,
+				ED3D64E3F0E2125AE346C29A /* WidgetKit.framework in Frameworks */,
+				3A405375EC41053E17B76892 /* SwiftUI.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6FB23FDA23A009783F13625E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				81C071BBC3640D2FDA294FD8 /* OracleKit in Frameworks */,
+				3A91C0FCF4B2BEAC78ACBED0 /* ANEEmbedCore in Frameworks */,
+				00D854E25CEAA4364811095A /* MapLayoutUMAP in Frameworks */,
+				175C6B46AFE1D93513018A23 /* OracleTerminal in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -745,7 +850,7 @@
 				B73E46A6A0FCAB56C42BD854 /* ShareViewController.swift */,
 			);
 			name = Share;
-			path = Apps/Transcriber/Share;
+			path = Apps/Relic5/Share;
 			sourceTree = "<group>";
 		};
 		072B09D458817296196F9E72 /* Frameworks */ = {
@@ -813,12 +918,14 @@
 				47651820CEB16DF156C79410 /* Nexus */,
 				1A856B3A3480E3528CFF4233 /* Packages */,
 				1A5B5B4F634938D87A244AA9 /* Pulse */,
+				5FB7685C83D5AAEEC7436575 /* Relic5 */,
 				7B49B58220D073276B787D0B /* Share */,
 				B328325CAB29F20534286946 /* Share */,
 				0384E88409B511A572982525 /* Share */,
 				421FFC4696589BF6E57ED056 /* Share */,
 				B7FDE188B3D70C12B2C9C7C7 /* Share */,
 				041206E176FC4E9F020F0315 /* Share */,
+				77FD7E77A6AE316287F2F2BC /* Share */,
 				2F52D47C54D9F3881D771C25 /* Shared */,
 				F9B54FFD30209BA09396671F /* Transcriber */,
 				F838466B268DCCACEA2010A0 /* Widget */,
@@ -827,6 +934,7 @@
 				952511CBCE103687209081B9 /* Widget */,
 				5BEC7930B6CACEF7F96D9FAB /* Widget */,
 				B81711212103BACFA757629C /* Widget */,
+				A29AF5E9379B6C8897753B33 /* Widget */,
 				072B09D458817296196F9E72 /* Frameworks */,
 				4B3911DA704ADFCF590622F2 /* Products */,
 			);
@@ -873,6 +981,9 @@
 				B530CFD74615840D1FD21D61 /* Pulse.app */,
 				B7C941E4DEF8A26B4C94E87F /* PulseShare.appex */,
 				BE742AC8F1D736B0152CD64B /* PulseWidget.appex */,
+				1B15A9E55AC59219FA57EDD0 /* Relic5.app */,
+				351B3FEE1D80D818A4AC691F /* Relic5Share.appex */,
+				5EE0CC2F82E8D9F6FC48A8C9 /* Relic5Widget.appex */,
 				2F9435995D0B258D270E2BB0 /* Transcriber.app */,
 				38D751FC3FD0C9EAF8F65E0C /* TranscriberShare.appex */,
 				8B246EA4CF69BB730784F4D5 /* TranscriberWidget.appex */,
@@ -888,6 +999,27 @@
 			);
 			name = Widget;
 			path = Apps/Pulse/Widget;
+			sourceTree = "<group>";
+		};
+		5FB7685C83D5AAEEC7436575 /* Relic5 */ = {
+			isa = PBXGroup;
+			children = (
+				09DB6D1FD4B4569DFC28FDE9 /* Assets.xcassets */,
+				78DC85D92AC78AB9805AA7B2 /* Relic5App.swift */,
+				7F3642A072E8317653BFCAB9 /* Relic5Config.swift */,
+				8471EA082E2B8253F5DDC8A7 /* Relic5Extras.swift */,
+			);
+			name = Relic5;
+			path = Apps/Relic5;
+			sourceTree = "<group>";
+		};
+		77FD7E77A6AE316287F2F2BC /* Share */ = {
+			isa = PBXGroup;
+			children = (
+				83410D2A9D218C5941B0519C /* ShareViewController.swift */,
+			);
+			name = Share;
+			path = Apps/Transcriber/Share;
 			sourceTree = "<group>";
 		};
 		79EA5A1B63E63D54532633FF /* Neo */ = {
@@ -919,6 +1051,15 @@
 			);
 			name = Widget;
 			path = Apps/Nexus/Widget;
+			sourceTree = "<group>";
+		};
+		A29AF5E9379B6C8897753B33 /* Widget */ = {
+			isa = PBXGroup;
+			children = (
+				51211FE71CFD59589F587DAB /* TranscriberWidget.swift */,
+			);
+			name = Widget;
+			path = Apps/Transcriber/Widget;
 			sourceTree = "<group>";
 		};
 		A918F7E796C546502FC59506 /* Hub */ = {
@@ -964,10 +1105,10 @@
 		B81711212103BACFA757629C /* Widget */ = {
 			isa = PBXGroup;
 			children = (
-				51211FE71CFD59589F587DAB /* TranscriberWidget.swift */,
+				53AB56B9D7EE84E43B3FD0E0 /* Relic5Widget.swift */,
 			);
 			name = Widget;
-			path = Apps/Transcriber/Widget;
+			path = Apps/Relic5/Widget;
 			sourceTree = "<group>";
 		};
 		D256F4A12E1319C895AD7DDC /* Maeon */ = {
@@ -1230,6 +1371,27 @@
 			productReference = FE8FD0D33704B406B0097DE9 /* AthenaShare.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		66049DD16D8DB81A0C70695A /* Relic5Widget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7DA257D2158E8B5A6076AEFA /* Build configuration list for PBXNativeTarget "Relic5Widget" */;
+			buildPhases = (
+				839A0ABE2F2F9E4596A4D3D3 /* Sources */,
+				6D01EB67386FA455E4DFC07C /* Frameworks */,
+				8501772E7CD985E1624CF9EA /* Stamp CalVer */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				2F68A51C8574CE9E1E7BB93C /* PBXTargetDependency */,
+			);
+			name = Relic5Widget;
+			packageProductDependencies = (
+				4139DFAC47C5AA9CAC09737D /* OracleKit */,
+			);
+			productName = Relic5Widget;
+			productReference = 5EE0CC2F82E8D9F6FC48A8C9 /* Relic5Widget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		6EE9931880511398B434CF6B /* Oracles */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 25B61C78DECE11D0BE24B0D3 /* Build configuration list for PBXNativeTarget "Oracles" */;
@@ -1255,6 +1417,35 @@
 			);
 			productName = Oracles;
 			productReference = 3D0E66039AC6C174A076DB9F /* Oracles.app */;
+			productType = "com.apple.product-type.application";
+		};
+		88742E5EDFE708E48441BF65 /* Relic5 */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 8570B150B5AC972DDCE4526C /* Build configuration list for PBXNativeTarget "Relic5" */;
+			buildPhases = (
+				BE1ED2D1DE72FD13B549824F /* Build the tokenizer + UMAP (Rust) */,
+				6C3BFB11A660BAAA1B4EA99F /* Sources */,
+				3740D74CF7D0894CBB42D6BF /* Resources */,
+				6FB23FDA23A009783F13625E /* Frameworks */,
+				6A70C680F18480E7368771AE /* Embed Foundation Extensions */,
+				F54E36AD29146E649C9FF8A1 /* Stamp CalVer */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				70DD46D3E26CF071A752CB0D /* PBXTargetDependency */,
+				C58A632B35C12E8C5B3A6511 /* PBXTargetDependency */,
+				8B044E1CEFF73344F6CE6D2C /* PBXTargetDependency */,
+			);
+			name = Relic5;
+			packageProductDependencies = (
+				84583FC1D3C41B599ECC14CC /* OracleKit */,
+				4A914614252BE305AC68BA55 /* ANEEmbedCore */,
+				B1F48801AA487BB121DFEFF7 /* MapLayoutUMAP */,
+				FCCC82E7FC2E5D586F3DF465 /* OracleTerminal */,
+			);
+			productName = Relic5;
+			productReference = 1B15A9E55AC59219FA57EDD0 /* Relic5.app */;
 			productType = "com.apple.product-type.application";
 		};
 		9870F2797CB9A0EB16358814 /* MaeonShare */ = {
@@ -1336,6 +1527,27 @@
 			);
 			productName = MaeonWidget;
 			productReference = C72AAC7252E69FA1E9768382 /* MaeonWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		BD2B29CE3A9A0A9D1422E654 /* Relic5Share */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F650E840AED9F1071103D6C9 /* Build configuration list for PBXNativeTarget "Relic5Share" */;
+			buildPhases = (
+				BDB0737F9EA9BDE9CDA8A0C5 /* Sources */,
+				2969F84CC96228CF688D43A1 /* Frameworks */,
+				F5CCB9D8DFA4C856DBE536D5 /* Stamp CalVer */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				F90A3213C2D91668416257D7 /* PBXTargetDependency */,
+			);
+			name = Relic5Share;
+			packageProductDependencies = (
+				A923227A0B5FAE61CDDFACA7 /* OracleKit */,
+			);
+			productName = Relic5Share;
+			productReference = 351B3FEE1D80D818A4AC691F /* Relic5Share.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
 		C99D203A30114884D4BB548A /* Nexus */ = {
@@ -1534,11 +1746,19 @@
 						DevelopmentTeam = 6K28WEXX78;
 						ProvisioningStyle = Automatic;
 					};
+					66049DD16D8DB81A0C70695A = {
+						DevelopmentTeam = 6K28WEXX78;
+						ProvisioningStyle = Automatic;
+					};
 					66AE9A2BF807D63B4AF62FDE = {
 						DevelopmentTeam = 6K28WEXX78;
 						ProvisioningStyle = Automatic;
 					};
 					6EE9931880511398B434CF6B = {
+						DevelopmentTeam = 6K28WEXX78;
+						ProvisioningStyle = Automatic;
+					};
+					88742E5EDFE708E48441BF65 = {
 						DevelopmentTeam = 6K28WEXX78;
 						ProvisioningStyle = Automatic;
 					};
@@ -1555,6 +1775,10 @@
 						ProvisioningStyle = Automatic;
 					};
 					A5DAA07FABDB0F524D08AAFC = {
+						DevelopmentTeam = 6K28WEXX78;
+						ProvisioningStyle = Automatic;
+					};
+					BD2B29CE3A9A0A9D1422E654 = {
 						DevelopmentTeam = 6K28WEXX78;
 						ProvisioningStyle = Automatic;
 					};
@@ -1621,6 +1845,9 @@
 				EA29C873AC2286317DA38636 /* Pulse */,
 				DA9655DA8312A36373D2632A /* PulseShare */,
 				19EE540E3E022009C36A99F1 /* PulseWidget */,
+				88742E5EDFE708E48441BF65 /* Relic5 */,
+				BD2B29CE3A9A0A9D1422E654 /* Relic5Share */,
+				66049DD16D8DB81A0C70695A /* Relic5Widget */,
 				35DFCCAF757B8AEEE5C8F008 /* Transcriber */,
 				ED4AF18E08D1A7432616E22E /* TranscriberShare */,
 				361CB91B1BBFC24DECB03F52 /* TranscriberWidget */,
@@ -1642,6 +1869,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				7E7FEEA734353F7C28425E05 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3740D74CF7D0894CBB42D6BF /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D2EEA41A5FA9A59118C8A914 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2075,6 +2310,26 @@
 			shellPath = /bin/sh;
 			shellScript = "# Only a complete export: what the app loads at run time (it never compiles inside its own bundle).\nSRC=\"$HOME/Library/Application Support/ANEEmbed/embeddinggemma2-w16\"\nDST=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/ANEModel/embeddinggemma2-w16\"\nmissing=\"\"\nfor f in manifest.json embed_scaled.f16 tokenizer; do [ -e \"$SRC/$f\" ] || missing=\"$missing $f\"; done\nif [ -f \"$SRC/manifest.json\" ]; then\n  for b in $(plutil -extract buckets json -o - \"$SRC/manifest.json\" | tr -d '[] ' | tr ',' ' '); do\n    [ -d \"$SRC/compiled/$b.mlmodelc\" ] || missing=\"$missing compiled/$b.mlmodelc\"\n  done\nfi\nif [ -z \"$missing\" ]; then\n  mkdir -p \"$DST\"\n  rsync -a --delete --exclude packages \"$SRC/\" \"$DST/\"\n  echo \"bundled the ANE model: $(plutil -extract vector_space_identity raw -o - \"$SRC/manifest.json\")\"\nelse\n  rm -rf \"$DST\"\n  echo \"warning: no complete ANE model in $SRC (missing:$missing): the hub runs without it and embeds through the HTTP service on 127.0.0.1:11435\"\nfi\n";
 		};
+		8501772E7CD985E1624CF9EA /* Stamp CalVer */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)",
+			);
+			name = "Stamp CalVer";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "sh \"$SRCROOT/scripts/calver-stamp.sh\"";
+		};
 		87E20467CC1D259E4F6BEDCE /* Stamp CalVer */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -2212,6 +2467,25 @@
 			shellPath = /bin/sh;
 			shellScript = "sh \"$SRCROOT/scripts/calver-stamp.sh\"";
 		};
+		BE1ED2D1DE72FD13B549824F /* Build the tokenizer + UMAP (Rust) */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Build the tokenizer + UMAP (Rust)";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "[ \"$PLATFORM_NAME\" = macosx ] || exit 0\nexport PATH=\"/opt/homebrew/opt/rustup/bin:$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH\"\nif ! command -v cargo >/dev/null; then\n  echo \"error: cargo not found: the Memory page's embedder builds its tokenizer with Rust. Install it, then build again:\"\n  echo \"error:   brew install rustup && /opt/homebrew/opt/rustup/bin/rustup default stable\"\n  exit 1\nfi\ncd \"$SRCROOT/ANEEmbed/tokenizer-ffi\" && cargo build --release --locked\n";
+		};
 		CADBDE4B30E3554012EB7061 /* Stamp CalVer */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -2233,6 +2507,46 @@
 			shellScript = "sh \"$SRCROOT/scripts/calver-stamp.sh\"";
 		};
 		E5435A66F48D540A1984326A /* Stamp CalVer */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)",
+			);
+			name = "Stamp CalVer";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "sh \"$SRCROOT/scripts/calver-stamp.sh\"";
+		};
+		F54E36AD29146E649C9FF8A1 /* Stamp CalVer */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)",
+			);
+			name = "Stamp CalVer";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "sh \"$SRCROOT/scripts/calver-stamp.sh\"";
+		};
+		F5CCB9D8DFA4C856DBE536D5 /* Stamp CalVer */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -2357,8 +2671,20 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				02B5293ADA898D25AA332E43 /* ShareViewController.swift in Sources */,
+				0DAD139432EEC0E242DAA8F8 /* ShareViewController.swift in Sources */,
 				1EE4557C4D5606CCE8356D5F /* TranscriberConfig.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6C3BFB11A660BAAA1B4EA99F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				398994233122D09AF561699D /* BundledANE.swift in Sources */,
+				74EE0623431B19A4D02E6FA8 /* MapLayoutEngine.swift in Sources */,
+				2C95A65EC64F48262015B756 /* Relic5App.swift in Sources */,
+				15ECBF2454F61AD80361F887 /* Relic5Config.swift in Sources */,
+				0EFC79AC801F8CCC1FF44886 /* Relic5Extras.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2368,6 +2694,15 @@
 			files = (
 				5BB05E053370D69F3D537F60 /* MapSpikeApp.swift in Sources */,
 				612E3254682DE613B7315041 /* MapSpikeView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		839A0ABE2F2F9E4596A4D3D3 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AEF9569148209A3ECB30EFA9 /* Relic5Config.swift in Sources */,
+				540BB858D81D7863C13E8474 /* Relic5Widget.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2422,6 +2757,15 @@
 				75089C0F395B1B7315F0153F /* TranscriberApp.swift in Sources */,
 				F6F011408161109B7E916D6F /* TranscriberConfig.swift in Sources */,
 				DC731DC43E687CE88F0053B8 /* TranscriberExtras.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BDB0737F9EA9BDE9CDA8A0C5 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				57CF534217C48552670CFFE6 /* Relic5Config.swift in Sources */,
+				37EFB973832B4ECC7A94F059 /* ShareViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2518,6 +2862,11 @@
 			target = 9870F2797CB9A0EB16358814 /* MaeonShare */;
 			targetProxy = 974CC8EFC25EBDFD35F8E46F /* PBXContainerItemProxy */;
 		};
+		2F68A51C8574CE9E1E7BB93C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 66AE9A2BF807D63B4AF62FDE /* CalVer */;
+			targetProxy = 7F77E26EEDCBD01309F92718 /* PBXContainerItemProxy */;
+		};
 		3FBD9AAECF2098241056052E /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 361CB91B1BBFC24DECB03F52 /* TranscriberWidget */;
@@ -2545,6 +2894,11 @@
 			isa = PBXTargetDependency;
 			target = 66AE9A2BF807D63B4AF62FDE /* CalVer */;
 			targetProxy = FBD2DFC9BE6FD4347200FB61 /* PBXContainerItemProxy */;
+		};
+		70DD46D3E26CF071A752CB0D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 66AE9A2BF807D63B4AF62FDE /* CalVer */;
+			targetProxy = CFDCBF9CAC7EE55DDAF1D056 /* PBXContainerItemProxy */;
 		};
 		723AB8AD2F3A4B1F7C594498 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -2576,6 +2930,14 @@
 			target = 66AE9A2BF807D63B4AF62FDE /* CalVer */;
 			targetProxy = 781B0C313D195006735E1DFE /* PBXContainerItemProxy */;
 		};
+		8B044E1CEFF73344F6CE6D2C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			platformFilters = (
+				macos,
+			);
+			target = BD2B29CE3A9A0A9D1422E654 /* Relic5Share */;
+			targetProxy = FE1305607AEF8F723781FCAA /* PBXContainerItemProxy */;
+		};
 		A3648FCB66FD4C2F070475E4 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 66AE9A2BF807D63B4AF62FDE /* CalVer */;
@@ -2595,6 +2957,11 @@
 			isa = PBXTargetDependency;
 			target = 66AE9A2BF807D63B4AF62FDE /* CalVer */;
 			targetProxy = FEB6389F25835D3E9640CFCB /* PBXContainerItemProxy */;
+		};
+		C58A632B35C12E8C5B3A6511 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 66049DD16D8DB81A0C70695A /* Relic5Widget */;
+			targetProxy = 67657B2A66E1F9FDC533E896 /* PBXContainerItemProxy */;
 		};
 		C8E2C4BC97286B9F512E19A5 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -2649,6 +3016,11 @@
 			isa = PBXTargetDependency;
 			target = 19EE540E3E022009C36A99F1 /* PulseWidget */;
 			targetProxy = 9BC6479CE848CFC6FC810E5C /* PBXContainerItemProxy */;
+		};
+		F90A3213C2D91668416257D7 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 66AE9A2BF807D63B4AF62FDE /* CalVer */;
+			targetProxy = 3DC265C653CEE4528290A02D /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -2724,6 +3096,30 @@
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
+		};
+		09CF2338653F20DFDAD5BE0B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Apps/Relic5/Widget/Relic5Widget.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphone*]" = "Apps/Relic5/Widget/Relic5Widget-iOS.entitlements";
+				ENABLE_APP_SANDBOX = YES;
+				INFOPLIST_FILE = Apps/Relic5/Widget/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = co.laris.oracle.relic5.widget;
+				PRODUCT_NAME = Relic5Widget;
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
 		};
 		1463619FC97592D9C15A0ED8 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -2955,6 +3351,64 @@
 			};
 			name = Release;
 		};
+		383805853028DDD3E4F62E18 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				"ARCHS[sdk=macosx*]" = arm64;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Apps/Relic5/Relic5.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphone*]" = "Apps/Relic5/Relic5-iOS.entitlements";
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				INFOPLIST_FILE = Apps/Relic5/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Relic5 Oracle";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = co.laris.oracle.relic5;
+				PRODUCT_NAME = "Relic5 Oracle";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		3C3798B1311303ECD1C75F75 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				"ARCHS[sdk=macosx*]" = arm64;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Apps/Relic5/Relic5.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphone*]" = "Apps/Relic5/Relic5-iOS.entitlements";
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				INFOPLIST_FILE = Apps/Relic5/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Relic5 Oracle";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = co.laris.oracle.relic5;
+				PRODUCT_NAME = "Relic5 Oracle";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
 		450E64A73A4654D69521DB5C /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -3178,6 +3632,30 @@
 			};
 			name = Release;
 		};
+		63694E95CF8FBE13E456324B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Apps/Relic5/Widget/Relic5Widget.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphone*]" = "Apps/Relic5/Widget/Relic5Widget-iOS.entitlements";
+				ENABLE_APP_SANDBOX = YES;
+				INFOPLIST_FILE = Apps/Relic5/Widget/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = co.laris.oracle.relic5.widget;
+				PRODUCT_NAME = Relic5Widget;
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		64E9A3775FF3C14C3E791A50 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -3382,6 +3860,29 @@
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		9BA69882263CF20D263D5E94 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Apps/Relic5/Share/Relic5Share.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_APP_SANDBOX = YES;
+				INFOPLIST_FILE = Apps/Relic5/Share/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = co.laris.oracle.relic5.share;
+				PRODUCT_NAME = Relic5Share;
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = macosx;
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				TARGETED_DEVICE_FAMILY = "";
 			};
 			name = Debug;
 		};
@@ -3788,6 +4289,29 @@
 			};
 			name = Debug;
 		};
+		EC17640813818172849C393F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Apps/Relic5/Share/Relic5Share.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_APP_SANDBOX = YES;
+				INFOPLIST_FILE = Apps/Relic5/Share/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = co.laris.oracle.relic5.share;
+				PRODUCT_NAME = Relic5Share;
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = macosx;
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				TARGETED_DEVICE_FAMILY = "";
+			};
+			name = Release;
+		};
 		EF979F02E187E47C52A04FDB /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -3932,6 +4456,24 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
+		7DA257D2158E8B5A6076AEFA /* Build configuration list for PBXNativeTarget "Relic5Widget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				09CF2338653F20DFDAD5BE0B /* Debug */,
+				63694E95CF8FBE13E456324B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		8570B150B5AC972DDCE4526C /* Build configuration list for PBXNativeTarget "Relic5" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3C3798B1311303ECD1C75F75 /* Debug */,
+				383805853028DDD3E4F62E18 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		A18DA8942974B8E3D08FE873 /* Build configuration list for PBXNativeTarget "NeoWidget" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -3995,6 +4537,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
+		F650E840AED9F1071103D6C9 /* Build configuration list for PBXNativeTarget "Relic5Share" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9BA69882263CF20D263D5E94 /* Debug */,
+				EC17640813818172849C393F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
@@ -4045,9 +4596,17 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = MapLayoutUMAP;
 		};
+		4139DFAC47C5AA9CAC09737D /* OracleKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = OracleKit;
+		};
 		4407B8E41239A984FDFAFE71 /* OracleTerminal */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = OracleTerminal;
+		};
+		4A914614252BE305AC68BA55 /* ANEEmbedCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ANEEmbedCore;
 		};
 		4B4657CD7678E1CEC26E7C94 /* OracleKit */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -4081,6 +4640,10 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = OracleKit;
 		};
+		84583FC1D3C41B599ECC14CC /* OracleKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = OracleKit;
+		};
 		84774326CBC858F01F5A8C1F /* OracleKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = OracleKit;
@@ -4094,6 +4657,10 @@
 			productName = OracleKit;
 		};
 		A7E848DEEF3A01116202F366 /* OracleKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = OracleKit;
+		};
+		A923227A0B5FAE61CDDFACA7 /* OracleKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = OracleKit;
 		};
@@ -4116,6 +4683,10 @@
 		B0F5F3BACE628CD6D829BFDE /* OracleKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = OracleKit;
+		};
+		B1F48801AA487BB121DFEFF7 /* MapLayoutUMAP */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = MapLayoutUMAP;
 		};
 		BEE0829B4ADE75163F6AD679 /* ANEEmbedCore */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -4166,6 +4737,10 @@
 			productName = MapLayoutUMAP;
 		};
 		F93981FB156A1CEE6CEAF432 /* OracleTerminal */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = OracleTerminal;
+		};
+		FCCC82E7FC2E5D586F3DF465 /* OracleTerminal */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = OracleTerminal;
 		};
