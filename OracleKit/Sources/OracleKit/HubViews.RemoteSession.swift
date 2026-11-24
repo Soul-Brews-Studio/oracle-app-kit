@@ -129,7 +129,7 @@ struct RemoteSessionPage: View {
     /// herdr's version there, how the hub reads it, and when it last answered.
     private func facts(_ st: RemoteState?) -> String {
         guard let st else { return "" }
-        return ([st.version.map { "herdr " + $0 }, st.viaSSH ? "read over ssh (its herdr has no --machine bridge)" : "read with herdr --machine",
+        return ([st.version.map { "herdr " + $0 }, st.viaSSH ? "read over ssh" : "read with herdr --machine",
                  "probed " + st.checked.formatted(date: .omitted, time: .shortened)].compactMap { $0 }).joined(separator: " · ")
     }
 }

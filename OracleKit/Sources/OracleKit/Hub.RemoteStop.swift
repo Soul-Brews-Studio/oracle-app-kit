@@ -1,7 +1,7 @@
 #if os(macOS)
 import Foundation
 
-/// Stop saved herdr machines' sessions from the Network page (#100): one, or every running one on a host. Before the
+/// Stop remote sessions from the Network page (#100), saved herdr machines or sessions of a watched machine (#137): one, or every running one on a host. Before the
 /// confirmation, the same check as a local Stop, through `herdr --machine <id> agent list`: which agents herdr
 /// resumes on reopen and which come back as plain shells (a machine without herdr's claude/codex integration records
 /// none). The stop is `herdr --machine <id> server stop`; afterwards the machines are probed again (#98).
@@ -36,7 +36,7 @@ extension HubStore {
     /// in the background (`herdr --session <s> server`) over ssh, then wait for `--machine <id> status server`.
     public func startRemote(_ r: RemoteSession) async -> String? {
         let cmd = "ssh \(r.target) 'PATH=$HOME/.local/bin:$PATH; nohup herdr --session \(r.session) server >/dev/null 2>&1 &'"
-        guard r.isSafe, r.profileId != nil else { return nil }
+        guard r.isSafe, r.profileId != nil || remoteState[r.id]?.viaSSH == true else { return nil }
         let start = "export PATH=$HOME/.local/bin:$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH; "
             + "nohup herdr --session \(r.session) server >/dev/null 2>&1 </dev/null & echo started"
         guard await Shell.run("ssh", ["-o", "BatchMode=yes", "-o", "ConnectTimeout=6", r.target, start], timeout: 20) != nil else {
