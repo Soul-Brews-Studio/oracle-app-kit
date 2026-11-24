@@ -184,7 +184,7 @@ struct SessionsHeader: View {
                     .keyboardShortcut(.tab, modifiers: .control).opacity(0).allowsHitTesting(false)
             }
             Button { addError = nil; adding = true } label: { Image(systemName: "plus").font(.system(size: 11, weight: .semibold)) }
-                .buttonStyle(.plain).foregroundStyle(.secondary).handCursor().help("New session on this Mac (herdr --session <name> server), or save a machine in herdr")
+                .buttonStyle(.plain).foregroundStyle(.secondary).handCursor().help("New session on this Mac (herdr --session <name> server), or watch another machine")
                 .popover(isPresented: $adding, arrowEdge: .trailing) { form }
         }
         .padding(.leading, 26).padding(.trailing, 26).padding(.top, 18).padding(.bottom, 4)
@@ -232,11 +232,11 @@ struct SessionsHeader: View {
 
     private var machineForm: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Save a machine in herdr").font(.headline)
-            Text("Opens WezTerm with herdr machine add: it may ask before it installs or starts herdr there. One saved machine is one remote session.")
+            Text("Another machine").font(.headline)
+            Text("Watch lists every herdr session on it, read over ssh; nothing changes there. Save in herdr opens WezTerm with herdr machine add for one session: it may ask before it installs or starts herdr there.")
                 .font(.caption).foregroundStyle(.secondary).frame(width: 300, alignment: .leading).fixedSize(horizontal: false, vertical: true)
-            TextField("target — user@host", text: $target).textFieldStyle(.roundedBorder).frame(width: 300)
-            TextField("session — default", text: $session).textFieldStyle(.roundedBorder).frame(width: 300)
+            TextField("target — user@host.follow-rankine.ts.net", text: $target).textFieldStyle(.roundedBorder).frame(width: 300)
+            TextField("session — default (Save in herdr only)", text: $session).textFieldStyle(.roundedBorder).frame(width: 300)
             if let e = addError { Text(e).font(.caption).foregroundStyle(.orange) }
             HStack {
                 Spacer()
@@ -244,6 +244,10 @@ struct SessionsHeader: View {
                 Button("Save in herdr…") {
                     addError = store.saveMachine(target: target, session: session.isEmpty ? "default" : session, label: "")
                     if addError == nil { adding = false; target = ""; session = "" }
+                }.disabled(target.trimmingCharacters(in: .whitespaces).isEmpty)
+                Button("Watch") {
+                    let t = target
+                    Task { addError = await store.watchHost(t); if addError == nil { adding = false; target = ""; session = "" } }
                 }.buttonStyle(.borderedProminent).disabled(target.trimmingCharacters(in: .whitespaces).isEmpty)
             }
         }
@@ -317,7 +321,7 @@ struct SessionList<LocalRow: View>: View {
                 }
             }
             if store.remotes.isEmpty {
-                Text("No saved herdr machines yet: +, or herdr machine add").font(.system(size: 11)).foregroundStyle(.tertiary)
+                Text("No other machine yet: + › Another machine › Watch").font(.system(size: 11)).foregroundStyle(.tertiary)
                     .padding(.horizontal, 14).padding(.top, 8)
             }
         }

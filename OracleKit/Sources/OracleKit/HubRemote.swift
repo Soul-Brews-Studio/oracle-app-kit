@@ -3,12 +3,13 @@ import Foundation
 /// A herdr session on another machine, reached the way Nat reaches it: `herdr --remote <target> --session <name>`
 /// (Nat, 2026-10-08: "can we list the remote? if not machine, like this?").
 ///
-/// The hub lists only herdr's saved machines (`herdr machine list`): one profile per remote session, with an id
-/// that `herdr --machine <id>` takes. A `herdr --remote` window open on this Mac is matched to them by target and
-/// session (the link icon, Detach).
+/// The hub lists every session of every machine it watches (#137): a watched machine is an ssh target the hub was
+/// given (`+`), the target of a saved herdr machine (`herdr machine list`, read from every local session socket, since
+/// each holds its own catalog) or of a `herdr --remote` window open on this Mac. Its sessions come from a read-only
+/// `ssh <target> herdr session list --json`. A saved machine keeps its profile id, which `herdr --machine <id>` takes.
 public struct RemoteSession: Codable, Hashable, Identifiable, Sendable {
     public var id: String { target + "|" + session }
-    /// the ssh target as typed: "phd-oracle@black.follow-rankine.ts.net", "white"
+    /// the ssh target as typed: "nat@white.follow-rankine.ts.net", "gb300"
     public let target: String
     /// "default" when the command had no --session
     public let session: String
@@ -24,11 +25,11 @@ public struct RemoteSession: Codable, Hashable, Identifiable, Sendable {
     /// herdr's arguments for this session: `--remote <target> [--session <name>]`
     public var arguments: [String] { ["--remote", target] + (session == "default" ? [] : ["--session", session]) }
     public var command: String { "herdr " + arguments.joined(separator: " ") }
-    /// "black" from "phd-oracle@black.follow-rankine.ts.net": the machine, as the sidebar groups it
+    /// "white" from "nat@white.follow-rankine.ts.net": the machine, as the sidebar groups it
     public var host: String { (target.split(separator: "@").last.map(String.init) ?? target).split(separator: ".").first.map(String.init) ?? target }
-    /// "phd-oracle" from "phd-oracle@black…"; nil when the target names no user
+    /// "nat" from "nat@white…"; nil when the target names no user
     public var user: String? { target.contains("@") ? String(target.split(separator: "@")[0]) : nil }
-    /// "phd-oracle@black" from "phd-oracle@black.follow-rankine.ts.net"
+    /// "nat@white" from "nat@white.follow-rankine.ts.net"
     public var shortTarget: String {
         guard let at = target.lastIndex(of: "@") else { return target.split(separator: ".").first.map(String.init) ?? target }
         let host = target[target.index(after: at)...].split(separator: ".").first.map(String.init) ?? ""
@@ -43,7 +44,7 @@ public struct RemoteSession: Codable, Hashable, Identifiable, Sendable {
     }
 }
 
-/// What a machine answered (`RemoteParse.listCommand` over ssh): its herdr and every session on it, or why not.
+/// What a machine answered (`RemoteParse.sessionList` over ssh): its herdr and every session on it, or why not.
 public struct RemoteMachineState: Sendable, Equatable {
     public var version: String?
     /// session name → running
@@ -200,7 +201,7 @@ public enum RemoteParse {
     /// Machines for the sidebar: every remote session known, grouped by host, the hosts and their sessions in name
     /// order; running sessions first within a host.
     /// One group per login on a machine — the machine AND the user (Nat: "it should show machine name and user not
-    /// only machine"): nat@white and nm@white (xiaoer) are two groups. Machines in name order, then users.
+    /// only machine"): two logins on one host are two groups. Machines in name order, then users.
     public static func groups(_ remotes: [RemoteSession], running: (RemoteSession) -> Bool)
         -> [(key: String, host: String, user: String?, sessions: [RemoteSession])] {
         let byLogin = Dictionary(grouping: remotes) { $0.shortTarget }
@@ -243,7 +244,6 @@ public enum RemoteParse {
         }
     }
 
-    /// "white", or "white · nm" when white has more than one login among `remotes`.
     /// The sidebar's other view (Nat, 2026-10-09: "we should have 2 views"): each machine with its sessions under it,
     /// this Mac first, then hosts by label; sessions by name inside each.
     public static func byMachine(local: [HubSession], remotes: [RemoteSession], localName: String)
@@ -255,9 +255,98 @@ public enum RemoteParse {
         return out
     }
 
+    /// "white", or "white · nat" when white has more than one login among `remotes`.
     public static func machineLabel(_ r: RemoteSession, among remotes: [RemoteSession]) -> String {
         let logins = Set(remotes.filter { $0.host == r.host }.map(\.shortTarget))
         guard logins.count > 1, let u = r.user else { return r.host }
         return r.host + " · " + u
+    }
+
+    // MARK: watched machines (#137)
+
+    /// Machines and logins the fleet retired: hidden unless the Network page asks for them. black left for tailscale
+    /// (Nat, 2026-09-17); white has one login, nat@white (fleet CLAUDE.md, 2026-10-09).
+    public static let retiredHosts: Set<String> = ["black"]
+    public static let retiredLogins: Set<String> = ["nm@white", "god@white"]
+
+    /// A target on a retired machine or with a deprecated login.
+    public static func isRetired(_ target: String) -> Bool {
+        let r = RemoteSession(target: target, session: "default")
+        return retiredHosts.contains(r.host.lowercased()) || retiredLogins.contains(r.shortTarget.lowercased())
+    }
+
+    /// The machines to ask: the hub's own list, then saved machines' and attached windows' targets, each once, in that
+    /// order; retired ones only when asked for, and never anything that could reach a shell as more than a target.
+    public static func watchTargets(hub: [String], saved: [RemoteSession], attached: [RemoteSession], showRetired: Bool) -> [String] {
+        var seen = Set<String>(), out: [String] = []
+        for t in hub.map({ $0.trimmingCharacters(in: .whitespaces) }) + saved.map(\.target) + attached.map(\.target) {
+            guard !t.isEmpty, RemoteSession(target: t, session: "default").isSafe, showRetired || !isRetired(t),
+                  seen.insert(t).inserted else { continue }
+            out.append(t)
+        }
+        return out
+    }
+
+    /// `herdr session list --json` → each session's name and whether its server runs, in herdr's order; nil when the
+    /// answer is no session list.
+    public static func sessionList(_ out: String) -> [(name: String, running: Bool)]? {
+        guard let line = out.split(separator: "\n").first(where: { $0.hasPrefix("{") }),
+              let d = try? JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any],
+              let list = d["sessions"] as? [[String: Any]] else { return nil }
+        return list.compactMap { s in (s["name"] as? String).map { ($0, s["running"] as? Bool ?? false) } }
+    }
+
+    static let remotePath = "export PATH=$HOME/.local/bin:$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH; "
+
+    /// What one ssh to a machine runs: its herdr version, then its session list.
+    public static let listCommand = remotePath + "herdr --version; herdr session list --json"
+
+    /// What a second ssh runs for the running sessions: `agent list` and `workspace list` of each, after a marker line
+    /// ("@@agents <s>", "@@spaces <s>"). Read-only. Only names that are safe shell words get in.
+    public static func detailCommand(_ sessions: [String]) -> String {
+        let safe = sessions.filter { RemoteSession(target: "h", session: $0).isSafe }
+        return remotePath + safe.map { s in
+            "echo '@@agents \(s)'; herdr --session \(s) agent list 2>&1; echo; echo '@@spaces \(s)'; herdr --session \(s) workspace list 2>&1; echo"
+        }.joined(separator: "; ")
+    }
+
+    /// What `detailCommand` printed → each session's state: its agents (and who needs you) and its workspaces.
+    public static func details(_ out: String, version: String?, at: Date = Date()) -> [String: RemoteState] {
+        var chunks: [String: (agents: String, spaces: String)] = [:]
+        var current: (kind: String, session: String)?
+        for line in out.split(separator: "\n", omittingEmptySubsequences: false) {
+            if line.hasPrefix("@@agents ") || line.hasPrefix("@@spaces ") {
+                let parts = line.split(separator: " ", maxSplits: 1)
+                current = (String(parts[0]), parts.count > 1 ? String(parts[1]) : "")
+                continue
+            }
+            guard let c = current else { continue }
+            var e = chunks[c.session] ?? ("", "")
+            if c.kind == "@@agents" { e.agents += line + "\n" } else { e.spaces += line + "\n" }
+            chunks[c.session] = e
+        }
+        var states: [String: RemoteState] = [:]
+        for (session, c) in chunks {
+            var st = probe((version.map { "herdr " + $0 + "\n" } ?? "") + c.agents, at: at)
+            st.workspaces = workspaces(c.spaces.split(separator: "\n").first { $0.hasPrefix("{") }.map(String.init) ?? "")
+            states[session] = st
+        }
+        return states
+    }
+
+    /// Every remote session once: what the watched machines list (in their order), then saved machines and attached
+    /// windows that no machine listed (a machine that did not answer). A saved machine's label and profile id carry over
+    /// to the listed session with the same target and name.
+    public static func merge(listed: [RemoteSession], saved: [RemoteSession], attached: [RemoteSession]) -> [RemoteSession] {
+        var byId: [String: RemoteSession] = [:], order: [String] = []
+        for r in listed + saved + attached {
+            if var have = byId[r.id] {
+                if have.profileId == nil, r.profileId != nil { have.profileId = r.profileId; have.label = r.label }
+                byId[r.id] = have
+            } else {
+                byId[r.id] = r; order.append(r.id)
+            }
+        }
+        return order.compactMap { byId[$0] }
     }
 }
